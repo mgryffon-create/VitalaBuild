@@ -1,0 +1,153 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Anti-AI Designer",
+    "mission": "Create a 'Clinical Zen' experience that balances professional trust with gamified engagement."
+  },
+  "typography": {
+    "primary_font": "Manrope",
+    "secondary_font": "Inter",
+    "usage": {
+      "headings": "Manrope, font-bold, tracking-tight",
+      "body": "Inter, font-normal, leading-relaxed",
+      "ui_elements": "Inter, font-medium, tracking-wide"
+    },
+    "installation": "Import via Google Fonts in index.css: @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;600;700;800&display=swap');"
+  },
+  "colors": {
+    "palette_name": "Serene Pulse",
+    "description": "A calming, trust-inducing palette that reduces eye strain for tired medical professionals.",
+    "theme_mode": "light",
+    "variables": {
+      "root": {
+        "background": "210 40% 98%",
+        "foreground": "222 47% 11%",
+        "card": "0 0% 100%",
+        "card-foreground": "222 47% 11%",
+        "popover": "0 0% 100%",
+        "popover-foreground": "222 47% 11%",
+        "primary": "199 89% 48%",
+        "primary-foreground": "210 40% 98%",
+        "secondary": "160 84% 39%",
+        "secondary-foreground": "210 40% 98%",
+        "muted": "210 40% 96.1%",
+        "muted-foreground": "215.4 16.3% 46.9%",
+        "accent": "14 100% 63%",
+        "accent-foreground": "210 40% 98%",
+        "destructive": "0 84.2% 60.2%",
+        "destructive-foreground": "210 40% 98%",
+        "border": "214.3 31.8% 91.4%",
+        "input": "214.3 31.8% 91.4%",
+        "ring": "199 89% 48%",
+        "radius": "0.75rem"
+      },
+      "dark": {
+        "background": "222 47% 11%",
+        "foreground": "210 40% 98%",
+        "card": "217 33% 17%",
+        "card-foreground": "210 40% 98%",
+        "popover": "222 47% 11%",
+        "popover-foreground": "210 40% 98%",
+        "primary": "199 89% 48%",
+        "primary-foreground": "222 47% 11%",
+        "secondary": "160 84% 39%",
+        "secondary-foreground": "222 47% 11%",
+        "muted": "217 33% 17%",
+        "muted-foreground": "215 20.2% 65.1%",
+        "accent": "14 100% 63%",
+        "accent-foreground": "210 40% 98%",
+        "destructive": "0 62.8% 30.6%",
+        "destructive-foreground": "210 40% 98%",
+        "border": "217 33% 17%",
+        "input": "217 33% 17%",
+        "ring": "199 89% 48%"
+      }
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-white/70 border border-white/20 shadow-sm",
+    "gradients": "NO full-screen gradients. Use subtle mesh gradients in hero sections only.",
+    "shadows": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+    "borders": "Rounded-xl or Rounded-2xl for a friendly, approachable feel."
+  },
+  "layout_strategies": {
+    "swipe_deck": {
+      "container": "relative w-full max-w-md h-[600px] mx-auto",
+      "card": "absolute w-full h-full bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden cursor-grab active:cursor-grabbing",
+      "actions": "flex justify-center gap-8 mt-8"
+    },
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-3 gap-6 p-6",
+    "bento_box": "bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300"
+  },
+  "components": {
+    "SwipeCard": {
+      "description": "The core interaction element. Must use framer-motion for physics-based gestures.",
+      "path": "src/components/SwipeCard.js",
+      "specs": "Use `framer-motion`'s `useMotionValue` and `useTransform` for rotation and opacity. Threshold for swipe: 100px."
+    },
+    "MatchDialog": {
+      "description": "Pop-up when a mutual match occurs. Needs confetti or high-energy animation.",
+      "path": "src/components/MatchDialog.js",
+      "specs": "Use `sonner` for simple notifications, but a full Dialog for matches."
+    },
+    "DocumentUploader": {
+      "description": "Clean drag-and-drop zone with expiration tracking.",
+      "path": "src/components/DocumentUploader.js",
+      "specs": "Show progress bar. Color code expiration: Red (<30 days), Yellow (<60 days), Green (>60 days)."
+    }
+  },
+  "image_urls": {
+    "hero_section": [
+      {
+        "url": "https://images.unsplash.com/photo-1758691463393-a2aa9900af8a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwZG9jdG9yJTIwcG9ydHJhaXQlMjB3aGl0ZSUyMGNvYXR8ZW58MHx8fHwxNzY2Mjc5MjcwfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Smiling doctor in white coat (Hero Image)",
+        "category": "hero"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1758691461516-7e716e0ca135?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwyfHxzbWlsaW5nJTIwZG9jdG9yJTIwcG9ydHJhaXQlMjB3aGl0ZSUyMGNvYXR8ZW58MHx8fHwxNzY2Mjc5MjcwfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Senior medic in office (Trust/Authority)",
+        "category": "hero"
+      }
+    ],
+    "profiles": [
+      {
+        "url": "https://images.unsplash.com/photo-1758691463582-11aea602cd4a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwzfHxzbWlsaW5nJTIwZG9jdG9yJTIwcG9ydHJhaXQlMjB3aGl0ZSUyMGNvYXR8ZW58MHx8fHwxNzY2Mjc5MjcwfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Young doctor profile",
+        "category": "profile_placeholder"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1587500154541-1cafd74f0efc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwzfHxudXJzZSUyMHNjcnVicyUyMHBvcnRyYWl0JTIwaG9zcGl0YWx8ZW58MHx8fHwxNzY2Mjc5MjcxfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Nurse in PPE (Specialist)",
+        "category": "profile_placeholder"
+      }
+    ],
+    "facilities": [
+      {
+        "url": "https://images.unsplash.com/photo-1762625570087-6d98fca29531?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBtZWRpY2FsJTIwaW50ZXJpb3J8ZW58MHx8fHwxNzY2Mjc5MjczfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Modern waiting room",
+        "category": "facility_bg"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1669930605340-801a0be1f5a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBtZWRpY2FsJTIwaW50ZXJpb3J8ZW58MHx8fHwxNzY2Mjc5MjczfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Medical equipment room",
+        "category": "facility_bg"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "1. UPDATE index.css: Replace the root variables with the 'Serene Pulse' palette provided in the colors section.",
+    "2. INSTALL FONTS: Add the Google Fonts import to the top of index.css.",
+    "3. SWIPE LOGIC: Implement the swipe interface using `framer-motion`. Do NOT use a heavy external library if possible; a custom component is lighter and more customizable.",
+    "4. COMPATIBILITY SCORE: Display this as a circular progress ring on the card (e.g., '95% Match').",
+    "5. REFERENCE REQUESTS: Create a 'Blind Reference' flow. The requester sees status (Pending/Completed) but NOT the content.",
+    "6. NOTIFICATIONS: Use `sonner` for all toast notifications (matches, errors, success).",
+    "7. DATA-TESTID: Ensure every interactive element (buttons, inputs, cards) has a `data-testid` attribute."
+  ],
+  "universal_guidelines": [
+    "Avoid 'AI Slop': Do not use generic centered layouts. Use asymmetry.",
+    "Spacing: Use `p-8` or `p-12` for containers. Give content room to breathe.",
+    "Micro-interactions: Every button must scale down slightly on click (`active:scale-95`).",
+    "Glassmorphism: Use the provided glass classes for sticky headers and overlays.",
+    "No Gradients on Text: Keep text high-contrast and readable (WCAG AA)."
+  ]
+}
