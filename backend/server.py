@@ -750,6 +750,10 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
     # Get job and seeker info for the match notification
     job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
     seeker = await db.users.find_one({"id": seeker_id}, {"_id": 0, "password": 0})
+    poster = await db.users.find_one({"id": poster_id}, {"_id": 0, "password": 0})
+    
+    # Send match notifications to both parties
+    asyncio.create_task(send_match_notifications(seeker_id, poster_id, job, seeker, poster))
     
     return {
         "matched": True,
@@ -757,6 +761,37 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
         "job": job,
         "seeker": seeker
     }
+
+async def send_match_notifications(seeker_id: str, poster_id: str, job: dict, seeker: dict, poster: dict):
+    """Send match notifications to seeker and poster"""
+    try:
+        # Notify seeker
+        seeker_prefs = await db.notification_preferences.find_one({"user_id": seeker_id}, {"_id": 0})
+        if seeker_prefs and seeker_prefs.get("match_notifications", True):
+            subject = f"🎉 It's a Match! - {job.get('title', 'New Job')}"
+            html_content = f"""
+            <h2>Congratulations! You have a new match!</h2>
+            <p>Great news! <strong>{job.get('company_name', 'A healthcare facility')}</strong> is interested in your profile for the <strong>{job.get('title')}</strong> position.</p>
+            <p><strong>Location:</strong> {job.get('location')}</p>
+            <p><strong>Duration:</strong> {job.get('duration')}</p>
+            <p>Log in to MedJobMatch to start a conversation and learn more about this opportunity.</p>
+            """
+            sms_content = f"MedJobMatch: You matched with {job.get('company_name', 'a facility')} for {job.get('title')}! Log in to chat."
+            await NotificationService.send_notification(seeker_id, subject, html_content, sms_content)
+        
+        # Notify poster
+        poster_prefs = await db.notification_preferences.find_one({"user_id": poster_id}, {"_id": 0})
+        if poster_prefs and poster_prefs.get("match_notifications", True):
+            subject = f"🎉 New Match! - {seeker.get('full_name', 'A candidate')}"
+            html_content = f"""
+            <h2>Congratulations! You have a new match!</h2>
+            <p>Great news! <strong>{seeker.get('full_name')}</strong> is interested in your <strong>{job.get('title')}</strong> position.</p>
+            <p>Log in to MedJobMatch to view their profile and start a conversation.</p>
+            """
+            sms_content = f"MedJobMatch: {seeker.get('full_name')} matched with your {job.get('title')} job! Log in to chat."
+            await NotificationService.send_notification(poster_id, subject, html_content, sms_content)
+    except Exception as e:
+        logger.error(f"Error sending match notifications: {str(e)}")
 
 # ==================== MATCHES ROUTES ====================
 
