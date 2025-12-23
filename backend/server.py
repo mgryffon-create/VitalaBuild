@@ -1070,6 +1070,100 @@ async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user:
     
     return {"message": "Swipe recorded", **match_result}
 
+# ==================== SWIPE BINS ROUTES ====================
+
+@api_router.get("/swipe/bins/passed")
+async def get_passed_profiles(current_user: dict = Depends(get_current_user)):
+    """Get profiles that user swiped left on (Take Another Look bin)"""
+    passed_swipes = await db.swipes.find({
+        "user_id": current_user["id"],
+        "action": "pass"
+    }, {"_id": 0}).to_list(100)
+    
+    profiles = []
+    for swipe in passed_swipes:
+        if current_user["role"] == "seeker":
+            # Get job details
+            job = await db.jobs.find_one({"id": swipe["target_id"]}, {"_id": 0})
+            if job:
+                poster_profile = await db.poster_profiles.find_one({"user_id": job.get("poster_id")}, {"_id": 0})
+                if poster_profile:
+                    job["company_name"] = poster_profile.get("company_name")
+                    job["company_logo"] = poster_profile.get("company_logo")
+                profiles.append({**job, "swipe_id": swipe["id"], "swiped_at": swipe["created_at"]})
+        else:
+            # Get seeker details
+            user = await db.users.find_one({"id": swipe["target_id"]}, {"_id": 0, "password": 0})
+            profile = await db.seeker_profiles.find_one({"user_id": swipe["target_id"]}, {"_id": 0})
+            if user and profile:
+                profiles.append({**user, **profile, "swipe_id": swipe["id"], "swiped_at": swipe["created_at"]})
+    
+    return profiles
+
+@api_router.get("/swipe/bins/maybe")
+async def get_maybe_profiles(current_user: dict = Depends(get_current_user)):
+    """Get profiles that user marked as 'maybe' for later review"""
+    maybe_swipes = await db.swipes.find({
+        "user_id": current_user["id"],
+        "action": "maybe"
+    }, {"_id": 0}).to_list(100)
+    
+    profiles = []
+    for swipe in maybe_swipes:
+        if current_user["role"] == "seeker":
+            job = await db.jobs.find_one({"id": swipe["target_id"]}, {"_id": 0})
+            if job:
+                poster_profile = await db.poster_profiles.find_one({"user_id": job.get("poster_id")}, {"_id": 0})
+                if poster_profile:
+                    job["company_name"] = poster_profile.get("company_name")
+                    job["company_logo"] = poster_profile.get("company_logo")
+                profiles.append({**job, "swipe_id": swipe["id"], "swiped_at": swipe["created_at"]})
+        else:
+            user = await db.users.find_one({"id": swipe["target_id"]}, {"_id": 0, "password": 0})
+            profile = await db.seeker_profiles.find_one({"user_id": swipe["target_id"]}, {"_id": 0})
+            if user and profile:
+                profiles.append({**user, **profile, "swipe_id": swipe["id"], "swiped_at": swipe["created_at"]})
+    
+    return profiles
+
+@api_router.put("/swipe/bins/{swipe_id}/reconsider")
+async def reconsider_swipe(swipe_id: str, new_action: str, current_user: dict = Depends(get_current_user)):
+    """Change a previous swipe decision (from bin back to active consideration)"""
+    if new_action not in ["like", "pass", "maybe"]:
+        raise HTTPException(status_code=400, detail="Invalid action")
+    
+    swipe = await db.swipes.find_one({"id": swipe_id, "user_id": current_user["id"]})
+    if not swipe:
+        raise HTTPException(status_code=404, detail="Swipe not found")
+    
+    # Update the swipe action
+    await db.swipes.update_one(
+        {"id": swipe_id},
+        {"$set": {"action": new_action, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # If new action is 'like', check for mutual match
+    match_result = {"matched": False}
+    if new_action == "like":
+        if current_user["role"] == "seeker":
+            poster_like = await db.swipes.find_one({
+                "target_id": current_user["id"],
+                "job_id": swipe["target_id"],
+                "action": "like"
+            })
+            if poster_like:
+                match_result = await create_match(current_user["id"], swipe["target_id"], poster_like["user_id"])
+        else:
+            seeker_like = await db.swipes.find_one({
+                "user_id": swipe["target_id"],
+                "target_id": swipe.get("job_id"),
+                "action": "like"
+            })
+            if seeker_like:
+                match_result = await create_match(swipe["target_id"], swipe.get("job_id"), current_user["id"])
+    
+    return {"message": "Swipe updated", **match_result}
+
 async def create_match(seeker_id: str, job_id: str, poster_id: str):
     """Create a match between seeker and job"""
     # Check if match already exists
