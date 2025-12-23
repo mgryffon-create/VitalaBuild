@@ -127,7 +127,7 @@ const SwipeBinsPage = () => {
             className="flex-1 bg-secondary hover:bg-secondary/90"
             onClick={() => handleReconsider(profile.swipe_id, "like")}
           >
-            <Heart className="w-4 h-4" />
+            <VitalaIcon className="w-5 h-5" />
           </Button>
         </div>
       </CardContent>
