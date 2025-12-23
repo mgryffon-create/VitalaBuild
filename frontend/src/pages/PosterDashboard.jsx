@@ -411,6 +411,97 @@ const PosterDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Business Email Verification Dialog */}
+      <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Verify Business Email
+            </DialogTitle>
+            <DialogDescription>
+              {verifyStep === "email" 
+                ? "Enter your company email address to verify your employer account."
+                : "Check your email and enter the 6-digit verification code."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {verifyStep === "email" ? (
+              <>
+                <div>
+                  <Label htmlFor="business-email">Business Email Address</Label>
+                  <Input
+                    id="business-email"
+                    type="email"
+                    placeholder="you@yourcompany.com"
+                    value={businessEmail}
+                    onChange={(e) => setBusinessEmail(e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Must be a company domain email. Personal emails (Gmail, Yahoo, etc.) are not accepted.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-4">
+                  <Mail className="w-12 h-12 mx-auto text-primary mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    We sent a verification email to <strong>{businessEmail}</strong>
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="verification-code">Verification Code</Label>
+                  <Input
+                    id="verification-code"
+                    placeholder="Enter 6-digit code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.toUpperCase())}
+                    className="mt-1 text-center text-lg tracking-widest"
+                    maxLength={6}
+                  />
+                </div>
+                <Button 
+                  variant="link" 
+                  onClick={() => setVerifyStep("email")}
+                  className="text-sm"
+                >
+                  Use a different email
+                </Button>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowVerifyDialog(false);
+              setVerifyStep("email");
+              setBusinessEmail("");
+              setVerificationCode("");
+            }}>
+              Cancel
+            </Button>
+            {verifyStep === "email" ? (
+              <Button 
+                onClick={handleSendVerification}
+                disabled={sendingVerification || !businessEmail}
+              >
+                {sendingVerification ? "Sending..." : "Send Verification"}
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleConfirmVerification}
+                disabled={sendingVerification || !verificationCode}
+              >
+                {sendingVerification ? "Verifying..." : "Verify Email"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
