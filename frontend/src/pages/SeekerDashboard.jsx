@@ -68,7 +68,7 @@ const SeekerDashboard = () => {
             onClick={() => navigate("/seeker/swipe")}
             className="bg-primary hover:bg-primary/90"
           >
-            Start Swiping <Heart className="ml-2 w-4 h-4" />
+            Start Swiping <VitalaIcon className="ml-2 w-5 h-5" />
           </Button>
         </div>
 
