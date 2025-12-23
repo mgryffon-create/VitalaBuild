@@ -90,7 +90,7 @@ const AuthPage = () => {
             <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center">
               <Heart className="w-7 h-7 text-primary" />
             </div>
-            <span className="text-3xl font-bold text-white font-['Manrope']">MedJobMatch</span>
+            <span className="text-3xl font-bold text-white font-['Manrope']">VitalaMatch</span>
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight">
             Where Healthcare Careers Find Their Perfect Match

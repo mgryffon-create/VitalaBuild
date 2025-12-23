@@ -48,7 +48,7 @@ const LandingPage = () => {
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Heart className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-foreground font-['Manrope']">MedJobMatch</span>
+            <span className="text-xl font-bold text-foreground font-['Manrope']">VitalaMatch</span>
           </div>
           <div className="flex items-center gap-4">
             {user ? (
@@ -136,7 +136,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16 animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-              Why Choose MedJobMatch?
+              Why Choose VitalaMatch?
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               We've reimagined healthcare recruiting with modern technology and a user-first approach
@@ -205,7 +205,7 @@ const LandingPage = () => {
             Ready to Find Your Match?
           </h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of healthcare professionals and facilities already connecting on MedJobMatch
+            Join thousands of healthcare professionals and facilities already connecting on VitalaMatch
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button
@@ -237,10 +237,10 @@ const LandingPage = () => {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <Heart className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-foreground">MedJobMatch</span>
+              <span className="font-bold text-foreground">VitalaMatch</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2024 MedJobMatch. All rights reserved.
+              © 2024 VitalaMatch. All rights reserved.
             </p>
           </div>
         </div>
