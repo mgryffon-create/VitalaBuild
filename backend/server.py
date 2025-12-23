@@ -921,6 +921,166 @@ async def update_poster_profile(profile: PosterProfile, current_user: dict = Dep
     
     return {"message": "Profile updated successfully"}
 
+# ==================== BUSINESS EMAIL VERIFICATION ====================
+
+# List of free/personal email domains that are NOT allowed as business emails
+FREE_EMAIL_DOMAINS = [
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+    "icloud.com", "mail.com", "protonmail.com", "zoho.com", "yandex.com",
+    "gmx.com", "live.com", "msn.com", "me.com", "inbox.com"
+]
+
+def is_business_email(email: str) -> bool:
+    """Check if email is from a business domain (not free email provider)"""
+    domain = email.split("@")[-1].lower()
+    return domain not in FREE_EMAIL_DOMAINS
+
+def generate_verification_token() -> str:
+    """Generate a secure verification token"""
+    return str(uuid.uuid4()) + "-" + str(uuid.uuid4())
+
+@api_router.post("/employer/verify-email/send")
+async def send_business_email_verification(
+    data: BusinessEmailVerification, 
+    current_user: dict = Depends(get_current_user)
+):
+    """Send verification email to employer's business email"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can verify business email")
+    
+    business_email = data.business_email.lower().strip()
+    
+    # Validate it's a business email domain
+    if not is_business_email(business_email):
+        raise HTTPException(
+            status_code=400, 
+            detail="Please use a business email address. Personal email domains (gmail, yahoo, etc.) are not accepted for business verification."
+        )
+    
+    # Generate verification token
+    token = generate_verification_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    
+    # Store verification request
+    await db.business_email_verifications.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "business_email": business_email,
+            "token": token,
+            "expires_at": expires_at.isoformat(),
+            "verified": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    # Send verification email
+    verification_link = f"{os.environ.get('FRONTEND_URL', 'https://vitalamatch.com')}/verify-business-email?token={token}"
+    
+    subject = "VitalaMatch - Verify Your Business Email"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #33C5E3;">Verify Your Business Email</h2>
+        <p>Hi {current_user.get('full_name', 'there')},</p>
+        <p>Please verify that <strong>{business_email}</strong> is your business email address by clicking the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{verification_link}" style="background-color: #33C5E3; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                Verify Email
+            </a>
+        </div>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #666;">{verification_link}</p>
+        <p style="color: #666; font-size: 14px;">This link will expire in 24 hours.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+        <p style="color: #999; font-size: 12px;">
+            You're receiving this email because you requested to verify your business email on VitalaMatch.
+            If you didn't make this request, you can safely ignore this email.
+        </p>
+    </div>
+    """
+    
+    # Also provide a 6-digit code as backup
+    verification_code = token[-6:].upper()
+    
+    await NotificationService.send_email(business_email, subject, html_content)
+    
+    logger.info(f"Business email verification sent to {business_email} for user {current_user['id']}")
+    
+    return {
+        "message": "Verification email sent",
+        "email": business_email,
+        "verification_code": verification_code  # For manual entry if link doesn't work
+    }
+
+@api_router.post("/employer/verify-email/confirm")
+async def confirm_business_email(
+    data: BusinessEmailVerifyToken,
+    current_user: dict = Depends(get_current_user)
+):
+    """Confirm business email verification with token"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can verify business email")
+    
+    token = data.token.strip()
+    
+    # Find verification request - check both full token and last 6 chars (code)
+    verification = await db.business_email_verifications.find_one({
+        "user_id": current_user["id"],
+        "$or": [
+            {"token": token},
+            {"token": {"$regex": f"{token}$", "$options": "i"}}  # Match code at end
+        ]
+    })
+    
+    if not verification:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+    
+    # Check expiration
+    expires_at = datetime.fromisoformat(verification["expires_at"].replace('Z', '+00:00'))
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Verification token has expired. Please request a new one.")
+    
+    # Mark as verified
+    await db.business_email_verifications.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {"verified": True, "verified_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Update poster profile with verified business email
+    await db.poster_profiles.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "business_email": verification["business_email"],
+            "business_email_verified": True,
+            "business_email_verified_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    logger.info(f"Business email verified for user {current_user['id']}: {verification['business_email']}")
+    
+    return {
+        "message": "Business email verified successfully",
+        "business_email": verification["business_email"]
+    }
+
+@api_router.get("/employer/verification-status")
+async def get_employer_verification_status(current_user: dict = Depends(get_current_user)):
+    """Get employer's business email verification status"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can check verification status")
+    
+    profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    verification = await db.business_email_verifications.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    
+    return {
+        "business_email": profile.get("business_email") if profile else None,
+        "business_email_verified": profile.get("business_email_verified", False) if profile else False,
+        "business_email_verified_at": profile.get("business_email_verified_at") if profile else None,
+        "pending_verification": verification.get("business_email") if verification and not verification.get("verified") else None
+    }
+
 # ==================== JOB ROUTES ====================
 
 @api_router.post("/jobs", response_model=JobPostingResponse)
@@ -928,7 +1088,14 @@ async def create_job(job: JobPosting, current_user: dict = Depends(get_current_u
     if current_user["role"] != "poster":
         raise HTTPException(status_code=403, detail="Only job posters can create jobs")
     
+    # Check business email verification
     poster_profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    
+    if not poster_profile or not poster_profile.get("business_email_verified"):
+        raise HTTPException(
+            status_code=403, 
+            detail="You must verify a business email address before posting jobs. Please complete your employer profile verification."
+        )
     
     job_id = str(uuid.uuid4())
     job_data = job.model_dump()
