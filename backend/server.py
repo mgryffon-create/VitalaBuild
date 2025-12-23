@@ -814,25 +814,6 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
     
     return docs
 
-@api_router.get("/documents/{doc_id}")
-async def get_document(doc_id: str, current_user: dict = Depends(get_current_user)):
-    """Get a specific document"""
-    doc = await db.documents.find_one(
-        {"id": doc_id, "user_id": current_user["id"]},
-        {"_id": 0}
-    )
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return doc
-
-@api_router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str, current_user: dict = Depends(get_current_user)):
-    """Delete a document"""
-    result = await db.documents.delete_one({"id": doc_id, "user_id": current_user["id"]})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return {"message": "Document deleted"}
-
 @api_router.get("/documents/expiring")
 async def get_expiring_documents(current_user: dict = Depends(get_current_user)):
     """Get documents expiring within 30 days"""
@@ -859,6 +840,25 @@ async def get_expiring_documents(current_user: dict = Depends(get_current_user))
                 pass
     
     return expiring
+
+@api_router.get("/documents/{doc_id}")
+async def get_document(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific document"""
+    doc = await db.documents.find_one(
+        {"id": doc_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+@api_router.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a document"""
+    result = await db.documents.delete_one({"id": doc_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document deleted"}
 
 # ==================== NOTIFICATION PREFERENCES ====================
 
