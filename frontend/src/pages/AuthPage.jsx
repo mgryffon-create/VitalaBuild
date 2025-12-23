@@ -86,13 +86,14 @@ const AuthPage = () => {
         </div>
         
         <div className="relative z-10 space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center">
-              <Heart className="w-7 h-7 text-primary" />
-            </div>
-            <span className="text-3xl font-bold text-white font-['Manrope']">VitalaMatch</span>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
+            <img 
+              src="/images/vitalamatch-logo.png" 
+              alt="VitalaMatch" 
+              className="h-14 w-auto"
+            />
           </div>
-          <h1 className="text-4xl font-bold text-white leading-tight">
+          <h1 className="text-4xl font-bold text-white leading-tight font-['Montserrat']">
             Where Healthcare Careers Find Their Perfect Match
           </h1>
           <p className="text-white/80 text-lg max-w-md">
