@@ -12,13 +12,13 @@
   "categories": ["medical", "healthcare", "jobs", "career"],
   "icons": [
     {
-      "src": "/images/vitalamatch-icon.png",
+      "src": "/images/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/images/vitalamatch-logo.png",
+      "src": "/images/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -26,7 +26,7 @@
   ],
   "screenshots": [
     {
-      "src": "/images/vitalamatch-logo.png",
+      "src": "/images/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "form_factor": "wide",
@@ -39,21 +39,21 @@
       "short_name": "Jobs",
       "description": "Swipe through available healthcare positions",
       "url": "/seeker/swipe",
-      "icons": [{ "src": "/images/vitalamatch-icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Messages",
       "short_name": "Messages",
       "description": "View your matches and messages",
       "url": "/matches",
-      "icons": [{ "src": "/images/vitalamatch-icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Feed",
       "short_name": "Feed",
       "description": "View the social feed",
       "url": "/feed",
-      "icons": [{ "src": "/images/vitalamatch-icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "related_applications": [],
