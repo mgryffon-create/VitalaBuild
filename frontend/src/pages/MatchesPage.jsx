@@ -51,6 +51,7 @@ const MatchesPage = () => {
   useEffect(() => {
     if (selectedMatch) {
       fetchMessages(selectedMatch.id);
+      fetchReplyProbability(selectedMatch.id);
     }
   }, [selectedMatch]);
 
