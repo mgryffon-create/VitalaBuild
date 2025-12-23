@@ -767,9 +767,14 @@ async def upload_document(doc: DocumentUpload, current_user: dict = Depends(get_
     days_until_expiry = None
     if doc.expiration_date:
         try:
-            expiration = datetime.fromisoformat(doc.expiration_date.replace('Z', '+00:00'))
+            # Handle both ISO format and simple date format
+            if 'T' in doc.expiration_date:
+                expiration = datetime.fromisoformat(doc.expiration_date.replace('Z', '+00:00'))
+            else:
+                # Simple date format like "2025-12-31"
+                expiration = datetime.strptime(doc.expiration_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
             days_until_expiry = (expiration - datetime.now(timezone.utc)).days
-        except ValueError:
+        except (ValueError, TypeError):
             pass
     
     doc_data = {
