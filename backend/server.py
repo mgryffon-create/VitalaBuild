@@ -2469,6 +2469,44 @@ async def update_notification_preferences(prefs: NotificationPreferences, curren
     
     return {"message": "Preferences updated"}
 
+# ==================== PUSH NOTIFICATIONS ====================
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: dict
+
+@api_router.post("/notifications/push-subscription")
+async def save_push_subscription(subscription: PushSubscription, current_user: dict = Depends(get_current_user)):
+    """Save push notification subscription for user"""
+    sub_data = {
+        "user_id": current_user["id"],
+        "endpoint": subscription.endpoint,
+        "keys": subscription.keys,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "active": True
+    }
+    
+    await db.push_subscriptions.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": sub_data},
+        upsert=True
+    )
+    
+    logger.info(f"Push subscription saved for user {current_user['id']}")
+    return {"message": "Push subscription saved"}
+
+@api_router.delete("/notifications/push-subscription")
+async def delete_push_subscription(current_user: dict = Depends(get_current_user)):
+    """Delete push notification subscription for user"""
+    await db.push_subscriptions.delete_one({"user_id": current_user["id"]})
+    return {"message": "Push subscription deleted"}
+
+@api_router.get("/notifications/push-subscription")
+async def get_push_subscription(current_user: dict = Depends(get_current_user)):
+    """Get push subscription status"""
+    sub = await db.push_subscriptions.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    return {"subscribed": bool(sub), "endpoint": sub.get("endpoint") if sub else None}
+
 # ==================== STATS/DASHBOARD ====================
 
 @api_router.get("/stats")
