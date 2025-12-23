@@ -7,7 +7,8 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Heart, FileText, Users, AlertTriangle, ArrowRight, Briefcase, MapPin, Clock } from "lucide-react";
+import { FileText, Users, AlertTriangle, ArrowRight, Briefcase, MapPin, Clock } from "lucide-react";
+import VitalaIcon from "@/components/VitalaIcon";
 
 const SeekerDashboard = () => {
   const navigate = useNavigate();
