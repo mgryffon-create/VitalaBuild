@@ -1598,6 +1598,9 @@ async def create_feed_post(post: FeedPost, current_user: dict = Depends(get_curr
     
     await db.feed_posts.insert_one(post_data)
     
+    # Remove MongoDB _id if present
+    post_data.pop("_id", None)
+    
     # Add user info
     post_data["user"] = {
         "id": current_user["id"],
