@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
-import { Heart, Briefcase, Shield, Users, ArrowRight, CheckCircle, Stethoscope } from "lucide-react";
+import { Briefcase, Shield, Users, ArrowRight, CheckCircle, Stethoscope } from "lucide-react";
+import VitalaIcon from "@/components/VitalaIcon";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ const LandingPage = () => {
 
   const features = [
     {
-      icon: <Heart className="w-6 h-6" />,
+      icon: <VitalaIcon className="w-6 h-6" />,
       title: "Swipe to Match",
       description: "Find your perfect job or candidate with our intuitive matching system"
     },
