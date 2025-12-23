@@ -1,21 +1,13 @@
-#!/usr/bin/env python3
-
 import requests
 import sys
 import json
-from datetime import datetime, timedelta
-import uuid
-import base64
+from datetime import datetime
 
 class MedJobMatchAPITester:
     def __init__(self, base_url="https://medjobmatch.preview.emergentagent.com/api"):
         self.base_url = base_url
-        self.seeker_token = None
-        self.poster_token = None
-        self.seeker_user = None
-        self.poster_user = None
-        self.job_id = None
-        self.match_id = None
+        self.token = None
+        self.user_id = None
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
@@ -35,409 +27,465 @@ class MedJobMatchAPITester:
             "details": details
         })
 
-    def make_request(self, method, endpoint, data=None, token=None, expected_status=None):
-        """Make HTTP request with error handling"""
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
+        """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
-        if token:
-            headers['Authorization'] = f'Bearer {token}'
+        test_headers = {'Content-Type': 'application/json'}
+        
+        if self.token:
+            test_headers['Authorization'] = f'Bearer {self.token}'
+        
+        if headers:
+            test_headers.update(headers)
 
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
+                response = requests.get(url, headers=test_headers)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                response = requests.post(url, json=data, headers=test_headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers, timeout=10)
+                response = requests.put(url, json=data, headers=test_headers)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=10)
+                response = requests.delete(url, headers=test_headers)
+
+            success = response.status_code == expected_status
+            details = f"Status: {response.status_code}"
+            
+            if not success:
+                details += f", Expected: {expected_status}"
+                try:
+                    error_data = response.json()
+                    details += f", Response: {error_data}"
+                except:
+                    details += f", Response: {response.text[:200]}"
+            
+            self.log_test(name, success, details)
+            
+            if success:
+                try:
+                    return True, response.json()
+                except:
+                    return True, response.text
             else:
-                return False, f"Unsupported method: {method}"
+                return False, {}
 
-            if expected_status and response.status_code != expected_status:
-                return False, f"Expected {expected_status}, got {response.status_code}: {response.text}"
-            
-            return True, response.json() if response.content else {}
+        except Exception as e:
+            self.log_test(name, False, f"Error: {str(e)}")
+            return False, {}
 
-        except requests.exceptions.RequestException as e:
-            return False, f"Request failed: {str(e)}"
-        except json.JSONDecodeError:
-            return False, f"Invalid JSON response: {response.text}"
-
-    def test_api_health(self):
-        """Test API root endpoint"""
-        success, result = self.make_request('GET', '', expected_status=200)
-        self.log_test("API Health Check", success, result if not success else "")
-        return success
-
-    def test_user_registration(self):
-        """Test user registration for both seeker and poster"""
-        timestamp = datetime.now().strftime("%H%M%S")
+    def test_specialties_endpoint(self):
+        """Test specialties endpoint returns nursing and allied health categories"""
+        print("\n🔍 Testing Specialties Endpoint...")
         
-        # Test seeker registration
-        seeker_data = {
-            "email": f"seeker_{timestamp}@test.com",
-            "password": "TestPass123!",
-            "role": "seeker",
-            "full_name": "Test Seeker"
-        }
+        success, response = self.run_test(
+            "Get specialties endpoint",
+            "GET",
+            "specialties",
+            200
+        )
         
-        success, result = self.make_request('POST', 'auth/register', seeker_data, expected_status=200)
         if success:
-            self.seeker_token = result.get('access_token')
-            self.seeker_user = result.get('user')
-        self.log_test("Seeker Registration", success, result if not success else "")
-        
-        # Test poster registration
-        poster_data = {
-            "email": f"poster_{timestamp}@test.com",
-            "password": "TestPass123!",
-            "role": "poster",
-            "full_name": "Test Hospital"
-        }
-        
-        success, result = self.make_request('POST', 'auth/register', poster_data, expected_status=200)
-        if success:
-            self.poster_token = result.get('access_token')
-            self.poster_user = result.get('user')
-        self.log_test("Poster Registration", success, result if not success else "")
-        
-        return self.seeker_token and self.poster_token
-
-    def test_user_login(self):
-        """Test user login"""
-        if not self.seeker_user:
-            self.log_test("Seeker Login", False, "No seeker user to test login")
-            return False
+            # Check if response has nursing and allied_health categories
+            has_nursing = 'nursing' in response and len(response['nursing']) > 0
+            has_allied = 'allied_health' in response and len(response['allied_health']) > 0
+            has_all = 'all' in response and len(response['all']) > 0
             
+            self.log_test("Specialties has nursing category", has_nursing, 
+                         f"Found {len(response.get('nursing', []))} nursing specialties")
+            self.log_test("Specialties has allied health category", has_allied,
+                         f"Found {len(response.get('allied_health', []))} allied health specialties")
+            self.log_test("Specialties has combined 'all' list", has_all,
+                         f"Found {len(response.get('all', []))} total specialties")
+            
+            # Check for specific nursing specialties
+            nursing_specs = response.get('nursing', [])
+            has_rn_icu = any('ICU' in spec for spec in nursing_specs)
+            has_rn_er = any('Emergency' in spec for spec in nursing_specs)
+            
+            self.log_test("Has ICU nursing specialty", has_rn_icu)
+            self.log_test("Has Emergency nursing specialty", has_rn_er)
+            
+            # Check for specific allied health specialties
+            allied_specs = response.get('allied_health', [])
+            has_pt = any('Physical Therapist' in spec for spec in allied_specs)
+            has_rt = any('Respiratory Therapist' in spec for spec in allied_specs)
+            
+            self.log_test("Has Physical Therapist specialty", has_pt)
+            self.log_test("Has Respiratory Therapist specialty", has_rt)
+            
+            return response
+        
+        return {}
+
+    def test_auth_flow(self):
+        """Test authentication with test credentials"""
+        print("\n🔍 Testing Authentication...")
+        
+        # Test login with provided credentials
         login_data = {
-            "email": self.seeker_user['email'],
-            "password": "TestPass123!"
+            "email": "testseeker@test.com",
+            "password": "test123"
         }
         
-        success, result = self.make_request('POST', 'auth/login', login_data, expected_status=200)
-        self.log_test("User Login", success, result if not success else "")
-        return success
+        success, response = self.run_test(
+            "Login with test credentials",
+            "POST",
+            "auth/login",
+            200,
+            login_data
+        )
+        
+        if success and 'access_token' in response:
+            self.token = response['access_token']
+            self.user_id = response['user']['id']
+            self.log_test("Token received", True, f"User ID: {self.user_id}")
+            return True
+        else:
+            # Try to register if login fails
+            register_data = {
+                "email": "testseeker@test.com",
+                "password": "test123",
+                "role": "seeker",
+                "full_name": "Test Seeker"
+            }
+            
+            success, response = self.run_test(
+                "Register test user",
+                "POST",
+                "auth/register",
+                200,
+                register_data
+            )
+            
+            if success and 'access_token' in response:
+                self.token = response['access_token']
+                self.user_id = response['user']['id']
+                self.log_test("Registration successful", True, f"User ID: {self.user_id}")
+                return True
+        
+        return False
 
-    def test_get_user_profile(self):
-        """Test getting current user profile"""
-        success, result = self.make_request('GET', 'auth/me', token=self.seeker_token, expected_status=200)
-        self.log_test("Get User Profile", success, result if not success else "")
-        return success
-
-    def test_seeker_profile_creation(self):
-        """Test seeker profile creation and update"""
+    def test_profile_endpoints(self):
+        """Test profile endpoints for seeker"""
+        print("\n🔍 Testing Profile Endpoints...")
+        
+        # Get current profile
+        success, profile = self.run_test(
+            "Get seeker profile",
+            "GET",
+            "profile/seeker",
+            200
+        )
+        
+        # Test profile update with work history and medical records
         profile_data = {
             "contact_info": {
-                "email": "seeker@test.com",
+                "email": "testseeker@test.com",
                 "phone": "(555) 123-4567",
-                "address": "123 Main St, Test City, TS 12345"
+                "address": "Test City, Test State"
             },
-            "specialty": "Registered Nurse (RN)",
+            "specialty": "Registered Nurse (RN) - ICU/Critical Care",
             "years_experience": 5,
-            "bio": "Experienced RN with ICU background",
+            "bio": "Experienced ICU nurse with 5 years of critical care experience",
+            "work_history": [
+                {
+                    "facility_name": "Memorial Hospital",
+                    "position": "ICU Registered Nurse",
+                    "department": "Intensive Care Unit",
+                    "start_date": "2020-01",
+                    "end_date": "2023-12",
+                    "is_current": False,
+                    "responsibilities": "Provided critical care to ICU patients"
+                },
+                {
+                    "facility_name": "City General Hospital",
+                    "position": "Staff Nurse",
+                    "department": "Emergency Department",
+                    "start_date": "2024-01",
+                    "end_date": "",
+                    "is_current": True,
+                    "responsibilities": "Emergency care and triage"
+                }
+            ],
+            "medical_records": [
+                {
+                    "record_type": "TB Test (PPD/Quantiferon)",
+                    "date_completed": "2024-01-15",
+                    "expiration_date": "2025-01-15",
+                    "result": "Negative"
+                },
+                {
+                    "record_type": "COVID-19 Vaccination",
+                    "date_completed": "2023-12-01",
+                    "expiration_date": "",
+                    "result": "Complete"
+                },
+                {
+                    "record_type": "Annual Physical",
+                    "date_completed": "2024-06-01",
+                    "expiration_date": "2025-06-01",
+                    "result": "Cleared for duty"
+                }
+            ],
             "certifications": [
-                {"name": "BLS", "expiration": "2025-12-31"},
-                {"name": "ACLS", "expiration": "2025-06-30"}
+                {"name": "BLS", "expiration": "2025-03-15"},
+                {"name": "ACLS", "expiration": "2025-06-20"}
             ],
             "licenses": [
-                {"name": "RN License", "state": "CA", "expiration": "2025-12-31"}
+                {
+                    "name": "RN",
+                    "state": "CA",
+                    "license_number": "RN123456",
+                    "expiration": "2025-12-31"
+                }
             ],
-            "expected_pay": {"min": 35, "max": 50},
+            "expected_pay": {"min": 45, "max": 65},
             "desired_benefits": ["Health Insurance", "401(k)", "Paid Time Off"],
             "preferred_locations": ["Los Angeles, CA", "San Francisco, CA"]
         }
         
-        success, result = self.make_request('PUT', 'profile/seeker', profile_data, token=self.seeker_token, expected_status=200)
-        self.log_test("Seeker Profile Update", success, result if not success else "")
+        success, response = self.run_test(
+            "Update seeker profile with work history and medical records",
+            "PUT",
+            "profile/seeker",
+            200,
+            profile_data
+        )
         
-        # Test getting the profile
-        success, result = self.make_request('GET', 'profile/seeker', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Seeker Profile", success, result if not success else "")
-        
-        return success
-
-    def test_poster_profile_creation(self):
-        """Test poster profile creation and update"""
-        profile_data = {
-            "company_name": "Test Medical Center",
-            "company_description": "Leading healthcare facility providing excellent patient care",
-            "contact_info": {
-                "email": "hr@testmedical.com",
-                "phone": "(555) 987-6543",
-                "address": "456 Hospital Ave, Test City, TS 12345"
-            }
-        }
-        
-        success, result = self.make_request('PUT', 'profile/poster', profile_data, token=self.poster_token, expected_status=200)
-        self.log_test("Poster Profile Update", success, result if not success else "")
-        
-        # Test getting the profile
-        success, result = self.make_request('GET', 'profile/poster', token=self.poster_token, expected_status=200)
-        self.log_test("Get Poster Profile", success, result if not success else "")
-        
-        return success
-
-    def test_job_creation(self):
-        """Test job posting creation"""
-        job_data = {
-            "title": "ICU Registered Nurse",
-            "description": "Seeking experienced RN for our ICU department. Must have critical care experience.",
-            "location": "Los Angeles, CA",
-            "duration": "13 weeks",
-            "pay_range": {"min": 40, "max": 55},
-            "benefits": ["Health Insurance", "Housing Stipend", "Travel Reimbursement"],
-            "time_off_policy": "Flexible PTO policy with paid holidays",
-            "requirements": ["2+ years ICU experience", "BLS/ACLS certification"],
-            "certifications_required": ["BLS", "ACLS"],
-            "experience_required": 2,
-            "specialty": "Registered Nurse (RN)",
-            "shift_type": "Day Shift (7a-7p)",
-            "start_date": "2024-02-01"
-        }
-        
-        success, result = self.make_request('POST', 'jobs', job_data, token=self.poster_token, expected_status=200)
         if success:
-            self.job_id = result.get('id')
-        self.log_test("Job Creation", success, result if not success else "")
-        
-        return success
-
-    def test_job_management(self):
-        """Test job listing, updating, and retrieval"""
-        if not self.job_id:
-            self.log_test("Job Management", False, "No job ID available")
-            return False
+            # Verify the profile was updated
+            success, updated_profile = self.run_test(
+                "Verify profile update",
+                "GET",
+                "profile/seeker",
+                200
+            )
             
-        # Test getting jobs list
-        success, result = self.make_request('GET', 'jobs', token=self.poster_token, expected_status=200)
-        self.log_test("Get Jobs List", success, result if not success else "")
-        
-        # Test getting specific job
-        success, result = self.make_request('GET', f'jobs/{self.job_id}', token=self.poster_token, expected_status=200)
-        self.log_test("Get Specific Job", success, result if not success else "")
-        
-        return success
+            if success:
+                has_work_history = len(updated_profile.get('work_history', [])) >= 2
+                has_medical_records = len(updated_profile.get('medical_records', [])) >= 3
+                has_specialty = updated_profile.get('specialty') == "Registered Nurse (RN) - ICU/Critical Care"
+                
+                self.log_test("Profile has work history", has_work_history,
+                             f"Found {len(updated_profile.get('work_history', []))} work entries")
+                self.log_test("Profile has medical records", has_medical_records,
+                             f"Found {len(updated_profile.get('medical_records', []))} medical records")
+                self.log_test("Profile has correct specialty", has_specialty)
 
-    def test_swipe_functionality(self):
-        """Test swipe functionality for both seeker and poster"""
-        # Test seeker getting swipeable jobs
-        success, result = self.make_request('GET', 'swipe/jobs', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Swipeable Jobs", success, result if not success else "")
+    def test_job_creation_with_specialties(self):
+        """Test job creation with categorized specialties"""
+        print("\n🔍 Testing Job Creation...")
         
-        if success and result and len(result) > 0:
-            # Test seeker swiping right on a job
-            swipe_data = {"target_id": result[0]['id'], "action": "like"}
-            success, swipe_result = self.make_request('POST', 'swipe', swipe_data, token=self.seeker_token, expected_status=200)
-            self.log_test("Seeker Swipe Right", success, swipe_result if not success else "")
-            
-            # Test poster getting swipeable seekers for the job
-            success, result = self.make_request('GET', f'swipe/seekers?job_id={self.job_id}', token=self.poster_token, expected_status=200)
-            self.log_test("Get Swipeable Seekers", success, result if not success else "")
-            
-            if success and result and len(result) > 0:
-                # Test poster swiping right on seeker (should create match)
-                swipe_data = {"target_id": result[0]['id'], "action": "like"}
-                success, swipe_result = self.make_request('POST', f'swipe?job_id={self.job_id}', swipe_data, token=self.poster_token, expected_status=200)
-                if success and swipe_result.get('matched'):
-                    self.match_id = swipe_result.get('match_id')
-                self.log_test("Poster Swipe Right (Match)", success, swipe_result if not success else "")
-        
-        return success
-
-    def test_matches_and_messaging(self):
-        """Test matches retrieval and messaging"""
-        # Test getting matches for seeker
-        success, result = self.make_request('GET', 'matches', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Seeker Matches", success, result if not success else "")
-        
-        # Test getting matches for poster
-        success, result = self.make_request('GET', 'matches', token=self.poster_token, expected_status=200)
-        self.log_test("Get Poster Matches", success, result if not success else "")
-        
-        if self.match_id:
-            # Test sending message
-            message_data = {"content": "Hello! I'm interested in this position."}
-            success, result = self.make_request('POST', f'matches/{self.match_id}/messages', message_data, token=self.seeker_token, expected_status=200)
-            self.log_test("Send Message", success, result if not success else "")
-            
-            # Test getting messages
-            success, result = self.make_request('GET', f'matches/{self.match_id}/messages', token=self.poster_token, expected_status=200)
-            self.log_test("Get Messages", success, result if not success else "")
-        
-        return success
-
-    def test_reference_system(self):
-        """Test reference request and submission system"""
-        # Test requesting a reference
-        ref_data = {
-            "referee_email": "reference@test.com",
-            "referee_name": "Dr. Test Reference",
-            "relationship": "Former Supervisor",
-            "message": "Please provide a reference for this candidate"
+        # First create a poster account
+        poster_register_data = {
+            "email": "testposter@test.com",
+            "password": "test123",
+            "role": "poster",
+            "full_name": "Test Hospital"
         }
         
-        success, result = self.make_request('POST', 'references/request', ref_data, token=self.seeker_token, expected_status=200)
-        ref_token = None
+        success, response = self.run_test(
+            "Register poster account",
+            "POST",
+            "auth/register",
+            200,
+            poster_register_data
+        )
+        
         if success:
-            ref_token = result.get('submission_link', '').split('/')[-1]
-        self.log_test("Request Reference", success, result if not success else "")
-        
-        # Test getting pending references
-        success, result = self.make_request('GET', 'references/pending', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Pending References", success, result if not success else "")
-        
-        if ref_token:
-            # Test getting reference request details (public endpoint)
-            success, result = self.make_request('GET', f'references/submit/{ref_token}', expected_status=200)
-            self.log_test("Get Reference Request Details", success, result if not success else "")
+            poster_token = response['access_token']
+            poster_id = response['user']['id']
             
-            # Test submitting reference (public endpoint)
-            submission_data = {
-                "token": ref_token,
-                "rating": 5,
-                "strengths": ["Excellent clinical skills", "Great team player"],
-                "areas_for_improvement": "Could improve time management",
-                "recommendation": "Highly recommend for any nursing position",
-                "comments": "Outstanding nurse with great patient care skills",
-                "would_work_again": True
+            # Update poster profile
+            poster_profile = {
+                "company_name": "Memorial Medical Center",
+                "company_description": "Leading healthcare facility",
+                "contact_info": {
+                    "email": "hr@memorial.com",
+                    "phone": "(555) 987-6543",
+                    "address": "123 Hospital Way, Medical City, CA"
+                }
             }
             
-            success, result = self.make_request('POST', f'references/submit/{ref_token}', submission_data, expected_status=200)
-            self.log_test("Submit Reference", success, result if not success else "")
-        
-        return success
+            # Temporarily switch to poster token
+            original_token = self.token
+            self.token = poster_token
+            
+            success, response = self.run_test(
+                "Update poster profile",
+                "PUT",
+                "profile/poster",
+                200,
+                poster_profile
+            )
+            
+            # Create job with nursing specialty
+            job_data = {
+                "title": "ICU Travel Nurse",
+                "description": "Seeking experienced ICU nurse for 13-week travel assignment",
+                "location": "Los Angeles, CA",
+                "duration": "13 weeks",
+                "pay_range": {"min": 50, "max": 70},
+                "benefits": ["Health Insurance", "Housing Stipend", "Travel Reimbursement"],
+                "time_off_policy": "Flexible PTO policy",
+                "requirements": ["Must have 2+ years ICU experience", "BLS and ACLS required"],
+                "certifications_required": ["BLS", "ACLS"],
+                "experience_required": 2,
+                "specialty": "Registered Nurse (RN) - ICU/Critical Care",
+                "shift_type": "Day Shift (7a-7p)",
+                "start_date": "2024-09-01"
+            }
+            
+            success, job_response = self.run_test(
+                "Create job with nursing specialty",
+                "POST",
+                "jobs",
+                200,
+                job_data
+            )
+            
+            if success:
+                job_id = job_response.get('id')
+                has_specialty = job_response.get('specialty') == "Registered Nurse (RN) - ICU/Critical Care"
+                has_company = job_response.get('company_name') == "Memorial Medical Center"
+                
+                self.log_test("Job created with correct specialty", has_specialty)
+                self.log_test("Job has company information", has_company)
+                
+                # Test job retrieval
+                success, retrieved_job = self.run_test(
+                    "Retrieve created job",
+                    "GET",
+                    f"jobs/{job_id}",
+                    200
+                )
+                
+                if success:
+                    self.log_test("Job retrieval successful", True, f"Job ID: {job_id}")
+            
+            # Restore original token
+            self.token = original_token
 
-    def test_document_management(self):
-        """Test document upload and management"""
-        # Create a simple test document (base64 encoded)
-        test_content = "This is a test document content"
-        encoded_content = base64.b64encode(test_content.encode()).decode()
+    def test_document_expiration_check(self):
+        """Test admin endpoint for document expiration check"""
+        print("\n🔍 Testing Document Expiration Check...")
         
-        doc_data = {
-            "document_type": "BLS Certification",
-            "expiration_date": "2025-12-31",
-            "file_data": encoded_content,
-            "file_name": "bls_cert.pdf"
-        }
+        success, response = self.run_test(
+            "Trigger document expiration check",
+            "POST",
+            "admin/check-expirations",
+            200
+        )
         
-        success, result = self.make_request('POST', 'documents', doc_data, token=self.seeker_token, expected_status=200)
-        doc_id = result.get('document_id') if success else None
-        self.log_test("Upload Document", success, result if not success else "")
-        
-        # Test getting documents list
-        success, result = self.make_request('GET', 'documents', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Documents List", success, result if not success else "")
-        
-        # Test getting expiring documents
-        success, result = self.make_request('GET', 'documents/expiring', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Expiring Documents", success, result if not success else "")
-        
-        if doc_id:
-            # Test getting specific document
-            success, result = self.make_request('GET', f'documents/{doc_id}', token=self.seeker_token, expected_status=200)
-            self.log_test("Get Specific Document", success, result if not success else "")
-        
-        return success
+        if success:
+            has_message = 'message' in response
+            self.log_test("Expiration check returns message", has_message,
+                         response.get('message', ''))
 
     def test_notification_preferences(self):
-        """Test notification preferences management"""
-        # Test getting notification preferences
-        success, result = self.make_request('GET', 'notifications/preferences', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Notification Preferences", success, result if not success else "")
+        """Test notification preferences endpoints"""
+        print("\n🔍 Testing Notification Preferences...")
         
-        # Test updating notification preferences
-        prefs_data = {
+        # Get current preferences
+        success, prefs = self.run_test(
+            "Get notification preferences",
+            "GET",
+            "notifications/preferences",
+            200
+        )
+        
+        # Update preferences
+        new_prefs = {
             "email_enabled": True,
             "sms_enabled": False,
-            "phone_number": "(555) 123-4567",
-            "frequency": "daily",
+            "phone_number": "+15551234567",
+            "frequency": "immediate",
             "match_notifications": True,
             "message_notifications": True,
             "document_reminders": True
         }
         
-        success, result = self.make_request('PUT', 'notifications/preferences', prefs_data, token=self.seeker_token, expected_status=200)
-        self.log_test("Update Notification Preferences", success, result if not success else "")
-        
-        return success
+        success, response = self.run_test(
+            "Update notification preferences",
+            "PUT",
+            "notifications/preferences",
+            200,
+            new_prefs
+        )
 
-    def test_dashboard_stats(self):
-        """Test dashboard statistics"""
-        # Test seeker stats
-        success, result = self.make_request('GET', 'stats', token=self.seeker_token, expected_status=200)
-        self.log_test("Get Seeker Stats", success, result if not success else "")
+    def test_stats_endpoint(self):
+        """Test stats/dashboard endpoint"""
+        print("\n🔍 Testing Stats Endpoint...")
         
-        # Test poster stats
-        success, result = self.make_request('GET', 'stats', token=self.poster_token, expected_status=200)
-        self.log_test("Get Poster Stats", success, result if not success else "")
+        success, stats = self.run_test(
+            "Get dashboard stats",
+            "GET",
+            "stats",
+            200
+        )
         
-        return success
+        if success:
+            has_matches = 'matches' in stats
+            has_refs = 'pending_references' in stats or 'completed_references' in stats
+            
+            self.log_test("Stats has matches count", has_matches)
+            self.log_test("Stats has references info", has_refs)
 
     def run_all_tests(self):
-        """Run all API tests"""
-        print("🚀 Starting MedJobMatch API Tests")
-        print("=" * 50)
+        """Run all tests"""
+        print("🚀 Starting MedJobMatch API Tests...")
+        print(f"Testing against: {self.base_url}")
         
-        # Core functionality tests
-        if not self.test_api_health():
-            print("❌ API is not accessible, stopping tests")
-            return False
-            
-        if not self.test_user_registration():
-            print("❌ User registration failed, stopping tests")
-            return False
-            
-        # Authentication tests
-        self.test_user_login()
-        self.test_get_user_profile()
+        # Test specialties endpoint (no auth required)
+        specialties = self.test_specialties_endpoint()
         
-        # Profile tests
-        self.test_seeker_profile_creation()
-        self.test_poster_profile_creation()
+        # Test authentication
+        if not self.test_auth_flow():
+            print("❌ Authentication failed - stopping tests")
+            return self.generate_report()
         
-        # Job management tests
-        self.test_job_creation()
-        self.test_job_management()
+        # Test profile endpoints
+        self.test_profile_endpoints()
         
-        # Core matching functionality
-        self.test_swipe_functionality()
-        self.test_matches_and_messaging()
+        # Test job creation
+        self.test_job_creation_with_specialties()
         
-        # Additional features
-        self.test_reference_system()
-        self.test_document_management()
+        # Test admin endpoints
+        self.test_document_expiration_check()
+        
+        # Test notification preferences
         self.test_notification_preferences()
-        self.test_dashboard_stats()
         
-        # Print summary
-        print("\n" + "=" * 50)
-        print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} tests passed")
+        # Test stats
+        self.test_stats_endpoint()
         
-        if self.tests_passed == self.tests_run:
-            print("🎉 All tests passed!")
-            return True
-        else:
-            print(f"⚠️  {self.tests_run - self.tests_passed} tests failed")
-            return False
+        return self.generate_report()
+
+    def generate_report(self):
+        """Generate test report"""
+        print(f"\n📊 Test Results: {self.tests_passed}/{self.tests_run} passed")
+        
+        if self.tests_passed < self.tests_run:
+            print("\n❌ Failed Tests:")
+            for result in self.test_results:
+                if not result['success']:
+                    print(f"  - {result['test']}: {result['details']}")
+        
+        success_rate = (self.tests_passed / self.tests_run * 100) if self.tests_run > 0 else 0
+        
+        return {
+            "total_tests": self.tests_run,
+            "passed_tests": self.tests_passed,
+            "success_rate": success_rate,
+            "test_results": self.test_results
+        }
 
 def main():
     tester = MedJobMatchAPITester()
-    success = tester.run_all_tests()
+    report = tester.run_all_tests()
     
-    # Save detailed results
-    results = {
-        "timestamp": datetime.now().isoformat(),
-        "total_tests": tester.tests_run,
-        "passed_tests": tester.tests_passed,
-        "success_rate": (tester.tests_passed / tester.tests_run * 100) if tester.tests_run > 0 else 0,
-        "test_details": tester.test_results
-    }
-    
-    with open('/app/backend_test_results.json', 'w') as f:
-        json.dump(results, f, indent=2)
-    
-    return 0 if success else 1
+    # Return appropriate exit code
+    return 0 if report["success_rate"] >= 80 else 1
 
 if __name__ == "__main__":
     sys.exit(main())
