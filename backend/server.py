@@ -31,13 +31,13 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'medjobmatch-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'vitalamatch-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
 # SendGrid Configuration
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
-SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@medjobmatch.com')
+SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@vitalamatch.com')
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
@@ -476,7 +476,7 @@ async def run_weekly_scheduler():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info("Starting MedJobMatch API...")
+    logger.info("Starting VitalaMatch API...")
     
     # Start the weekly scheduler in the background
     scheduler_task = asyncio.create_task(run_weekly_scheduler())
@@ -491,10 +491,10 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     client.close()
-    logger.info("MedJobMatch API shutdown complete")
+    logger.info("VitalaMatch API shutdown complete")
 
 # Create the main app with lifespan
-app = FastAPI(title="MedJobMatch API", lifespan=lifespan)
+app = FastAPI(title="VitalaMatch API", lifespan=lifespan)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -2323,7 +2323,7 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/")
 async def root():
-    return {"message": "MedJobMatch API", "version": "1.0.0"}
+    return {"message": "VitalaMatch API", "version": "1.0.0"}
 
 # ==================== ADMIN/SYSTEM ROUTES ====================
 
