@@ -1178,6 +1178,267 @@ async def send_message(match_id: str, message: Message, current_user: dict = Dep
     await db.messages.insert_one(message_data)
     return {"id": message_data["id"], "message": "Message sent"}
 
+# ==================== LICENSE VERIFICATION ROUTES ====================
+
+@api_router.post("/licenses")
+async def create_license(license_data: LicenseCreate, current_user: dict = Depends(get_current_user)):
+    """Create a new license record for verification"""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Only job seekers can add licenses")
+    
+    license_id = str(uuid.uuid4())
+    license_record = {
+        "id": license_id,
+        "user_id": current_user["id"],
+        "license_type": license_data.license_type,
+        "license_number": license_data.license_number,
+        "state": license_data.state,
+        "expiration_date": license_data.expiration_date,
+        "compact_license": license_data.compact_license,
+        "document_id": license_data.document_id,
+        "verification_status": "pending",
+        "verified_at": None,
+        "verified_by": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.seeker_licenses.insert_one(license_record)
+    
+    # Create automatic verification request
+    await LicenseVerificationService.create_verification_request(
+        license_id=license_id,
+        user_id=current_user["id"],
+        requested_by=current_user["id"],
+        verification_type="document"
+    )
+    
+    return LicenseResponse(**license_record)
+
+@api_router.get("/licenses")
+async def get_my_licenses(current_user: dict = Depends(get_current_user)):
+    """Get all licenses for current user"""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Only job seekers have licenses")
+    
+    licenses = await db.seeker_licenses.find(
+        {"user_id": current_user["id"]},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return [LicenseResponse(**lic) for lic in licenses]
+
+@api_router.get("/licenses/user/{user_id}")
+async def get_user_licenses(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get licenses for a specific user (for employers viewing matched candidates)"""
+    # Check if there's a match between current user and the target user
+    if current_user["role"] == "poster":
+        match = await db.matches.find_one({
+            "poster_id": current_user["id"],
+            "seeker_id": user_id
+        })
+        if not match:
+            raise HTTPException(status_code=403, detail="You can only view licenses of matched candidates")
+    elif current_user["id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    licenses = await db.seeker_licenses.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return [LicenseResponse(**lic) for lic in licenses]
+
+@api_router.delete("/licenses/{license_id}")
+async def delete_license(license_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a license record"""
+    result = await db.seeker_licenses.delete_one({
+        "id": license_id,
+        "user_id": current_user["id"]
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="License not found")
+    return {"message": "License deleted"}
+
+@api_router.post("/licenses/verify/request")
+async def request_verification(request: VerificationRequest, current_user: dict = Depends(get_current_user)):
+    """Request verification for a license"""
+    license_record = await db.seeker_licenses.find_one({"id": request.license_id}, {"_id": 0})
+    if not license_record:
+        raise HTTPException(status_code=404, detail="License not found")
+    
+    # Only license owner or admin can request verification
+    if license_record["user_id"] != current_user["id"] and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    result = await LicenseVerificationService.create_verification_request(
+        license_id=request.license_id,
+        user_id=license_record["user_id"],
+        requested_by=current_user["id"],
+        verification_type=request.verification_type
+    )
+    
+    return result
+
+@api_router.post("/licenses/verify/nursys")
+async def request_nursys_verification(request: NursysVerificationRequest, current_user: dict = Depends(get_current_user)):
+    """Request Nursys verification for a candidate's license (employer only)"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can request Nursys verification")
+    
+    # Check if there's a match
+    match = await db.matches.find_one({
+        "poster_id": current_user["id"],
+        "seeker_id": request.seeker_id
+    })
+    if not match:
+        raise HTTPException(status_code=403, detail="You can only verify licenses of matched candidates")
+    
+    # Get the license
+    license_record = await db.seeker_licenses.find_one({
+        "id": request.license_id,
+        "user_id": request.seeker_id
+    }, {"_id": 0})
+    if not license_record:
+        raise HTTPException(status_code=404, detail="License not found")
+    
+    # Get seeker info for Nursys lookup
+    seeker = await db.users.find_one({"id": request.seeker_id}, {"_id": 0, "password": 0})
+    if not seeker:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    # Parse name
+    name_parts = seeker["full_name"].split(" ", 1)
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ""
+    
+    # Update license status to nursys_pending
+    await db.seeker_licenses.update_one(
+        {"id": request.license_id},
+        {"$set": {"verification_status": "nursys_pending"}}
+    )
+    
+    # Perform Nursys verification
+    result = await LicenseVerificationService.verify_via_nursys(
+        license_number=license_record["license_number"],
+        state=license_record["state"],
+        license_type=license_record["license_type"],
+        first_name=first_name,
+        last_name=last_name
+    )
+    
+    # Update license with result
+    if result.get("success") and result.get("verified"):
+        new_status = "nursys_verified"
+        verification_result = {
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "nursys_response": result,
+            "license_status": result.get("license_status"),
+            "compact_status": result.get("compact_status")
+        }
+    elif result.get("status") == "api_not_configured":
+        new_status = "nursys_pending"
+        verification_result = {"error": "Nursys API not configured", "note": "Verification pending API setup"}
+    else:
+        new_status = "nursys_failed"
+        verification_result = {"error": result.get("error"), "status": result.get("status")}
+    
+    await db.seeker_licenses.update_one(
+        {"id": request.license_id},
+        {
+            "$set": {
+                "verification_status": new_status,
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+                "verified_by": current_user["id"],
+                "nursys_result": verification_result
+            }
+        }
+    )
+    
+    # Log the verification request
+    await db.license_verifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "license_id": request.license_id,
+        "user_id": request.seeker_id,
+        "requested_by": current_user["id"],
+        "verification_type": "nursys",
+        "status": new_status,
+        "result": verification_result,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {
+        "license_id": request.license_id,
+        "status": new_status,
+        "result": verification_result
+    }
+
+@api_router.get("/licenses/verification/pending")
+async def get_pending_verifications(current_user: dict = Depends(get_current_user)):
+    """Get all pending license verifications (admin only)"""
+    # For now, allow any user to see pending verifications for their own licenses
+    # In production, restrict this to admin users
+    
+    if current_user["role"] == "seeker":
+        # Seekers can see their own verification requests
+        verifications = await db.license_verifications.find(
+            {"user_id": current_user["id"]},
+            {"_id": 0}
+        ).to_list(100)
+    else:
+        # Posters/admins can see all pending verifications
+        verifications = await db.license_verifications.find(
+            {"status": "pending"},
+            {"_id": 0}
+        ).to_list(100)
+    
+    # Enrich with license and user info
+    enriched = []
+    for v in verifications:
+        license_info = await db.seeker_licenses.find_one({"id": v["license_id"]}, {"_id": 0})
+        user_info = await db.users.find_one({"id": v["user_id"]}, {"_id": 0, "password": 0})
+        enriched.append({
+            **v,
+            "license": license_info,
+            "user": user_info
+        })
+    
+    return enriched
+
+@api_router.post("/licenses/verification/{request_id}/decide")
+async def admin_verify_license(
+    request_id: str,
+    decision: AdminVerificationDecision,
+    current_user: dict = Depends(get_current_user)
+):
+    """Admin decision on license verification"""
+    # In production, check for admin role
+    # For now, allow posters to verify (as facility admins)
+    if current_user["role"] == "seeker":
+        raise HTTPException(status_code=403, detail="Not authorized to verify licenses")
+    
+    verification = await db.license_verifications.find_one({"id": request_id}, {"_id": 0})
+    if not verification:
+        raise HTTPException(status_code=404, detail="Verification request not found")
+    
+    result = await LicenseVerificationService.process_admin_verification(
+        request_id=request_id,
+        admin_id=current_user["id"],
+        approved=decision.approved,
+        notes=decision.notes
+    )
+    
+    # Send notification to license owner
+    status_text = "verified" if decision.approved else "rejected"
+    await NotificationService.send_notification(
+        verification["user_id"],
+        f"License Verification {status_text.title()}",
+        f"<p>Your license verification has been <strong>{status_text}</strong>.</p>" +
+        (f"<p>Notes: {decision.notes}</p>" if decision.notes else ""),
+        f"MedJobMatch: Your license has been {status_text}."
+    )
+    
+    return result
+
 # ==================== REFERENCE ROUTES ====================
 
 @api_router.post("/references/request")
