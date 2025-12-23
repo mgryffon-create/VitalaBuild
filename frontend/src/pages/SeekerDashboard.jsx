@@ -237,7 +237,7 @@ const SeekerDashboard = () => {
             <CardContent>
               {recentMatches.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Heart className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <VitalaIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No matches yet</p>
                   <Button
                     data-testid="start-matching-btn"
