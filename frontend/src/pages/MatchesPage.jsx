@@ -86,6 +86,15 @@ const MatchesPage = () => {
     }
   };
 
+  const fetchReplyProbability = async (matchId) => {
+    try {
+      const response = await axios.get(`${API}/matches/${matchId}/reply-probability`);
+      setReplyProbability(response.data);
+    } catch (error) {
+      setReplyProbability(null);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedMatch) return;
