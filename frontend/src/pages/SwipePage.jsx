@@ -274,6 +274,7 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandTo
   
   const likeOpacity = useTransform(x, [0, 100], [0, 1]);
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
+  const maybeOpacity = useTransform(y, [0, 100], [0, 1]);
 
   const handleDragEnd = (event, info) => {
     if (expanded) return;
@@ -324,7 +325,7 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandTo
         }`}
         layout
       >
-        {/* Like/Nope Indicators */}
+        {/* Like/Nope/Maybe Indicators */}
         {isTop && !expanded && (
           <>
             <motion.div
@@ -338,6 +339,12 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandTo
               style={{ opacity: nopeOpacity }}
             >
               NOPE
+            </motion.div>
+            <motion.div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2 rounded-lg border-4 border-amber-500 text-amber-500 font-bold text-2xl"
+              style={{ opacity: maybeOpacity }}
+            >
+              MAYBE
             </motion.div>
           </>
         )}
