@@ -14,6 +14,13 @@ import jwt
 import bcrypt
 import base64
 import aiofiles
+import asyncio
+from contextlib import asynccontextmanager
+
+# SendGrid and Twilio imports
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Email, To, Content
+from twilio.rest import Client as TwilioClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -28,18 +35,201 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'medjobmatch-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
-# Create the main app
-app = FastAPI(title="MedJobMatch API")
+# SendGrid Configuration
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@medjobmatch.com')
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# ==================== NOTIFICATION SERVICES ====================
+
+class NotificationService:
+    """Service for sending email and SMS notifications"""
+    
+    @staticmethod
+    async def send_email(to_email: str, subject: str, content: str) -> bool:
+        """Send email via SendGrid"""
+        if not SENDGRID_API_KEY:
+            logger.warning(f"SendGrid not configured. Would send email to {to_email}: {subject}")
+            return False
+        
+        try:
+            message = Mail(
+                from_email=Email(SENDGRID_FROM_EMAIL),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=Content("text/html", content)
+            )
+            sg = SendGridAPIClient(SENDGRID_API_KEY)
+            response = sg.send(message)
+            logger.info(f"Email sent to {to_email}, status: {response.status_code}")
+            return response.status_code in [200, 202]
+        except Exception as e:
+            logger.error(f"Failed to send email to {to_email}: {str(e)}")
+            return False
+    
+    @staticmethod
+    async def send_sms(to_phone: str, message: str) -> bool:
+        """Send SMS via Twilio"""
+        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
+            logger.warning(f"Twilio not configured. Would send SMS to {to_phone}: {message}")
+            return False
+        
+        try:
+            client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            msg = client.messages.create(
+                body=message,
+                from_=TWILIO_PHONE_NUMBER,
+                to=to_phone
+            )
+            logger.info(f"SMS sent to {to_phone}, SID: {msg.sid}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send SMS to {to_phone}: {str(e)}")
+            return False
+    
+    @staticmethod
+    async def send_notification(user_id: str, subject: str, content: str, sms_content: str = None):
+        """Send notification based on user preferences"""
+        # Get user and preferences
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        prefs = await db.notification_preferences.find_one({"user_id": user_id}, {"_id": 0})
+        
+        if not user or not prefs:
+            return
+        
+        # Check frequency - for now, always send if enabled
+        if prefs.get("email_enabled") and user.get("email"):
+            await NotificationService.send_email(user["email"], subject, content)
+        
+        if prefs.get("sms_enabled") and prefs.get("phone_number"):
+            await NotificationService.send_sms(prefs["phone_number"], sms_content or subject)
+
+# ==================== BACKGROUND SCHEDULER ====================
+
+class DocumentExpirationChecker:
+    """Background job for checking document expirations weekly"""
+    
+    @staticmethod
+    async def check_expiring_documents():
+        """Check for documents expiring within 30 days and send reminders"""
+        logger.info("Running weekly document expiration check...")
+        
+        threshold = datetime.now(timezone.utc) + timedelta(days=30)
+        
+        # Get all documents
+        docs = await db.documents.find({}, {"_id": 0, "file_data": 0}).to_list(10000)
+        
+        users_to_notify = {}  # user_id -> list of expiring docs
+        
+        for doc in docs:
+            if doc.get("expiration_date"):
+                try:
+                    if 'T' in doc["expiration_date"]:
+                        expiration = datetime.fromisoformat(doc["expiration_date"].replace('Z', '+00:00'))
+                    else:
+                        expiration = datetime.strptime(doc["expiration_date"], '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                    
+                    if expiration <= threshold:
+                        user_id = doc["user_id"]
+                        days_left = (expiration - datetime.now(timezone.utc)).days
+                        
+                        if user_id not in users_to_notify:
+                            users_to_notify[user_id] = []
+                        
+                        users_to_notify[user_id].append({
+                            "document_type": doc["document_type"],
+                            "days_left": days_left,
+                            "expiration_date": doc["expiration_date"]
+                        })
+                except ValueError:
+                    pass
+        
+        # Send notifications to users
+        for user_id, expiring_docs in users_to_notify.items():
+            prefs = await db.notification_preferences.find_one({"user_id": user_id}, {"_id": 0})
+            
+            if prefs and prefs.get("document_reminders", True):
+                # Build notification content
+                doc_list = "\n".join([
+                    f"• {d['document_type']} - {'EXPIRED' if d['days_left'] <= 0 else f'{d[\"days_left\"]} days left'}"
+                    for d in expiring_docs
+                ])
+                
+                subject = f"MedJobMatch: {len(expiring_docs)} Document(s) Need Attention"
+                
+                html_content = f"""
+                <h2>Document Expiration Reminder</h2>
+                <p>The following documents need your attention:</p>
+                <ul>
+                {''.join([f"<li><strong>{d['document_type']}</strong> - {'<span style=\"color:red\">EXPIRED</span>' if d['days_left'] <= 0 else f'{d[\"days_left\"]} days until expiration'}</li>" for d in expiring_docs])}
+                </ul>
+                <p>Please log in to MedJobMatch to upload renewed documents.</p>
+                """
+                
+                sms_content = f"MedJobMatch: {len(expiring_docs)} document(s) expiring soon. Log in to renew."
+                
+                await NotificationService.send_notification(user_id, subject, html_content, sms_content)
+                
+                # Log the reminder
+                await db.notification_logs.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "type": "document_expiration",
+                    "documents": expiring_docs,
+                    "sent_at": datetime.now(timezone.utc).isoformat()
+                })
+        
+        logger.info(f"Document expiration check complete. Notified {len(users_to_notify)} users.")
+        return len(users_to_notify)
+
+async def run_weekly_scheduler():
+    """Run the weekly document expiration checker"""
+    while True:
+        try:
+            await DocumentExpirationChecker.check_expiring_documents()
+        except Exception as e:
+            logger.error(f"Error in weekly scheduler: {str(e)}")
+        
+        # Wait for 7 days (604800 seconds)
+        await asyncio.sleep(604800)
+
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting MedJobMatch API...")
+    
+    # Start the weekly scheduler in the background
+    scheduler_task = asyncio.create_task(run_weekly_scheduler())
+    logger.info("Weekly document expiration scheduler started")
+    
+    yield
+    
+    # Shutdown
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
+    client.close()
+    logger.info("MedJobMatch API shutdown complete")
+
+# Create the main app with lifespan
+app = FastAPI(title="MedJobMatch API", lifespan=lifespan)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
 # Security
 security = HTTPBearer()
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 # ==================== MODELS ====================
 
