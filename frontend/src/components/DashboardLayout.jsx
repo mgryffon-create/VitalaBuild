@@ -83,7 +83,7 @@ const DashboardLayout = ({ children }) => {
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
             <Heart className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-foreground font-['Manrope']">MedJobMatch</span>
+          <span className="text-xl font-bold text-foreground font-['Manrope']">VitalaMatch</span>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ const DashboardLayout = ({ children }) => {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Heart className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-foreground">MedJobMatch</span>
+            <span className="font-bold text-foreground">VitalaMatch</span>
           </div>
           
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
