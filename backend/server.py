@@ -227,6 +227,148 @@ class NotificationService:
         if prefs.get("sms_enabled") and prefs.get("phone_number"):
             await NotificationService.send_sms(prefs["phone_number"], sms_content or subject)
 
+# ==================== LICENSE VERIFICATION SERVICE ====================
+
+class LicenseVerificationService:
+    """Service for verifying nursing and allied health licenses"""
+    
+    # License verification statuses
+    STATUS_PENDING = "pending"
+    STATUS_VERIFIED = "verified"
+    STATUS_REJECTED = "rejected"
+    STATUS_NURSYS_PENDING = "nursys_pending"
+    STATUS_NURSYS_VERIFIED = "nursys_verified"
+    STATUS_NURSYS_FAILED = "nursys_failed"
+    
+    @staticmethod
+    async def verify_via_nursys(license_number: str, state: str, license_type: str, first_name: str, last_name: str) -> dict:
+        """
+        Verify a nursing license via Nursys API
+        Returns verification result with status and details
+        """
+        if not NURSYS_API_KEY:
+            logger.warning("Nursys API not configured. Cannot perform license verification.")
+            return {
+                "success": False,
+                "error": "Nursys API not configured",
+                "status": "api_not_configured"
+            }
+        
+        try:
+            import httpx
+            
+            # Nursys API request (structure based on typical license verification APIs)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{NURSYS_API_URL}/verify",
+                    headers={
+                        "Authorization": f"Bearer {NURSYS_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "license_number": license_number,
+                        "state": state,
+                        "license_type": license_type,
+                        "first_name": first_name,
+                        "last_name": last_name
+                    },
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "success": True,
+                        "verified": data.get("verified", False),
+                        "license_status": data.get("license_status", "unknown"),
+                        "expiration_date": data.get("expiration_date"),
+                        "discipline_actions": data.get("discipline_actions", []),
+                        "compact_status": data.get("compact_status"),
+                        "raw_response": data
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": f"API returned status {response.status_code}",
+                        "status": "api_error"
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Nursys verification failed: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "status": "exception"
+            }
+    
+    @staticmethod
+    async def create_verification_request(
+        license_id: str,
+        user_id: str,
+        requested_by: str,
+        verification_type: str = "admin"
+    ) -> dict:
+        """Create a license verification request"""
+        request_id = str(uuid.uuid4())
+        
+        verification_request = {
+            "id": request_id,
+            "license_id": license_id,
+            "user_id": user_id,  # Owner of the license
+            "requested_by": requested_by,  # Admin or employer who requested
+            "verification_type": verification_type,  # "admin", "nursys", "document"
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "result": None,
+            "notes": None
+        }
+        
+        await db.license_verifications.insert_one(verification_request)
+        return {"id": request_id, "status": "pending"}
+    
+    @staticmethod
+    async def process_admin_verification(
+        request_id: str,
+        admin_id: str,
+        approved: bool,
+        notes: str = None
+    ) -> dict:
+        """Process an admin verification decision"""
+        status = LicenseVerificationService.STATUS_VERIFIED if approved else LicenseVerificationService.STATUS_REJECTED
+        
+        await db.license_verifications.update_one(
+            {"id": request_id},
+            {
+                "$set": {
+                    "status": status,
+                    "verified_by": admin_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "notes": notes,
+                    "result": {
+                        "approved": approved,
+                        "verified_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            }
+        )
+        
+        # Also update the license record itself
+        verification = await db.license_verifications.find_one({"id": request_id}, {"_id": 0})
+        if verification:
+            await db.seeker_licenses.update_one(
+                {"id": verification["license_id"]},
+                {
+                    "$set": {
+                        "verification_status": status,
+                        "verified_at": datetime.now(timezone.utc).isoformat(),
+                        "verified_by": admin_id
+                    }
+                }
+            )
+        
+        return {"status": status, "request_id": request_id}
+
 # ==================== BACKGROUND SCHEDULER ====================
 
 class DocumentExpirationChecker:
