@@ -235,11 +235,12 @@ const LandingPage = () => {
       <footer className="py-12 px-6 border-t border-border">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <Heart className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-foreground">VitalaMatch</span>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
+              <img 
+                src="/images/vitalamatch-logo.png" 
+                alt="VitalaMatch" 
+                className="h-8 w-auto"
+              />
             </div>
             <p className="text-muted-foreground text-sm">
               © 2024 VitalaMatch. All rights reserved.
