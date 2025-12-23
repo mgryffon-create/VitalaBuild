@@ -328,16 +328,38 @@ const MatchesPage = () => {
                       </div>
                       
                       {/* View References Button */}
-                      {(isSeeker ? selectedMatch.poster_references_available : selectedMatch.seeker_references_available) && (
-                        <Button
-                          data-testid="view-references-btn"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => viewReferences(isSeeker ? selectedMatch.poster_id : selectedMatch.seeker_id)}
-                        >
-                          <FileText className="w-4 h-4 mr-2" /> View References
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!isSeeker && (
+                          <>
+                            <Button
+                              data-testid="request-interview-btn"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowInterviewDialog(true)}
+                            >
+                              <Calendar className="w-4 h-4 mr-1" /> Interview
+                            </Button>
+                            <Button
+                              data-testid="verify-license-btn"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowVerifyDialog(true)}
+                            >
+                              <Shield className="w-4 h-4 mr-1" /> Verify
+                            </Button>
+                          </>
+                        )}
+                        {(isSeeker ? selectedMatch.poster_references_available : selectedMatch.seeker_references_available) && (
+                          <Button
+                            data-testid="view-references-btn"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => viewReferences(isSeeker ? selectedMatch.poster_id : selectedMatch.seeker_id)}
+                          >
+                            <FileText className="w-4 h-4 mr-1" /> References
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
 
