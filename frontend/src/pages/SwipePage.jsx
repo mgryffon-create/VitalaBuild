@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { X, Heart, MapPin, Clock, DollarSign, Briefcase, Award, Star, CheckCircle, MessageCircle, Sparkles } from "lucide-react";
+import { X, Heart, MapPin, Clock, DollarSign, Briefcase, Award, Star, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, User, FileText, Gift, Calendar } from "lucide-react";
 
 const SwipePage = () => {
   const { jobId } = useParams();
@@ -19,6 +20,7 @@ const SwipePage = () => {
   const [loading, setLoading] = useState(true);
   const [showMatchDialog, setShowMatchDialog] = useState(false);
   const [matchData, setMatchData] = useState(null);
+  const [expandedCard, setExpandedCard] = useState(false);
 
   const isSeeker = user?.role === "seeker";
 
@@ -43,7 +45,7 @@ const SwipePage = () => {
   };
 
   const handleSwipe = async (direction) => {
-    if (currentIndex >= cards.length) return;
+    if (currentIndex >= cards.length || expandedCard) return;
 
     const card = cards[currentIndex];
     const action = direction === "right" ? "like" : "pass";
@@ -71,9 +73,14 @@ const SwipePage = () => {
       }
 
       setCurrentIndex(prev => prev + 1);
+      setExpandedCard(false);
     } catch (error) {
       toast.error("Failed to record swipe");
     }
+  };
+
+  const handleExpandToggle = () => {
+    setExpandedCard(!expandedCard);
   };
 
   if (loading) {
@@ -92,7 +99,7 @@ const SwipePage = () => {
   return (
     <DashboardLayout>
       <div data-testid="swipe-page" className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">
             {isSeeker ? "Find Your Perfect Job" : "Review Candidates"}
           </h1>
@@ -130,22 +137,41 @@ const SwipePage = () => {
           </div>
         ) : (
           <>
+            {/* Swipe up hint */}
+            <div className="text-center mb-4">
+              <motion.div
+                animate={{ y: [0, -5, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+              >
+                <ChevronUp className="w-4 h-4" />
+                <span>Swipe up for more details</span>
+              </motion.div>
+            </div>
+
             {/* Card Stack */}
-            <div className="relative w-full max-w-md h-[550px] mx-auto mb-8">
-              {cards.slice(currentIndex, currentIndex + 3).reverse().map((card, index) => (
-                <SwipeCard
-                  key={card.id}
-                  card={card}
-                  isSeeker={isSeeker}
-                  isTop={index === cards.slice(currentIndex, currentIndex + 3).length - 1}
-                  onSwipe={handleSwipe}
-                  style={{
-                    zIndex: index,
-                    scale: 1 - (cards.slice(currentIndex, currentIndex + 3).length - 1 - index) * 0.05,
-                    y: (cards.slice(currentIndex, currentIndex + 3).length - 1 - index) * 10
-                  }}
-                />
-              ))}
+            <div className="relative w-full max-w-md mx-auto mb-8" style={{ height: expandedCard ? "auto" : "550px" }}>
+              <AnimatePresence>
+                {cards.slice(currentIndex, currentIndex + 3).reverse().map((card, index) => {
+                  const isTopCard = index === cards.slice(currentIndex, currentIndex + 3).length - 1;
+                  return (
+                    <SwipeCard
+                      key={card.id}
+                      card={card}
+                      isSeeker={isSeeker}
+                      isTop={isTopCard}
+                      onSwipe={handleSwipe}
+                      expanded={isTopCard && expandedCard}
+                      onExpandToggle={isTopCard ? handleExpandToggle : undefined}
+                      style={{
+                        zIndex: index,
+                        scale: 1 - (cards.slice(currentIndex, currentIndex + 3).length - 1 - index) * 0.05,
+                        y: (cards.slice(currentIndex, currentIndex + 3).length - 1 - index) * 10
+                      }}
+                    />
+                  );
+                })}
+              </AnimatePresence>
             </div>
 
             {/* Action Buttons */}
@@ -156,14 +182,29 @@ const SwipePage = () => {
                 variant="outline"
                 className="w-16 h-16 rounded-full border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
                 onClick={() => handleSwipe("left")}
+                disabled={expandedCard}
               >
                 <X className="w-8 h-8" />
+              </Button>
+              <Button
+                data-testid="expand-card-btn"
+                size="lg"
+                variant="outline"
+                className={`w-16 h-16 rounded-full border-2 transition-colors ${
+                  expandedCard 
+                    ? "border-primary bg-primary text-white" 
+                    : "border-primary text-primary hover:bg-primary hover:text-white"
+                }`}
+                onClick={handleExpandToggle}
+              >
+                {expandedCard ? <ChevronDown className="w-8 h-8" /> : <ChevronUp className="w-8 h-8" />}
               </Button>
               <Button
                 data-testid="swipe-right-btn"
                 size="lg"
                 className="w-16 h-16 rounded-full bg-secondary hover:bg-secondary/90"
                 onClick={() => handleSwipe("right")}
+                disabled={expandedCard}
               >
                 <Heart className="w-8 h-8" />
               </Button>
@@ -213,9 +254,10 @@ const SwipePage = () => {
   );
 };
 
-// Swipe Card Component with Framer Motion
-const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style }) => {
+// Enhanced Swipe Card Component with expand functionality
+const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandToggle }) => {
   const x = useMotionValue(0);
+  const y = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
   
@@ -223,32 +265,49 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style }) => {
   const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
 
   const handleDragEnd = (event, info) => {
-    if (info.offset.x > 100) {
-      onSwipe("right");
-    } else if (info.offset.x < -100) {
-      onSwipe("left");
+    if (expanded) return;
+    
+    // Horizontal swipe
+    if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) {
+      if (info.offset.x > 100) {
+        onSwipe("right");
+      } else if (info.offset.x < -100) {
+        onSwipe("left");
+      }
+    } 
+    // Vertical swipe up to expand
+    else if (info.offset.y < -80 && onExpandToggle) {
+      onExpandToggle();
     }
   };
 
   return (
     <motion.div
-      className="absolute w-full h-full"
+      className={`${expanded ? "relative" : "absolute"} w-full`}
       style={{
-        x: isTop ? x : 0,
-        rotate: isTop ? rotate : 0,
+        x: isTop && !expanded ? x : 0,
+        y: isTop && !expanded ? y : 0,
+        rotate: isTop && !expanded ? rotate : 0,
         opacity,
         scale: style.scale,
-        y: style.y,
+        ...(expanded ? {} : { y: style.y }),
         zIndex: style.zIndex
       }}
-      drag={isTop ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
+      drag={isTop && !expanded ? true : false}
+      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragEnd={handleDragEnd}
-      whileTap={{ cursor: "grabbing" }}
+      whileTap={!expanded ? { cursor: "grabbing" } : {}}
+      layout
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className="swipe-card w-full h-full bg-card rounded-3xl shadow-xl border border-border overflow-hidden">
+      <motion.div 
+        className={`swipe-card w-full bg-card rounded-3xl shadow-xl border border-border overflow-hidden ${
+          expanded ? "min-h-[700px]" : "h-[550px]"
+        }`}
+        layout
+      >
         {/* Like/Nope Indicators */}
-        {isTop && (
+        {isTop && !expanded && (
           <>
             <motion.div
               className="absolute top-8 right-8 z-10 px-4 py-2 rounded-lg border-4 border-secondary text-secondary font-bold text-2xl rotate-12"
@@ -268,7 +327,7 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style }) => {
         {/* Card Content */}
         <div className="h-full flex flex-col">
           {/* Header with image or gradient */}
-          <div className="h-48 bg-gradient-to-br from-primary/20 to-secondary/20 relative">
+          <div className={`${expanded ? "h-56" : "h-44"} bg-gradient-to-br from-primary/20 to-secondary/20 relative flex-shrink-0 transition-all duration-300`}>
             {isSeeker && card.company_logo ? (
               <img src={card.company_logo} alt="" className="w-full h-full object-cover" />
             ) : !isSeeker && card.profile_image ? (
@@ -278,7 +337,7 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style }) => {
                 {isSeeker ? (
                   <Briefcase className="w-16 h-16 text-primary/50" />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center">
+                  <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg">
                     <span className="text-4xl font-bold text-primary">
                       {card.full_name?.charAt(0) || "?"}
                     </span>
@@ -311,89 +370,348 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style }) => {
               </svg>
               <span className="score-text text-secondary">{card.compatibility_score || 0}%</span>
             </div>
+
+            {/* Expand indicator on card */}
+            {isTop && !expanded && (
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+                <motion.div
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ repeat: Infinity, duration: 1 }}
+                  className="bg-white/90 backdrop-blur rounded-full px-3 py-1 shadow-md"
+                >
+                  <ChevronUp className="w-4 h-4 text-primary" />
+                </motion.div>
+              </div>
+            )}
           </div>
 
-          {/* Content */}
-          <div className="flex-1 p-6 pt-8 overflow-y-auto">
-            {isSeeker ? (
-              // Job Card Content
-              <>
-                <h2 className="text-xl font-bold text-foreground">{card.title}</h2>
-                <p className="text-muted-foreground">{card.company_name || "Healthcare Facility"}</p>
-                
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" /> {card.location}
-                  </Badge>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> {card.duration}
-                  </Badge>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" />
-                    ${card.pay_range?.min?.toLocaleString()} - ${card.pay_range?.max?.toLocaleString()}
-                  </Badge>
-                </div>
-                
-                <p className="text-sm text-muted-foreground mt-4 line-clamp-3">
-                  {card.description}
-                </p>
-                
-                {card.benefits?.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-foreground mb-2">Benefits</p>
-                    <div className="flex flex-wrap gap-1">
-                      {card.benefits.slice(0, 4).map((benefit, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
-                          <CheckCircle className="w-3 h-3 mr-1" /> {benefit}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+          {/* Content - Scrollable when expanded */}
+          <div className={`flex-1 ${expanded ? "overflow-hidden" : "overflow-y-auto"}`}>
+            <ScrollArea className={expanded ? "h-[420px]" : "h-full"}>
+              <div className="p-6 pt-8">
+                {isSeeker ? (
+                  // Job Card Content
+                  <JobCardContent card={card} expanded={expanded} />
+                ) : (
+                  // Seeker Card Content
+                  <SeekerCardContent card={card} expanded={expanded} />
                 )}
-              </>
-            ) : (
-              // Seeker Card Content
-              <>
-                <h2 className="text-xl font-bold text-foreground">{card.full_name}</h2>
-                <p className="text-muted-foreground">{card.specialty || "Medical Professional"}</p>
-                
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {card.years_experience && (
-                    <Badge variant="secondary" className="flex items-center gap-1">
-                      <Star className="w-3 h-3" /> {card.years_experience} years exp
-                    </Badge>
-                  )}
-                  {card.preferred_locations?.length > 0 && (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {card.preferred_locations[0]}
-                    </Badge>
-                  )}
-                </div>
-                
-                {card.bio && (
-                  <p className="text-sm text-muted-foreground mt-4 line-clamp-3">
-                    {card.bio}
-                  </p>
-                )}
-                
-                {card.certifications?.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-foreground mb-2">Certifications</p>
-                    <div className="flex flex-wrap gap-1">
-                      {card.certifications.slice(0, 4).map((cert, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          <Award className="w-3 h-3 mr-1" /> {cert.name || cert}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Collapse button when expanded */}
+          {expanded && onExpandToggle && (
+            <div className="p-4 border-t border-border">
+              <Button
+                data-testid="collapse-card-btn"
+                variant="ghost"
+                className="w-full"
+                onClick={onExpandToggle}
+              >
+                <ChevronDown className="w-4 h-4 mr-2" /> Show Less
+              </Button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Job Card Content Component
+const JobCardContent = ({ card, expanded }) => {
+  return (
+    <>
+      {/* Title & Company */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-foreground">{card.title}</h2>
+        <p className="text-muted-foreground flex items-center gap-1">
+          <Briefcase className="w-4 h-4" />
+          {card.company_name || "Healthcare Facility"}
+        </p>
+      </div>
+
+      {/* Key Info Badges */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Badge variant="secondary" className="flex items-center gap-1">
+          <MapPin className="w-3 h-3" /> {card.location}
+        </Badge>
+        <Badge variant="outline" className="flex items-center gap-1">
+          <Clock className="w-3 h-3" /> {card.duration}
+        </Badge>
+        <Badge variant="outline" className="flex items-center gap-1">
+          <DollarSign className="w-3 h-3" />
+          ${card.pay_range?.min?.toLocaleString()} - ${card.pay_range?.max?.toLocaleString()}
+        </Badge>
+      </div>
+
+      {/* Specialty & Experience */}
+      <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-muted/50 rounded-xl">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Specialty</p>
+          <p className="font-medium text-foreground">{card.specialty || "General"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Experience Req.</p>
+          <p className="font-medium text-foreground">{card.experience_required || 0}+ years</p>
+        </div>
+      </div>
+
+      {/* Brief Description (always visible) */}
+      <div className="mb-4">
+        <p className="text-sm text-muted-foreground font-medium mb-1">About This Role</p>
+        <p className={`text-sm text-foreground ${expanded ? "" : "line-clamp-2"}`}>
+          {card.description}
+        </p>
+      </div>
+
+      {/* Benefits Preview (always visible) */}
+      {card.benefits?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+            <Gift className="w-4 h-4 text-secondary" /> Benefits Offered
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {card.benefits.slice(0, expanded ? card.benefits.length : 3).map((benefit, i) => (
+              <Badge key={i} variant="secondary" className="text-xs">
+                <CheckCircle className="w-3 h-3 mr-1" /> {benefit}
+              </Badge>
+            ))}
+            {!expanded && card.benefits.length > 3 && (
+              <Badge variant="outline" className="text-xs">+{card.benefits.length - 3} more</Badge>
             )}
           </div>
         </div>
+      )}
+
+      {/* Expanded Content */}
+      {expanded && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-4 pt-4 border-t border-border"
+        >
+          {/* Time Off Policy */}
+          {card.time_off_policy && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1 flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-primary" /> Time Off Policy
+              </p>
+              <p className="text-sm text-muted-foreground">{card.time_off_policy}</p>
+            </div>
+          )}
+
+          {/* Requirements */}
+          {card.requirements?.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                <FileText className="w-4 h-4 text-primary" /> Requirements
+              </p>
+              <ul className="space-y-1">
+                {card.requirements.map((req, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-secondary flex-shrink-0 mt-0.5" />
+                    {req}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Required Certifications */}
+          {card.certifications_required?.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                <Award className="w-4 h-4 text-primary" /> Required Certifications
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {card.certifications_required.map((cert, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    <Award className="w-3 h-3 mr-1" /> {cert}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shift Type & Start Date */}
+          <div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-xl">
+            {card.shift_type && (
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Shift Type</p>
+                <p className="font-medium text-foreground">{card.shift_type}</p>
+              </div>
+            )}
+            {card.start_date && (
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Date</p>
+                <p className="font-medium text-foreground">{card.start_date}</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </>
+  );
+};
+
+// Seeker Card Content Component
+const SeekerCardContent = ({ card, expanded }) => {
+  return (
+    <>
+      {/* Name & Title */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-foreground">{card.full_name}</h2>
+        <p className="text-muted-foreground flex items-center gap-1">
+          <User className="w-4 h-4" />
+          {card.specialty || "Medical Professional"}
+        </p>
       </div>
-    </motion.div>
+
+      {/* Key Info Badges */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {card.years_experience && (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Star className="w-3 h-3" /> {card.years_experience} years exp
+          </Badge>
+        )}
+        {card.preferred_locations?.length > 0 && (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" /> {card.preferred_locations[0]}
+          </Badge>
+        )}
+        {card.expected_pay?.min && (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <DollarSign className="w-3 h-3" />
+            ${card.expected_pay.min}/hr+
+          </Badge>
+        )}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-muted/50 rounded-xl">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Specialty</p>
+          <p className="font-medium text-foreground">{card.specialty || "General"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Experience</p>
+          <p className="font-medium text-foreground">{card.years_experience || 0} years</p>
+        </div>
+      </div>
+
+      {/* Bio Preview */}
+      {card.bio && (
+        <div className="mb-4">
+          <p className="text-sm text-muted-foreground font-medium mb-1">About</p>
+          <p className={`text-sm text-foreground ${expanded ? "" : "line-clamp-2"}`}>
+            {card.bio}
+          </p>
+        </div>
+      )}
+
+      {/* Certifications Preview */}
+      {card.certifications?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+            <Award className="w-4 h-4 text-secondary" /> Certifications
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {card.certifications.slice(0, expanded ? card.certifications.length : 3).map((cert, i) => (
+              <Badge key={i} variant="outline" className="text-xs">
+                <Award className="w-3 h-3 mr-1" /> {cert.name || cert}
+              </Badge>
+            ))}
+            {!expanded && card.certifications.length > 3 && (
+              <Badge variant="secondary" className="text-xs">+{card.certifications.length - 3} more</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Content */}
+      {expanded && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-4 pt-4 border-t border-border"
+        >
+          {/* Licenses */}
+          {card.licenses?.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4 text-primary" /> Active Licenses
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {card.licenses.map((lic, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    {lic.name} ({lic.state})
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Desired Benefits */}
+          {card.desired_benefits?.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                <Gift className="w-4 h-4 text-primary" /> Looking For
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {card.desired_benefits.map((benefit, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    {benefit}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preferred Locations (All) */}
+          {card.preferred_locations?.length > 1 && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                <MapPin className="w-4 h-4 text-primary" /> Preferred Locations
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {card.preferred_locations.map((loc, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    <MapPin className="w-3 h-3 mr-1" /> {loc}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pay Expectations */}
+          {card.expected_pay && (
+            <div className="p-3 bg-muted/50 rounded-xl">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Pay Expectations</p>
+              <p className="font-medium text-foreground">
+                ${card.expected_pay.min?.toLocaleString()} - ${card.expected_pay.max?.toLocaleString()}/hr
+              </p>
+            </div>
+          )}
+
+          {/* Contact Info (if available) */}
+          {card.contact_info && (
+            <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+              <p className="text-xs text-primary uppercase tracking-wide mb-2">Contact Information</p>
+              {card.contact_info.email && (
+                <p className="text-sm text-foreground">{card.contact_info.email}</p>
+              )}
+              {card.contact_info.phone && (
+                <p className="text-sm text-muted-foreground">{card.contact_info.phone}</p>
+              )}
+            </div>
+          )}
+        </motion.div>
+      )}
+    </>
   );
 };
 
