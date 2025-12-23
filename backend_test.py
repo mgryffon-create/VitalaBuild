@@ -37,8 +37,8 @@ class VitalaMatchAPITester:
         url = f"{self.base_url}/{endpoint}"
         test_headers = {'Content-Type': 'application/json'}
         
-        if self.token:
-            test_headers['Authorization'] = f'Bearer {self.token}'
+        if self.current_token:
+            test_headers['Authorization'] = f'Bearer {self.current_token}'
         
         if headers:
             test_headers.update(headers)
