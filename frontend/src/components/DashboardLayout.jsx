@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
 import { 
-  Heart, 
   Home, 
   User, 
   FileText, 
@@ -19,7 +18,8 @@ import {
   RotateCcw,
   HelpCircle,
   Rss,
-  Calendar
+  Calendar,
+  Stethoscope
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -34,7 +34,7 @@ const DashboardLayout = ({ children }) => {
   const navigationItems = isSeeker
     ? [
         { label: "Dashboard", icon: Home, path: "/seeker" },
-        { label: "Find Jobs", icon: Heart, path: "/seeker/swipe" },
+        { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
         { label: "My Profile", icon: User, path: "/seeker/profile" },
         { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
         { label: "Documents", icon: FileText, path: "/seeker/documents" },
