@@ -1146,6 +1146,32 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
 async def root():
     return {"message": "MedJobMatch API", "version": "1.0.0"}
 
+# ==================== ADMIN/SYSTEM ROUTES ====================
+
+@api_router.post("/admin/check-expirations")
+async def trigger_expiration_check(current_user: dict = Depends(get_current_user)):
+    """Manually trigger document expiration check (for testing)"""
+    count = await DocumentExpirationChecker.check_expiring_documents()
+    return {"message": f"Expiration check complete. Notified {count} users."}
+
+@api_router.get("/admin/notification-logs")
+async def get_notification_logs(current_user: dict = Depends(get_current_user)):
+    """Get notification logs for current user"""
+    logs = await db.notification_logs.find(
+        {"user_id": current_user["id"]},
+        {"_id": 0}
+    ).sort("sent_at", -1).to_list(50)
+    return logs
+
+@api_router.get("/specialties")
+async def get_specialties():
+    """Get list of all available specialties"""
+    return {
+        "nursing": NURSING_SPECIALTIES,
+        "allied_health": ALLIED_HEALTH_SPECIALTIES,
+        "all": NURSING_SPECIALTIES + ALLIED_HEALTH_SPECIALTIES
+    }
+
 # Include the router
 app.include_router(api_router)
 
