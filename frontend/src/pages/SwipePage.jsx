@@ -286,9 +286,16 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandTo
         onSwipe("left");
       }
     } 
-    // Vertical swipe up to expand
-    else if (info.offset.y < -80 && onExpandToggle) {
-      onExpandToggle();
+    // Vertical swipe
+    else {
+      // Swipe up to expand
+      if (info.offset.y < -80 && onExpandToggle) {
+        onExpandToggle();
+      }
+      // Swipe down for "maybe"
+      else if (info.offset.y > 100) {
+        onSwipe("down");
+      }
     }
   };
 
