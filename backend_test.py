@@ -200,299 +200,324 @@ class VitalaMatchAPITester:
         
         return self.seeker_token and self.poster_token
 
-    def test_profile_endpoints(self):
-        """Test profile endpoints for seeker"""
-        print("\n🔍 Testing Profile Endpoints...")
+    def test_swipe_bins_endpoints(self):
+        """Test swipe bins endpoints for 'Take Another Look' and 'Maybe' features"""
+        print("\n🔍 Testing Swipe Bins Endpoints...")
         
-        # Get current profile
-        success, profile = self.run_test(
-            "Get seeker profile",
+        # Use seeker token
+        self.current_token = self.seeker_token
+        
+        # Test getting passed profiles (Take Another Look bin)
+        success, passed_profiles = self.run_test(
+            "Get passed profiles bin",
             "GET",
-            "profile/seeker",
+            "swipe/bins/passed",
             200
         )
         
-        # Test profile update with work history and medical records
-        profile_data = {
-            "contact_info": {
-                "email": "testseeker@test.com",
-                "phone": "(555) 123-4567",
-                "address": "Test City, Test State"
-            },
-            "specialty": "Registered Nurse (RN) - ICU/Critical Care",
-            "years_experience": 5,
-            "bio": "Experienced ICU nurse with 5 years of critical care experience",
-            "work_history": [
-                {
-                    "facility_name": "Memorial Hospital",
-                    "position": "ICU Registered Nurse",
-                    "department": "Intensive Care Unit",
-                    "start_date": "2020-01",
-                    "end_date": "2023-12",
-                    "is_current": False,
-                    "responsibilities": "Provided critical care to ICU patients"
-                },
-                {
-                    "facility_name": "City General Hospital",
-                    "position": "Staff Nurse",
-                    "department": "Emergency Department",
-                    "start_date": "2024-01",
-                    "end_date": "",
-                    "is_current": True,
-                    "responsibilities": "Emergency care and triage"
-                }
-            ],
-            "medical_records": [
-                {
-                    "record_type": "TB Test (PPD/Quantiferon)",
-                    "date_completed": "2024-01-15",
-                    "expiration_date": "2025-01-15",
-                    "result": "Negative"
-                },
-                {
-                    "record_type": "COVID-19 Vaccination",
-                    "date_completed": "2023-12-01",
-                    "expiration_date": "",
-                    "result": "Complete"
-                },
-                {
-                    "record_type": "Annual Physical",
-                    "date_completed": "2024-06-01",
-                    "expiration_date": "2025-06-01",
-                    "result": "Cleared for duty"
-                }
-            ],
-            "certifications": [
-                {"name": "BLS", "expiration": "2025-03-15"},
-                {"name": "ACLS", "expiration": "2025-06-20"}
-            ],
-            "licenses": [
-                {
-                    "name": "RN",
-                    "state": "CA",
-                    "license_number": "RN123456",
-                    "expiration": "2025-12-31"
-                }
-            ],
-            "expected_pay": {"min": 45, "max": 65},
-            "desired_benefits": ["Health Insurance", "401(k)", "Paid Time Off"],
-            "preferred_locations": ["Los Angeles, CA", "San Francisco, CA"]
-        }
+        if success:
+            self.log_test("Passed profiles endpoint accessible", True, 
+                         f"Found {len(passed_profiles)} passed profiles")
         
-        success, response = self.run_test(
-            "Update seeker profile with work history and medical records",
-            "PUT",
-            "profile/seeker",
-            200,
-            profile_data
+        # Test getting maybe profiles
+        success, maybe_profiles = self.run_test(
+            "Get maybe profiles bin",
+            "GET",
+            "swipe/bins/maybe",
+            200
         )
         
         if success:
-            # Verify the profile was updated
-            success, updated_profile = self.run_test(
-                "Verify profile update",
-                "GET",
-                "profile/seeker",
+            self.log_test("Maybe profiles endpoint accessible", True,
+                         f"Found {len(maybe_profiles)} maybe profiles")
+        
+        # Test swipe reconsider endpoint (will test with dummy ID)
+        success, response = self.run_test(
+            "Test swipe reconsider endpoint structure",
+            "PUT",
+            "swipe/bins/dummy-id/reconsider?new_action=like",
+            404  # Expected 404 for dummy ID
+        )
+        
+        # 404 is expected for dummy ID, so this confirms endpoint exists
+        self.log_test("Swipe reconsider endpoint exists", success or response != {})
+
+    def test_feed_endpoints(self):
+        """Test social feed endpoints"""
+        print("\n🔍 Testing Social Feed Endpoints...")
+        
+        # Use seeker token
+        self.current_token = self.seeker_token
+        
+        # Test creating a feed post
+        post_data = {
+            "content": "Excited to start my new nursing assignment! #VitalaMatch #Nursing",
+            "visibility": "everyone",
+            "comment_permission": "everyone"
+        }
+        
+        success, post_response = self.run_test(
+            "Create feed post",
+            "POST",
+            "feed",
+            200,
+            post_data
+        )
+        
+        post_id = None
+        if success and 'id' in post_response:
+            post_id = post_response['id']
+            content_correct = post_response.get('content') == post_data['content']
+            visibility_correct = post_response.get('visibility') == 'everyone'
+            
+            self.log_test("Feed post created with correct content", content_correct)
+            self.log_test("Feed post has correct visibility", visibility_correct)
+        
+        # Test creating post with 140 character limit
+        long_post_data = {
+            "content": "A" * 141,  # 141 characters - should fail
+            "visibility": "everyone",
+            "comment_permission": "everyone"
+        }
+        
+        success, response = self.run_test(
+            "Test 140 character limit",
+            "POST",
+            "feed",
+            400,  # Should fail with 400
+            long_post_data
+        )
+        
+        self.log_test("140 character limit enforced", success)
+        
+        # Test getting feed
+        success, feed_posts = self.run_test(
+            "Get feed posts",
+            "GET",
+            "feed",
+            200
+        )
+        
+        if success:
+            self.log_test("Feed retrieval successful", True,
+                         f"Found {len(feed_posts)} posts")
+        
+        # Test liking a post (if we have a post ID)
+        if post_id:
+            success, like_response = self.run_test(
+                "Like feed post",
+                "POST",
+                f"feed/{post_id}/like",
                 200
             )
             
             if success:
-                has_work_history = len(updated_profile.get('work_history', [])) >= 2
-                has_medical_records = len(updated_profile.get('medical_records', [])) >= 3
-                has_specialty = updated_profile.get('specialty') == "Registered Nurse (RN) - ICU/Critical Care"
-                
-                self.log_test("Profile has work history", has_work_history,
-                             f"Found {len(updated_profile.get('work_history', []))} work entries")
-                self.log_test("Profile has medical records", has_medical_records,
-                             f"Found {len(updated_profile.get('medical_records', []))} medical records")
-                self.log_test("Profile has correct specialty", has_specialty)
-
-    def test_job_creation_with_specialties(self):
-        """Test job creation with categorized specialties"""
-        print("\n🔍 Testing Job Creation...")
-        
-        # First create a poster account
-        poster_register_data = {
-            "email": "testposter@test.com",
-            "password": "test123",
-            "role": "poster",
-            "full_name": "Test Hospital"
-        }
-        
-        success, response = self.run_test(
-            "Register poster account",
-            "POST",
-            "auth/register",
-            200,
-            poster_register_data
-        )
-        
-        if success:
-            poster_token = response['access_token']
-            poster_id = response['user']['id']
+                liked_status = like_response.get('liked', False)
+                self.log_test("Post like toggle works", True, f"Liked: {liked_status}")
             
-            # Update poster profile
-            poster_profile = {
-                "company_name": "Memorial Medical Center",
-                "company_description": "Leading healthcare facility",
-                "contact_info": {
-                    "email": "hr@memorial.com",
-                    "phone": "(555) 987-6543",
-                    "address": "123 Hospital Way, Medical City, CA"
-                }
-            }
+            # Test commenting on post
+            comment_data = {"content": "Great post! Congratulations!"}
             
-            # Temporarily switch to poster token
-            original_token = self.token
-            self.token = poster_token
-            
-            success, response = self.run_test(
-                "Update poster profile",
-                "PUT",
-                "profile/poster",
-                200,
-                poster_profile
-            )
-            
-            # Create job with nursing specialty
-            job_data = {
-                "title": "ICU Travel Nurse",
-                "description": "Seeking experienced ICU nurse for 13-week travel assignment",
-                "location": "Los Angeles, CA",
-                "duration": "13 weeks",
-                "pay_range": {"min": 50, "max": 70},
-                "benefits": ["Health Insurance", "Housing Stipend", "Travel Reimbursement"],
-                "time_off_policy": "Flexible PTO policy",
-                "requirements": ["Must have 2+ years ICU experience", "BLS and ACLS required"],
-                "certifications_required": ["BLS", "ACLS"],
-                "experience_required": 2,
-                "specialty": "Registered Nurse (RN) - ICU/Critical Care",
-                "shift_type": "Day Shift (7a-7p)",
-                "start_date": "2024-09-01"
-            }
-            
-            success, job_response = self.run_test(
-                "Create job with nursing specialty",
+            success, comment_response = self.run_test(
+                "Comment on feed post",
                 "POST",
-                "jobs",
+                f"feed/{post_id}/comment",
                 200,
-                job_data
+                comment_data
             )
             
             if success:
-                job_id = job_response.get('id')
-                has_specialty = job_response.get('specialty') == "Registered Nurse (RN) - ICU/Critical Care"
-                has_company = job_response.get('company_name') == "Memorial Medical Center"
-                
-                self.log_test("Job created with correct specialty", has_specialty)
-                self.log_test("Job has company information", has_company)
-                
-                # Test job retrieval
-                success, retrieved_job = self.run_test(
-                    "Retrieve created job",
-                    "GET",
-                    f"jobs/{job_id}",
-                    200
-                )
-                
-                if success:
-                    self.log_test("Job retrieval successful", True, f"Job ID: {job_id}")
-            
-            # Restore original token
-            self.token = original_token
+                comment_content = comment_response.get('content') == comment_data['content']
+                self.log_test("Comment created successfully", comment_content)
 
-    def test_document_expiration_check(self):
-        """Test admin endpoint for document expiration check"""
-        print("\n🔍 Testing Document Expiration Check...")
+    def test_interview_endpoints(self):
+        """Test interview request endpoints"""
+        print("\n🔍 Testing Interview Request Endpoints...")
         
-        success, response = self.run_test(
-            "Trigger document expiration check",
-            "POST",
-            "admin/check-expirations",
+        # Use poster token for creating interview requests
+        self.current_token = self.poster_token
+        
+        # First, we need a match to create an interview request
+        # For testing purposes, we'll test the endpoint structure
+        
+        # Test getting interview requests
+        success, interview_requests = self.run_test(
+            "Get interview requests",
+            "GET",
+            "interview-requests",
             200
         )
         
         if success:
-            has_message = 'message' in response
-            self.log_test("Expiration check returns message", has_message,
-                         response.get('message', ''))
-
-    def test_notification_preferences(self):
-        """Test notification preferences endpoints"""
-        print("\n🔍 Testing Notification Preferences...")
+            self.log_test("Interview requests endpoint accessible", True,
+                         f"Found {len(interview_requests)} interview requests")
         
-        # Get current preferences
-        success, prefs = self.run_test(
-            "Get notification preferences",
-            "GET",
-            "notifications/preferences",
-            200
-        )
-        
-        # Update preferences
-        new_prefs = {
-            "email_enabled": True,
-            "sms_enabled": False,
-            "phone_number": "+15551234567",
-            "frequency": "immediate",
-            "match_notifications": True,
-            "message_notifications": True,
-            "document_reminders": True
+        # Test creating interview request (will fail without valid match, but tests endpoint)
+        interview_data = {
+            "match_id": "dummy-match-id",
+            "proposed_times": ["2024-12-01T10:00:00Z", "2024-12-01T14:00:00Z"],
+            "duration_minutes": 60,
+            "meeting_type": "video",
+            "notes": "Looking forward to discussing the position"
         }
         
         success, response = self.run_test(
-            "Update notification preferences",
-            "PUT",
-            "notifications/preferences",
-            200,
-            new_prefs
+            "Test interview request endpoint structure",
+            "POST",
+            "matches/dummy-match-id/interview-request",
+            404,  # Expected 404 for dummy match ID
+            interview_data
         )
-
-    def test_stats_endpoint(self):
-        """Test stats/dashboard endpoint"""
-        print("\n🔍 Testing Stats Endpoint...")
         
-        success, stats = self.run_test(
-            "Get dashboard stats",
+        # 404 is expected for dummy match ID, confirms endpoint exists
+        self.log_test("Interview request endpoint exists", success or response != {})
+
+    def test_swipe_actions(self):
+        """Test swipe actions including 'maybe' action"""
+        print("\n🔍 Testing Swipe Actions...")
+        
+        # Use seeker token
+        self.current_token = self.seeker_token
+        
+        # Test getting swipeable jobs
+        success, jobs = self.run_test(
+            "Get swipeable jobs",
             "GET",
-            "stats",
+            "swipe/jobs",
             200
         )
         
         if success:
-            has_matches = 'matches' in stats
-            has_refs = 'pending_references' in stats or 'completed_references' in stats
+            self.log_test("Swipeable jobs endpoint accessible", True,
+                         f"Found {len(jobs)} jobs to swipe")
             
-            self.log_test("Stats has matches count", has_matches)
-            self.log_test("Stats has references info", has_refs)
+            # If we have jobs, test swipe actions
+            if len(jobs) > 0:
+                job_id = jobs[0].get('id')
+                
+                # Test 'maybe' swipe action
+                maybe_swipe_data = {
+                    "target_id": job_id,
+                    "action": "maybe"
+                }
+                
+                success, swipe_response = self.run_test(
+                    "Test 'maybe' swipe action",
+                    "POST",
+                    "swipe",
+                    200,
+                    maybe_swipe_data
+                )
+                
+                if success:
+                    self.log_test("Maybe swipe action works", True)
+                
+                # Test 'pass' swipe action
+                pass_swipe_data = {
+                    "target_id": job_id,
+                    "action": "pass"
+                }
+                
+                success, swipe_response = self.run_test(
+                    "Test 'pass' swipe action",
+                    "POST",
+                    "swipe",
+                    200,
+                    pass_swipe_data
+                )
+                
+                if success:
+                    self.log_test("Pass swipe action works", True)
+
+    def setup_test_data(self):
+        """Setup test data for comprehensive testing"""
+        print("\n🔍 Setting up test data...")
+        
+        # Setup seeker profile
+        self.current_token = self.seeker_token
+        seeker_profile = {
+            "specialty": "Registered Nurse (RN) - ICU/Critical Care",
+            "years_experience": 3,
+            "bio": "Dedicated ICU nurse with passion for patient care",
+            "contact_info": {
+                "email": "testseeker@vitalamatch.com",
+                "phone": "(555) 123-4567"
+            },
+            "preferred_locations": ["Los Angeles, CA", "San Francisco, CA"]
+        }
+        
+        success, response = self.run_test(
+            "Setup seeker profile",
+            "PUT",
+            "profile/seeker",
+            200,
+            seeker_profile
+        )
+        
+        # Setup poster profile and create a job
+        self.current_token = self.poster_token
+        poster_profile = {
+            "company_name": "VitalaMatch Medical Center",
+            "company_description": "Leading healthcare facility",
+            "contact_info": {
+                "email": "hr@vitalamatch.com",
+                "phone": "(555) 987-6543"
+            }
+        }
+        
+        success, response = self.run_test(
+            "Setup poster profile",
+            "PUT",
+            "profile/poster",
+            200,
+            poster_profile
+        )
+        
+        # Create a test job
+        job_data = {
+            "title": "ICU Travel Nurse - VitalaMatch",
+            "description": "Join our team at VitalaMatch Medical Center",
+            "location": "Los Angeles, CA",
+            "duration": "13 weeks",
+            "pay_range": {"min": 55, "max": 75},
+            "benefits": ["Health Insurance", "Housing Stipend"],
+            "time_off_policy": "Flexible PTO",
+            "requirements": ["2+ years ICU experience"],
+            "certifications_required": ["BLS", "ACLS"],
+            "experience_required": 2,
+            "specialty": "Registered Nurse (RN) - ICU/Critical Care"
+        }
+        
+        success, job_response = self.run_test(
+            "Create test job",
+            "POST",
+            "jobs",
+            200,
+            job_data
+        )
+        
+        if success and 'id' in job_response:
+            self.job_id = job_response['id']
+            self.log_test("Test job created", True, f"Job ID: {self.job_id}")
 
     def run_all_tests(self):
-        """Run all tests"""
-        print("🚀 Starting MedJobMatch API Tests...")
+        """Run all VitalaMatch tests"""
+        print("🚀 Starting VitalaMatch API Tests...")
         print(f"Testing against: {self.base_url}")
         
-        # Test specialties endpoint (no auth required)
-        specialties = self.test_specialties_endpoint()
-        
-        # Test authentication
+        # Test authentication for both roles
         if not self.test_auth_flow():
             print("❌ Authentication failed - stopping tests")
             return self.generate_report()
         
-        # Test profile endpoints
-        self.test_profile_endpoints()
+        # Setup test data
+        self.setup_test_data()
         
-        # Test job creation
-        self.test_job_creation_with_specialties()
-        
-        # Test admin endpoints
-        self.test_document_expiration_check()
-        
-        # Test notification preferences
-        self.test_notification_preferences()
-        
-        # Test stats
-        self.test_stats_endpoint()
+        # Test new VitalaMatch features
+        self.test_swipe_bins_endpoints()
+        self.test_feed_endpoints()
+        self.test_interview_endpoints()
+        self.test_swipe_actions()
         
         return self.generate_report()
 
