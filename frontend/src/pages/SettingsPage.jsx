@@ -5,16 +5,29 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Bell, Mail, Phone, Save, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Mail, Phone, Save, Settings as SettingsIcon, Smartphone, Download, CheckCircle, XCircle } from "lucide-react";
+import { 
+  isPushNotificationSupported, 
+  getNotificationPermission, 
+  requestNotificationPermission,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications
+} from "@/utils/pushNotifications";
 
 const SettingsPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushPermission, setPushPermission] = useState('default');
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
   const [preferences, setPreferences] = useState({
     email_enabled: true,
     sms_enabled: false,
@@ -22,12 +35,109 @@ const SettingsPage = () => {
     frequency: "immediate",
     match_notifications: true,
     message_notifications: true,
-    document_reminders: true
+    document_reminders: true,
+    push_enabled: false
   });
 
   useEffect(() => {
     fetchPreferences();
+    checkPushStatus();
+    checkInstallStatus();
+    
+    // Listen for install prompt
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', () => setIsInstalled(true));
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
   }, []);
+
+  const checkPushStatus = async () => {
+    const supported = isPushNotificationSupported();
+    setPushSupported(supported);
+    
+    if (supported) {
+      setPushPermission(getNotificationPermission());
+      
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        setPushSubscribed(!!subscription);
+      }
+    }
+  };
+
+  const checkInstallStatus = () => {
+    // Check if running as installed PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+      || window.navigator.standalone 
+      || document.referrer.includes('android-app://');
+    setIsInstalled(isStandalone);
+  };
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      toast.info("App is already installed or installation not available");
+      return;
+    }
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    
+    if (outcome === 'accepted') {
+      toast.success("VitalaMatch installed successfully!");
+      setIsInstalled(true);
+    }
+    setDeferredPrompt(null);
+  };
+
+  const handleEnablePush = async () => {
+    const granted = await requestNotificationPermission();
+    
+    if (granted) {
+      setPushPermission('granted');
+      
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await subscribeToPushNotifications(registration);
+      
+      if (subscription) {
+        setPushSubscribed(true);
+        setPreferences(prev => ({ ...prev, push_enabled: true }));
+        toast.success("Push notifications enabled!");
+        
+        // Send subscription to server
+        try {
+          await axios.post(`${API}/notifications/push-subscription`, {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))),
+              auth: btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
+            }
+          });
+        } catch (error) {
+          console.error("Failed to save push subscription to server");
+        }
+      }
+    } else {
+      setPushPermission('denied');
+      toast.error("Notification permission denied");
+    }
+  };
+
+  const handleDisablePush = async () => {
+    const unsubscribed = await unsubscribeFromPushNotifications();
+    if (unsubscribed) {
+      setPushSubscribed(false);
+      setPreferences(prev => ({ ...prev, push_enabled: false }));
+      toast.success("Push notifications disabled");
+    }
+  };
 
   const fetchPreferences = async () => {
     try {
