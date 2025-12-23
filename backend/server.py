@@ -586,7 +586,46 @@ class JobPostingResponse(BaseModel):
 
 class SwipeAction(BaseModel):
     target_id: str  # job_id for seekers, seeker_id for posters
-    action: str  # 'like' or 'pass'
+    action: str  # 'like', 'pass', or 'maybe'
+
+# ==================== NEW MODELS FOR ENHANCED FEATURES ====================
+
+class DirectMessage(BaseModel):
+    content: str
+    reply_to_id: Optional[str] = None
+
+class InterviewRequest(BaseModel):
+    match_id: str
+    proposed_times: List[str]  # ISO datetime strings
+    duration_minutes: int = 60
+    meeting_type: str = "video"  # video, phone, in_person
+    notes: Optional[str] = None
+    calendly_link: Optional[str] = None
+    zoom_link: Optional[str] = None
+
+class InterviewResponse(BaseModel):
+    accepted: bool
+    selected_time: Optional[str] = None
+    meeting_link: Optional[str] = None
+    notes: Optional[str] = None
+
+class FeedPost(BaseModel):
+    content: str  # Max 140 characters
+    image_data: Optional[str] = None  # Base64 encoded image
+    visibility: str = "everyone"  # everyone, matches_only
+    comment_permission: str = "everyone"  # everyone, matches_only, none
+
+class FeedComment(BaseModel):
+    content: str
+
+class CalendlyConfig(BaseModel):
+    calendly_link: str
+    access_token: Optional[str] = None
+
+class ZoomConfig(BaseModel):
+    zoom_link: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
 
 class ReferenceRequest(BaseModel):
     referee_email: EmailStr
