@@ -28,6 +28,18 @@ const MatchesPage = () => {
   const [showReferencesDialog, setShowReferencesDialog] = useState(false);
   const [references, setReferences] = useState([]);
   const [loadingRefs, setLoadingRefs] = useState(false);
+  const [replyProbability, setReplyProbability] = useState(null);
+  const [showInterviewDialog, setShowInterviewDialog] = useState(false);
+  const [interviewData, setInterviewData] = useState({
+    proposed_times: [""],
+    duration_minutes: 60,
+    meeting_type: "video",
+    notes: "",
+    calendly_link: "",
+    zoom_link: ""
+  });
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [verifyingLicense, setVerifyingLicense] = useState(false);
   const messagesEndRef = useRef(null);
 
   const isSeeker = user?.role === "seeker";
