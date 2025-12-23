@@ -76,10 +76,20 @@ const JobFormPage = () => {
   ];
 
   useEffect(() => {
+    fetchSpecialties();
     if (jobId) {
       fetchJob();
     }
   }, [jobId]);
+
+  const fetchSpecialties = async () => {
+    try {
+      const response = await axios.get(`${API}/specialties`);
+      setSpecialties(response.data);
+    } catch (error) {
+      console.error("Failed to load specialties");
+    }
+  };
 
   const fetchJob = async () => {
     try {
