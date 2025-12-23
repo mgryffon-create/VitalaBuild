@@ -3,11 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Users, Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2, ArrowRight } from "lucide-react";
+import { Users, Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2, ArrowRight, Mail, CheckCircle, AlertTriangle, Shield } from "lucide-react";
 import VitalaIcon from "@/components/VitalaIcon";
 import {
   AlertDialog,
@@ -28,10 +32,26 @@ const PosterDashboard = () => {
   const [recentMatches, setRecentMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteJobId, setDeleteJobId] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verifyStep, setVerifyStep] = useState("email"); // email, code
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchVerificationStatus();
   }, []);
+
+  const fetchVerificationStatus = async () => {
+    try {
+      const response = await axios.get(`${API}/employer/verification-status`);
+      setVerificationStatus(response.data);
+    } catch (error) {
+      console.error("Failed to fetch verification status");
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -48,6 +68,50 @@ const PosterDashboard = () => {
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendVerification = async () => {
+    if (!businessEmail || !businessEmail.includes("@")) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    setSendingVerification(true);
+    try {
+      const response = await axios.post(`${API}/employer/verify-email/send`, {
+        business_email: businessEmail
+      });
+      toast.success("Verification email sent! Check your inbox.");
+      setVerifyStep("code");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to send verification email");
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  const handleConfirmVerification = async () => {
+    if (!verificationCode) {
+      toast.error("Please enter the verification code");
+      return;
+    }
+    
+    setSendingVerification(true);
+    try {
+      await axios.post(`${API}/employer/verify-email/confirm`, {
+        token: verificationCode
+      });
+      toast.success("Business email verified successfully!");
+      setShowVerifyDialog(false);
+      setVerifyStep("email");
+      setBusinessEmail("");
+      setVerificationCode("");
+      fetchVerificationStatus();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Invalid verification code");
+    } finally {
+      setSendingVerification(false);
     }
   };
 
