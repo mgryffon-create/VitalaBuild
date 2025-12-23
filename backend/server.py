@@ -269,18 +269,32 @@ class DocumentExpirationChecker:
             
             if prefs and prefs.get("document_reminders", True):
                 # Build notification content
-                doc_list = "\n".join([
-                    f"• {d['document_type']} - {'EXPIRED' if d['days_left'] <= 0 else f'{d[\"days_left\"]} days left'}"
-                    for d in expiring_docs
-                ])
+                doc_items = []
+                for d in expiring_docs:
+                    days = d['days_left']
+                    doc_type = d['document_type']
+                    status = "EXPIRED" if days <= 0 else f"{days} days left"
+                    doc_items.append(f"• {doc_type} - {status}")
+                doc_list = "\n".join(doc_items)
                 
                 subject = f"MedJobMatch: {len(expiring_docs)} Document(s) Need Attention"
+                
+                # Build HTML content
+                html_items = []
+                for d in expiring_docs:
+                    days = d['days_left']
+                    doc_type = d['document_type']
+                    if days <= 0:
+                        status_html = '<span style="color:red">EXPIRED</span>'
+                    else:
+                        status_html = f"{days} days until expiration"
+                    html_items.append(f"<li><strong>{doc_type}</strong> - {status_html}</li>")
                 
                 html_content = f"""
                 <h2>Document Expiration Reminder</h2>
                 <p>The following documents need your attention:</p>
                 <ul>
-                {''.join([f"<li><strong>{d['document_type']}</strong> - {'<span style=\"color:red\">EXPIRED</span>' if d['days_left'] <= 0 else f'{d[\"days_left\"]} days until expiration'}</li>" for d in expiring_docs])}
+                {''.join(html_items)}
                 </ul>
                 <p>Please log in to MedJobMatch to upload renewed documents.</p>
                 """
