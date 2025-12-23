@@ -19,6 +19,7 @@ const JobFormPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(!!jobId);
   const [saving, setSaving] = useState(false);
+  const [specialties, setSpecialties] = useState({ nursing: [], allied_health: [], all: [] });
   const [job, setJob] = useState({
     title: "",
     description: "",
@@ -40,30 +41,6 @@ const JobFormPage = () => {
   const [newCert, setNewCert] = useState("");
 
   const isEdit = !!jobId;
-
-  const specialties = [
-    "Registered Nurse (RN)",
-    "Licensed Practical Nurse (LPN)",
-    "Nurse Practitioner (NP)",
-    "Physician Assistant (PA)",
-    "Medical Assistant",
-    "Certified Nursing Assistant (CNA)",
-    "Radiologic Technologist",
-    "Physical Therapist",
-    "Occupational Therapist",
-    "Respiratory Therapist",
-    "Pharmacist",
-    "Lab Technician",
-    "Emergency Medicine",
-    "ICU/Critical Care",
-    "Operating Room",
-    "Labor & Delivery",
-    "Pediatrics",
-    "Geriatrics",
-    "Mental Health",
-    "Home Health",
-    "Other"
-  ];
 
   const durations = [
     "13 weeks",
