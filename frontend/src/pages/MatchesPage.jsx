@@ -127,6 +127,87 @@ const MatchesPage = () => {
     }
   };
 
+  const handleRequestInterview = async () => {
+    if (!selectedMatch) return;
+    
+    const validTimes = interviewData.proposed_times.filter(t => t.trim());
+    if (validTimes.length === 0) {
+      toast.error("Please add at least one proposed time");
+      return;
+    }
+    
+    try {
+      await axios.post(`${API}/matches/${selectedMatch.id}/interview-request`, {
+        ...interviewData,
+        proposed_times: validTimes,
+        match_id: selectedMatch.id
+      });
+      toast.success("Interview request sent!");
+      setShowInterviewDialog(false);
+      setInterviewData({
+        proposed_times: [""],
+        duration_minutes: 60,
+        meeting_type: "video",
+        notes: "",
+        calendly_link: "",
+        zoom_link: ""
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to send interview request");
+    }
+  };
+
+  const handleRequestLicenseVerification = async () => {
+    if (!selectedMatch?.seeker) return;
+    
+    setVerifyingLicense(true);
+    try {
+      // Get seeker's licenses first
+      const licensesResponse = await axios.get(`${API}/admin/seeker-licenses/${selectedMatch.seeker_id}`);
+      const licenses = licensesResponse.data;
+      
+      if (licenses.length === 0) {
+        toast.error("This candidate has no licenses to verify");
+        setVerifyingLicense(false);
+        return;
+      }
+      
+      // Request verification for the first unverified license
+      const unverifiedLicense = licenses.find(l => l.verification_status !== "nursys_verified");
+      if (!unverifiedLicense) {
+        toast.info("All licenses already verified");
+        setVerifyingLicense(false);
+        return;
+      }
+      
+      await axios.post(`${API}/licenses/request-verification`, {
+        license_id: unverifiedLicense.id,
+        seeker_id: selectedMatch.seeker_id
+      });
+      
+      toast.success("License verification requested via Nursys");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to request verification");
+    } finally {
+      setVerifyingLicense(false);
+      setShowVerifyDialog(false);
+    }
+  };
+
+  const addProposedTime = () => {
+    setInterviewData(prev => ({
+      ...prev,
+      proposed_times: [...prev.proposed_times, ""]
+    }));
+  };
+
+  const updateProposedTime = (index, value) => {
+    setInterviewData(prev => ({
+      ...prev,
+      proposed_times: prev.proposed_times.map((t, i) => i === index ? value : t)
+    }));
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
