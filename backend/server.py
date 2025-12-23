@@ -2046,7 +2046,7 @@ async def admin_verify_license(
         f"License Verification {status_text.title()}",
         f"<p>Your license verification has been <strong>{status_text}</strong>.</p>" +
         (f"<p>Notes: {decision.notes}</p>" if decision.notes else ""),
-        f"MedJobMatch: Your license has been {status_text}."
+        f"VitalaMatch: Your license has been {status_text}."
     )
     
     return result
