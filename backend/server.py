@@ -883,7 +883,8 @@ async def get_stats(current_user: dict = Depends(get_current_user)):
         matches_count = await db.matches.count_documents({"seeker_id": current_user["id"]})
         pending_refs = await db.references.count_documents({"requested_by": current_user["id"], "status": "pending"})
         completed_refs = await db.references.count_documents({"requested_by": current_user["id"], "status": "completed"})
-        expiring_docs = len(await get_expiring_documents.__wrapped__(current_user))
+        expiring_docs_response = await get_expiring_documents(current_user)
+        expiring_docs = len(expiring_docs_response)
         
         return {
             "matches": matches_count,
