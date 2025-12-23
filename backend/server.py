@@ -152,7 +152,6 @@ class NotificationPreferences(BaseModel):
     document_reminders: bool = True
 
 class Message(BaseModel):
-    match_id: str
     content: str
 
 class DocumentUpload(BaseModel):
