@@ -20,6 +20,9 @@ import JobFormPage from "@/pages/JobFormPage";
 import ReferenceSubmitPage from "@/pages/ReferenceSubmitPage";
 import LicensesPage from "@/pages/LicensesPage";
 import VerificationAdminPage from "@/pages/VerificationAdminPage";
+import SwipeBinsPage from "@/pages/SwipeBinsPage";
+import FeedPage from "@/pages/FeedPage";
+import InterviewsPage from "@/pages/InterviewsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
