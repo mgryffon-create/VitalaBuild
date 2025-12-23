@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#33C5E3">
+    <title>VitalaMatch - Offline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #f0f9fa 0%, #e0f4f7 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 400px;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 24px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.95); }
+        }
+        h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: #1a3a3f;
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+        p {
+            color: #5a7a7f;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .offline-icon {
+            width: 64px;
+            height: 64px;
+            background: #33C5E3;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+        .offline-icon svg {
+            width: 32px;
+            height: 32px;
+            color: white;
+        }
+        button {
+            background: #33C5E3;
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #2ab3d1;
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .hint {
+            margin-top: 24px;
+            color: #8aa0a5;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/images/vitalamatch-logo.png" alt="VitalaMatch" class="logo">
+        
+        <div class="offline-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
+            </svg>
+        </div>
+        
+        <h1>You're Offline</h1>
+        <p>It looks like you've lost your internet connection. Don't worry - your data is safe and will sync when you're back online.</p>
+        
+        <button onclick="window.location.reload()">Try Again</button>
+        
+        <p class="hint">VitalaMatch works best with an internet connection to help you find your perfect healthcare match.</p>
+    </div>
+</body>
+</html>
