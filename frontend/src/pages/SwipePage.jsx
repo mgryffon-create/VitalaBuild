@@ -175,38 +175,49 @@ const SwipePage = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-6">
+            <div className="flex justify-center gap-4">
               <Button
                 data-testid="swipe-left-btn"
                 size="lg"
                 variant="outline"
-                className="w-16 h-16 rounded-full border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
+                className="w-14 h-14 rounded-full border-2 border-destructive text-destructive hover:bg-destructive hover:text-white"
                 onClick={() => handleSwipe("left")}
                 disabled={expandedCard}
               >
-                <X className="w-8 h-8" />
+                <X className="w-7 h-7" />
+              </Button>
+              <Button
+                data-testid="swipe-maybe-btn"
+                size="lg"
+                variant="outline"
+                className="w-14 h-14 rounded-full border-2 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white"
+                onClick={() => handleSwipe("down")}
+                disabled={expandedCard}
+                title="Maybe - Review Later"
+              >
+                <HelpCircle className="w-7 h-7" />
               </Button>
               <Button
                 data-testid="expand-card-btn"
                 size="lg"
                 variant="outline"
-                className={`w-16 h-16 rounded-full border-2 transition-colors ${
+                className={`w-14 h-14 rounded-full border-2 transition-colors ${
                   expandedCard 
                     ? "border-primary bg-primary text-white" 
                     : "border-primary text-primary hover:bg-primary hover:text-white"
                 }`}
                 onClick={handleExpandToggle}
               >
-                {expandedCard ? <ChevronDown className="w-8 h-8" /> : <ChevronUp className="w-8 h-8" />}
+                {expandedCard ? <ChevronDown className="w-7 h-7" /> : <ChevronUp className="w-7 h-7" />}
               </Button>
               <Button
                 data-testid="swipe-right-btn"
                 size="lg"
-                className="w-16 h-16 rounded-full bg-secondary hover:bg-secondary/90"
+                className="w-14 h-14 rounded-full bg-secondary hover:bg-secondary/90"
                 onClick={() => handleSwipe("right")}
                 disabled={expandedCard}
               >
-                <Heart className="w-8 h-8" />
+                <Heart className="w-7 h-7" />
               </Button>
             </div>
           </>
