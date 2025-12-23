@@ -220,7 +220,12 @@ const JobFormPage = () => {
                     <SelectValue placeholder="Select specialty" />
                   </SelectTrigger>
                   <SelectContent>
-                    {specialties.map((spec) => (
+                    <div className="px-2 py-1.5 text-sm font-semibold text-primary">Nursing</div>
+                    {specialties.nursing?.map((spec) => (
+                      <SelectItem key={spec} value={spec}>{spec}</SelectItem>
+                    ))}
+                    <div className="px-2 py-1.5 text-sm font-semibold text-secondary border-t mt-2 pt-2">Allied Health</div>
+                    {specialties.allied_health?.map((spec) => (
                       <SelectItem key={spec} value={spec}>{spec}</SelectItem>
                     ))}
                   </SelectContent>
