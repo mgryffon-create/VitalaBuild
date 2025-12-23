@@ -121,7 +121,7 @@ const PosterDashboard = () => {
                   <p className="text-3xl font-bold text-foreground">{stats?.matches || 0}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                  <Heart className="w-6 h-6 text-secondary" />
+                  <VitalaIcon className="w-8 h-8" />
                 </div>
               </div>
             </CardContent>
