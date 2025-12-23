@@ -8,7 +8,8 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { RotateCcw, HelpCircle, Heart, X, MapPin, Clock, DollarSign, Briefcase, User, Star, ChevronRight } from "lucide-react";
+import { RotateCcw, HelpCircle, X, MapPin, Clock, DollarSign, Briefcase, User, Star, ChevronRight } from "lucide-react";
+import VitalaIcon from "@/components/VitalaIcon";
 
 const SwipeBinsPage = () => {
   const { binType } = useParams();
