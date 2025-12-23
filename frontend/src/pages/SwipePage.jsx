@@ -113,11 +113,7 @@ const SwipePage = () => {
 
         {isEmpty ? (
           <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              {isSeeker ? (
-                <Briefcase className="w-12 h-12 text-muted-foreground" />
-              ) : (
-                <Heart className="w-12 h-12 text-muted-foreground" />
+            <VitalaIcon className="w-24 h-24 mx-auto mb-4 opacity-50" />
               )}
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
