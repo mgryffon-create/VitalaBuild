@@ -75,15 +75,15 @@ const DashboardLayout = ({ children }) => {
   const NavContent = ({ mobile = false }) => (
     <div className={`flex flex-col h-full ${mobile ? "" : ""}`}>
       {/* Logo */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border bg-primary/5">
         <div 
-          className="flex items-center gap-3 cursor-pointer" 
+          className="flex items-center justify-center cursor-pointer" 
           onClick={() => navigate("/")}
         >
           <img 
             src="/images/vitalamatch-logo.png" 
             alt="VitalaMatch" 
-            className="h-10 w-auto"
+            className="h-12 w-auto"
           />
         </div>
       </div>
