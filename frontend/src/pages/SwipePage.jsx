@@ -9,7 +9,7 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { X, Heart, MapPin, Clock, DollarSign, Briefcase, Award, Star, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, User, FileText, Gift, Calendar } from "lucide-react";
+import { X, Heart, MapPin, Clock, DollarSign, Briefcase, Award, Star, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, User, FileText, Gift, Calendar, HelpCircle } from "lucide-react";
 
 const SwipePage = () => {
   const { jobId } = useParams();
