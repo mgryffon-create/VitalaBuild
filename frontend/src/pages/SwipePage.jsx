@@ -214,11 +214,11 @@ const SwipePage = () => {
               <Button
                 data-testid="swipe-right-btn"
                 size="lg"
-                className="w-14 h-14 rounded-full bg-secondary hover:bg-secondary/90"
+                className="w-14 h-14 rounded-full bg-primary hover:bg-primary/90 p-2"
                 onClick={() => handleSwipe("right")}
                 disabled={expandedCard}
               >
-                <Heart className="w-7 h-7" />
+                <VitalaIcon className="w-8 h-8" />
               </Button>
             </div>
           </>
