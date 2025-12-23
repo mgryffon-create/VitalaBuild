@@ -804,7 +804,11 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
     for doc in docs:
         if doc.get("expiration_date"):
             try:
-                expiration = datetime.fromisoformat(doc["expiration_date"].replace('Z', '+00:00'))
+                # Handle both ISO format and simple date format
+                if 'T' in doc["expiration_date"]:
+                    expiration = datetime.fromisoformat(doc["expiration_date"].replace('Z', '+00:00'))
+                else:
+                    expiration = datetime.strptime(doc["expiration_date"], '%Y-%m-%d').replace(tzinfo=timezone.utc)
                 doc["days_until_expiry"] = (expiration - datetime.now(timezone.utc)).days
             except ValueError:
                 pass
