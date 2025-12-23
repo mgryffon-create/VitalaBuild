@@ -423,7 +423,7 @@ class DocumentExpirationChecker:
                     doc_items.append(f"• {doc_type} - {status}")
                 doc_list = "\n".join(doc_items)
                 
-                subject = f"MedJobMatch: {len(expiring_docs)} Document(s) Need Attention"
+                subject = f"VitalaMatch: {len(expiring_docs)} Document(s) Need Attention"
                 
                 # Build HTML content
                 html_items = []
@@ -442,10 +442,10 @@ class DocumentExpirationChecker:
                 <ul>
                 {''.join(html_items)}
                 </ul>
-                <p>Please log in to MedJobMatch to upload renewed documents.</p>
+                <p>Please log in to VitalaMatch to upload renewed documents.</p>
                 """
                 
-                sms_content = f"MedJobMatch: {len(expiring_docs)} document(s) expiring soon. Log in to renew."
+                sms_content = f"VitalaMatch: {len(expiring_docs)} document(s) expiring soon. Log in to renew."
                 
                 await NotificationService.send_notification(user_id, subject, html_content, sms_content)
                 
@@ -1213,9 +1213,9 @@ async def send_match_notifications(seeker_id: str, poster_id: str, job: dict, se
             <p>Great news! <strong>{job.get('company_name', 'A healthcare facility')}</strong> is interested in your profile for the <strong>{job.get('title')}</strong> position.</p>
             <p><strong>Location:</strong> {job.get('location')}</p>
             <p><strong>Duration:</strong> {job.get('duration')}</p>
-            <p>Log in to MedJobMatch to start a conversation and learn more about this opportunity.</p>
+            <p>Log in to VitalaMatch to start a conversation and learn more about this opportunity.</p>
             """
-            sms_content = f"MedJobMatch: You matched with {job.get('company_name', 'a facility')} for {job.get('title')}! Log in to chat."
+            sms_content = f"VitalaMatch: You matched with {job.get('company_name', 'a facility')} for {job.get('title')}! Log in to chat."
             await NotificationService.send_notification(seeker_id, subject, html_content, sms_content)
         
         # Notify poster
@@ -1225,9 +1225,9 @@ async def send_match_notifications(seeker_id: str, poster_id: str, job: dict, se
             html_content = f"""
             <h2>Congratulations! You have a new match!</h2>
             <p>Great news! <strong>{seeker.get('full_name')}</strong> is interested in your <strong>{job.get('title')}</strong> position.</p>
-            <p>Log in to MedJobMatch to view their profile and start a conversation.</p>
+            <p>Log in to VitalaMatch to view their profile and start a conversation.</p>
             """
-            sms_content = f"MedJobMatch: {seeker.get('full_name')} matched with your {job.get('title')} job! Log in to chat."
+            sms_content = f"VitalaMatch: {seeker.get('full_name')} matched with your {job.get('title')} job! Log in to chat."
             await NotificationService.send_notification(poster_id, subject, html_content, sms_content)
     except Exception as e:
         logger.error(f"Error sending match notifications: {str(e)}")
