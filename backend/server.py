@@ -48,6 +48,117 @@ TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# ==================== SPECIALTY LISTS ====================
+
+NURSING_SPECIALTIES = [
+    # Registered Nurses
+    "Registered Nurse (RN) - General",
+    "Registered Nurse (RN) - ICU/Critical Care",
+    "Registered Nurse (RN) - Emergency Room",
+    "Registered Nurse (RN) - Operating Room",
+    "Registered Nurse (RN) - PACU",
+    "Registered Nurse (RN) - Labor & Delivery",
+    "Registered Nurse (RN) - Postpartum",
+    "Registered Nurse (RN) - NICU",
+    "Registered Nurse (RN) - Pediatrics",
+    "Registered Nurse (RN) - Pediatric ICU",
+    "Registered Nurse (RN) - Oncology",
+    "Registered Nurse (RN) - Cardiac/Telemetry",
+    "Registered Nurse (RN) - Cath Lab",
+    "Registered Nurse (RN) - Med-Surg",
+    "Registered Nurse (RN) - Step-Down",
+    "Registered Nurse (RN) - Dialysis",
+    "Registered Nurse (RN) - Home Health",
+    "Registered Nurse (RN) - Hospice",
+    "Registered Nurse (RN) - Psych/Mental Health",
+    "Registered Nurse (RN) - Rehabilitation",
+    "Registered Nurse (RN) - Long-Term Care",
+    "Registered Nurse (RN) - Clinic/Outpatient",
+    "Registered Nurse (RN) - School Nurse",
+    "Registered Nurse (RN) - Case Manager",
+    "Registered Nurse (RN) - Infection Control",
+    "Registered Nurse (RN) - Wound Care",
+    # Licensed Practical Nurses
+    "Licensed Practical Nurse (LPN)",
+    "Licensed Vocational Nurse (LVN)",
+    # Advanced Practice
+    "Nurse Practitioner (NP) - Family",
+    "Nurse Practitioner (NP) - Adult-Gerontology",
+    "Nurse Practitioner (NP) - Pediatrics",
+    "Nurse Practitioner (NP) - Psychiatric",
+    "Nurse Practitioner (NP) - Acute Care",
+    "Nurse Practitioner (NP) - Women's Health",
+    "Clinical Nurse Specialist (CNS)",
+    "Certified Registered Nurse Anesthetist (CRNA)",
+    "Certified Nurse Midwife (CNM)",
+    # Nursing Assistants
+    "Certified Nursing Assistant (CNA)",
+    "Patient Care Technician (PCT)",
+    "Nurse Aide",
+]
+
+ALLIED_HEALTH_SPECIALTIES = [
+    # Therapy
+    "Physical Therapist (PT)",
+    "Physical Therapy Assistant (PTA)",
+    "Occupational Therapist (OT)",
+    "Occupational Therapy Assistant (OTA)",
+    "Speech-Language Pathologist (SLP)",
+    "Respiratory Therapist (RT)",
+    "Recreational Therapist",
+    # Radiology & Imaging
+    "Radiologic Technologist",
+    "CT Technologist",
+    "MRI Technologist",
+    "Ultrasound Technologist/Sonographer",
+    "Mammography Technologist",
+    "Nuclear Medicine Technologist",
+    "Interventional Radiology Tech",
+    # Laboratory
+    "Medical Laboratory Technologist (MLT)",
+    "Medical Laboratory Scientist (MLS)",
+    "Phlebotomist",
+    "Histotechnologist",
+    "Cytotechnologist",
+    # Pharmacy
+    "Pharmacist",
+    "Pharmacy Technician",
+    "Clinical Pharmacist",
+    # Cardiovascular
+    "Cardiovascular Technologist",
+    "Echocardiographer",
+    "EKG/ECG Technician",
+    "Cardiac Sonographer",
+    # Surgical
+    "Surgical Technologist",
+    "Sterile Processing Technician",
+    "First Surgical Assistant",
+    # Emergency & Critical Care
+    "Emergency Medical Technician (EMT)",
+    "Paramedic",
+    "Critical Care Technician",
+    # Mental Health
+    "Licensed Clinical Social Worker (LCSW)",
+    "Mental Health Counselor",
+    "Psychiatric Technician",
+    "Behavioral Health Technician",
+    # Other Allied Health
+    "Medical Assistant",
+    "Certified Medical Assistant (CMA)",
+    "Dietitian/Nutritionist",
+    "Health Information Technician",
+    "Medical Coder",
+    "Patient Access Representative",
+    "Unit Secretary/Clerk",
+    "Physician Assistant (PA)",
+    "Athletic Trainer",
+    "Orthotist/Prosthetist",
+    "Audiologist",
+    "Optometrist",
+    "Dental Hygienist",
+    "Dental Assistant",
+]
+
 # ==================== NOTIFICATION SERVICES ====================
 
 class NotificationService:
