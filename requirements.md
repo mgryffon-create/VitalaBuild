@@ -33,6 +33,8 @@ Build a job board app for medical professionals that imitates Tinder's matching 
   - `/api/references/*` - Blind reference request system
   - `/api/documents/*` - Document upload with expiration tracking
   - `/api/notifications/preferences` - User notification settings
+  - `/api/specialties` - Get nursing and allied health specialty lists
+  - `/api/admin/check-expirations` - Manual trigger for document expiration check
 
 ### Frontend (React + Tailwind + Shadcn)
 - **Pages**:
@@ -40,13 +42,25 @@ Build a job board app for medical professionals that imitates Tinder's matching 
   - Auth page with login/register tabs and role selection
   - Seeker/Poster dashboards with stats and quick actions
   - Swipe page with Tinder-style card interface and swipe up for more details
-  - Profile builder with comprehensive form sections
+  - Profile builder with 5 tabs (Basic Info, Work History, Credentials, Medical Records, Preferences)
   - Documents page with upload and expiration tracking
   - References page with blind reference system
   - Matches page with messaging
   - Settings page for notification preferences
 
-### Key Features Implemented:
+### Integrations (Ready for API Keys)
+- **SendGrid**: Email notifications for matches, messages, document reminders
+  - Set `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL` in backend/.env
+- **Twilio**: SMS notifications 
+  - Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` in backend/.env
+
+### Background Jobs
+- **Weekly Document Expiration Checker**: Runs automatically every 7 days
+  - Checks for documents expiring within 30 days
+  - Sends email/SMS reminders based on user preferences
+  - Can be triggered manually via `/api/admin/check-expirations`
+
+## Key Features Implemented
 1. ✅ JWT authentication with role-based access
 2. ✅ Tinder-style swipe matching with framer-motion
 3. ✅ Compatibility scoring based on specialty, experience, location, certifications, benefits
@@ -56,14 +70,32 @@ Build a job board app for medical professionals that imitates Tinder's matching 
 7. ✅ User-configurable notification preferences (email/SMS, frequency)
 8. ✅ Real-time messaging in matches
 9. ✅ Serene blue and green color scheme
+10. ✅ Work History section with facility, position, department, dates, responsibilities
+11. ✅ Medical Records tracking (TB tests, vaccinations, physicals, titers, etc.)
+12. ✅ 90+ Nursing and Allied Health specialties
+13. ✅ SendGrid/Twilio integration (ready for API keys)
+14. ✅ Weekly background scheduler for document expiration reminders
+
+## Specialties Available
+### Nursing (40+ specialties)
+- RN specialties: ICU, ER, OR, PACU, L&D, NICU, Pediatrics, Oncology, Cardiac, Med-Surg, etc.
+- LPN/LVN
+- Advanced Practice: NP, CNS, CRNA, CNM
+- CNAs and PCTs
+
+### Allied Health (50+ specialties)
+- Therapy: PT, OT, SLP, RT
+- Radiology: X-ray Tech, CT, MRI, Ultrasound, Nuclear Medicine
+- Laboratory: MLT, MLS, Phlebotomy
+- Pharmacy: Pharmacist, Pharmacy Tech
+- Cardiovascular, Surgical, Emergency/EMS
+- Mental Health: LCSW, Counselors, Psych Techs
+- And many more...
 
 ## Next Tasks / Enhancements
-1. Implement actual email notifications via SendGrid (currently placeholder)
-2. Implement SMS notifications via Twilio (currently placeholder)
-3. Add background job for checking document expirations and sending reminders
-4. Add profile image upload functionality
-5. Implement work history section in seeker profile
-6. Add medical records upload with specific document types
-7. Add search/filter functionality for jobs
-8. Implement notification bell with unread count
-9. Add job analytics for posters (views, likes, matches)
+1. Add profile image upload functionality
+2. Add search/filter functionality for jobs
+3. Implement notification bell with unread count
+4. Add job analytics for posters (views, likes, matches)
+5. Add compact license verification integration
+6. Implement Stripe for premium features
