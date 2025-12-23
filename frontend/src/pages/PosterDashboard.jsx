@@ -7,7 +7,8 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Heart, Users, Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2, ArrowRight } from "lucide-react";
+import { Users, Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2, ArrowRight } from "lucide-react";
+import VitalaIcon from "@/components/VitalaIcon";
 import {
   AlertDialog,
   AlertDialogAction,
