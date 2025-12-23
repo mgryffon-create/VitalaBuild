@@ -243,6 +243,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/poster/verifications"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <VerificationAdminPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Shared Routes */}
           <Route
