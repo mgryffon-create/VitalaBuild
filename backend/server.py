@@ -1725,6 +1725,9 @@ async def comment_on_post(post_id: str, comment: FeedComment, current_user: dict
     await db.feed_comments.insert_one(comment_data)
     await db.feed_posts.update_one({"id": post_id}, {"$inc": {"comments_count": 1}})
     
+    # Remove MongoDB _id if present
+    comment_data.pop("_id", None)
+    
     # Add user info
     comment_data["user"] = {
         "id": current_user["id"],
