@@ -621,6 +621,41 @@ class DocumentUpload(BaseModel):
     file_data: str  # base64 encoded
     file_name: str
 
+# License Verification Models
+class LicenseCreate(BaseModel):
+    license_type: str  # e.g., "RN", "LPN", "NP"
+    license_number: str
+    state: str
+    expiration_date: Optional[str] = None
+    compact_license: bool = False
+    document_id: Optional[str] = None  # Reference to uploaded document
+
+class LicenseResponse(BaseModel):
+    id: str
+    user_id: str
+    license_type: str
+    license_number: str
+    state: str
+    expiration_date: Optional[str] = None
+    compact_license: bool = False
+    verification_status: str = "pending"  # pending, verified, rejected, nursys_verified
+    verified_at: Optional[str] = None
+    verified_by: Optional[str] = None
+    document_id: Optional[str] = None
+    created_at: str
+
+class VerificationRequest(BaseModel):
+    license_id: str
+    verification_type: str = "admin"  # admin, nursys
+
+class AdminVerificationDecision(BaseModel):
+    approved: bool
+    notes: Optional[str] = None
+
+class NursysVerificationRequest(BaseModel):
+    license_id: str
+    seeker_id: str  # The job seeker whose license to verify
+
 # ==================== HELPER FUNCTIONS ====================
 
 def hash_password(password: str) -> str:
