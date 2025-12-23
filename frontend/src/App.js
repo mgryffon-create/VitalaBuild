@@ -280,6 +280,30 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/bins/:binType"
+            element={
+              <ProtectedRoute>
+                <SwipeBinsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/feed"
+            element={
+              <ProtectedRoute>
+                <FeedPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/interviews"
+            element={
+              <ProtectedRoute>
+                <InterviewsPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
