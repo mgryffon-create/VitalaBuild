@@ -76,7 +76,6 @@ const MatchesPage = () => {
     setSendingMessage(true);
     try {
       await axios.post(`${API}/matches/${selectedMatch.id}/messages`, {
-        match_id: selectedMatch.id,
         content: newMessage.trim()
       });
       setNewMessage("");
