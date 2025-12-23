@@ -48,7 +48,7 @@ const SwipePage = () => {
     if (currentIndex >= cards.length || expandedCard) return;
 
     const card = cards[currentIndex];
-    const action = direction === "right" ? "like" : "pass";
+    const action = direction === "right" ? "like" : direction === "down" ? "maybe" : "pass";
 
     try {
       let response;
