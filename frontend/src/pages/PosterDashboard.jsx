@@ -142,6 +142,44 @@ const PosterDashboard = () => {
   return (
     <DashboardLayout>
       <div data-testid="poster-dashboard" className="space-y-8">
+        {/* Business Email Verification Alert */}
+        {verificationStatus && !verificationStatus.business_email_verified && (
+          <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <AlertTitle className="text-amber-700 dark:text-amber-400 font-semibold">
+              Business Email Verification Required
+            </AlertTitle>
+            <AlertDescription className="text-amber-600 dark:text-amber-300">
+              <p className="mb-3">
+                To post jobs and access all employer features, please verify your business email address.
+                Personal email domains (Gmail, Yahoo, etc.) are not accepted.
+              </p>
+              <Button 
+                onClick={() => setShowVerifyDialog(true)}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                <Mail className="w-4 h-4 mr-2" /> Verify Business Email
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Verified Badge */}
+        {verificationStatus?.business_email_verified && (
+          <Alert className="border-green-500 bg-green-50 dark:bg-green-900/20">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <AlertTitle className="text-green-700 dark:text-green-400 font-semibold flex items-center gap-2">
+              Verified Employer
+              <Badge className="bg-green-500 text-white text-xs">
+                <Shield className="w-3 h-3 mr-1" /> Verified
+              </Badge>
+            </AlertTitle>
+            <AlertDescription className="text-green-600 dark:text-green-300">
+              Your business email <strong>{verificationStatus.business_email}</strong> has been verified.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Welcome Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -156,6 +194,7 @@ const PosterDashboard = () => {
             data-testid="post-job-btn"
             onClick={() => navigate("/poster/jobs/new")}
             className="bg-primary hover:bg-primary/90"
+            disabled={!verificationStatus?.business_email_verified}
           >
             <Plus className="mr-2 w-4 h-4" /> Post New Job
           </Button>
