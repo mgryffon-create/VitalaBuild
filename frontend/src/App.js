@@ -193,6 +193,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/seeker/licenses"
+            element={
+              <ProtectedRoute allowedRoles={["seeker"]}>
+                <LicensesPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Poster Routes */}
           <Route
