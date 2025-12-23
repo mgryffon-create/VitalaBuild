@@ -15,7 +15,11 @@ import {
   Briefcase,
   MessageCircle,
   Shield,
-  CheckCircle
+  CheckCircle,
+  RotateCcw,
+  HelpCircle,
+  Rss,
+  Calendar
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -35,6 +39,10 @@ const DashboardLayout = ({ children }) => {
         { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
         { label: "Documents", icon: FileText, path: "/seeker/documents" },
         { label: "Matches", icon: MessageCircle, path: "/matches" },
+        { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
+        { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
+        { label: "Interviews", icon: Calendar, path: "/interviews" },
+        { label: "Feed", icon: Rss, path: "/feed" },
         { label: "References", icon: Users, path: "/references" },
         { label: "Settings", icon: Settings, path: "/settings" },
       ]
@@ -44,6 +52,10 @@ const DashboardLayout = ({ children }) => {
         { label: "Company Profile", icon: User, path: "/poster/profile" },
         { label: "Verify Licenses", icon: CheckCircle, path: "/poster/verifications" },
         { label: "Matches", icon: MessageCircle, path: "/matches" },
+        { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
+        { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
+        { label: "Interviews", icon: Calendar, path: "/interviews" },
+        { label: "Feed", icon: Rss, path: "/feed" },
         { label: "References", icon: Users, path: "/references" },
         { label: "Settings", icon: Settings, path: "/settings" },
       ];
