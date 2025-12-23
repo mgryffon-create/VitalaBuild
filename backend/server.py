@@ -1309,7 +1309,486 @@ async def send_message(match_id: str, message: Message, current_user: dict = Dep
     }
     
     await db.messages.insert_one(message_data)
+    
+    # Update reply time tracking for the sender
+    await update_reply_time_stats(current_user["id"], match_id)
+    
     return {"id": message_data["id"], "message": "Message sent"}
+
+# ==================== REPLY TIME ANALYTICS ====================
+
+async def update_reply_time_stats(user_id: str, match_id: str):
+    """Track and update user's average reply time"""
+    # Get the last message from the other party
+    last_message = await db.messages.find_one(
+        {"match_id": match_id, "sender_id": {"$ne": user_id}},
+        sort=[("created_at", -1)]
+    )
+    
+    if last_message:
+        # Calculate reply time in minutes
+        last_msg_time = datetime.fromisoformat(last_message["created_at"].replace('Z', '+00:00'))
+        reply_time = (datetime.now(timezone.utc) - last_msg_time).total_seconds() / 60
+        
+        # Update user's reply time stats
+        stats = await db.reply_time_stats.find_one({"user_id": user_id})
+        if stats:
+            # Calculate new average
+            total_replies = stats.get("total_replies", 0) + 1
+            current_avg = stats.get("avg_reply_time_minutes", 0)
+            new_avg = ((current_avg * (total_replies - 1)) + reply_time) / total_replies
+            
+            await db.reply_time_stats.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "avg_reply_time_minutes": new_avg,
+                    "total_replies": total_replies,
+                    "last_reply_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        else:
+            await db.reply_time_stats.insert_one({
+                "user_id": user_id,
+                "avg_reply_time_minutes": reply_time,
+                "total_replies": 1,
+                "last_reply_at": datetime.now(timezone.utc).isoformat()
+            })
+
+@api_router.get("/matches/{match_id}/reply-probability")
+async def get_reply_probability(match_id: str, current_user: dict = Depends(get_current_user)):
+    """Get estimated reply probability for a match based on reply time analytics"""
+    match = await db.matches.find_one({"id": match_id})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    if current_user["id"] not in [match["seeker_id"], match["poster_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get the other party's ID
+    other_party_id = match["poster_id"] if current_user["id"] == match["seeker_id"] else match["seeker_id"]
+    
+    # Get their reply time stats
+    stats = await db.reply_time_stats.find_one({"user_id": other_party_id})
+    if not stats or stats.get("total_replies", 0) < 3:
+        return {"has_data": False, "message": "Not enough data to calculate reply probability"}
+    
+    avg_reply_time = stats.get("avg_reply_time_minutes", 0)
+    
+    # Get last message from current user
+    last_message = await db.messages.find_one(
+        {"match_id": match_id, "sender_id": current_user["id"]},
+        sort=[("created_at", -1)]
+    )
+    
+    if not last_message:
+        return {"has_data": False, "message": "No messages sent yet"}
+    
+    # Calculate wait time
+    last_msg_time = datetime.fromisoformat(last_message["created_at"].replace('Z', '+00:00'))
+    wait_time = (datetime.now(timezone.utc) - last_msg_time).total_seconds() / 60
+    
+    # Calculate if exceeds 15% threshold
+    threshold = avg_reply_time * 1.15
+    exceeds_average = wait_time > threshold
+    
+    response = {
+        "has_data": True,
+        "avg_reply_time_minutes": round(avg_reply_time, 1),
+        "current_wait_minutes": round(wait_time, 1),
+        "exceeds_average": exceeds_average
+    }
+    
+    if exceeds_average:
+        response["message"] = f"Based on their response pattern (avg {round(avg_reply_time, 1)} min), you may experience a longer wait time. They usually respond within {round(avg_reply_time, 1)} minutes."
+    
+    return response
+
+# ==================== INTERVIEW REQUEST ROUTES ====================
+
+@api_router.post("/matches/{match_id}/interview-request")
+async def create_interview_request(match_id: str, request: InterviewRequest, current_user: dict = Depends(get_current_user)):
+    """Create an interview request (employers only)"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can request interviews")
+    
+    match = await db.matches.find_one({"id": match_id})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    if match["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    interview_id = str(uuid.uuid4())
+    interview_data = {
+        "id": interview_id,
+        "match_id": match_id,
+        "poster_id": current_user["id"],
+        "seeker_id": match["seeker_id"],
+        "job_id": match["job_id"],
+        "proposed_times": request.proposed_times,
+        "duration_minutes": request.duration_minutes,
+        "meeting_type": request.meeting_type,
+        "notes": request.notes,
+        "calendly_link": request.calendly_link,
+        "zoom_link": request.zoom_link,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.interview_requests.insert_one(interview_data)
+    
+    # Send notification to seeker
+    seeker = await db.users.find_one({"id": match["seeker_id"]}, {"_id": 0})
+    job = await db.jobs.find_one({"id": match["job_id"]}, {"_id": 0})
+    
+    subject = f"🎯 Interview Request - {job.get('title', 'New Opportunity')}"
+    html_content = f"""
+    <h2>You have a new interview request!</h2>
+    <p>Great news! You've been invited to interview for the <strong>{job.get('title')}</strong> position.</p>
+    <p><strong>Meeting Type:</strong> {request.meeting_type}</p>
+    <p><strong>Duration:</strong> {request.duration_minutes} minutes</p>
+    <p>Log in to VitalaMatch to respond to this invitation.</p>
+    """
+    sms_content = f"VitalaMatch: Interview request for {job.get('title')}! Log in to respond."
+    await NotificationService.send_notification(match["seeker_id"], subject, html_content, sms_content)
+    
+    return {"id": interview_id, "message": "Interview request sent"}
+
+@api_router.get("/interview-requests")
+async def get_interview_requests(current_user: dict = Depends(get_current_user)):
+    """Get all interview requests for current user"""
+    if current_user["role"] == "seeker":
+        requests = await db.interview_requests.find({"seeker_id": current_user["id"]}, {"_id": 0}).to_list(100)
+    else:
+        requests = await db.interview_requests.find({"poster_id": current_user["id"]}, {"_id": 0}).to_list(100)
+    
+    enriched = []
+    for req in requests:
+        job = await db.jobs.find_one({"id": req["job_id"]}, {"_id": 0})
+        seeker = await db.users.find_one({"id": req["seeker_id"]}, {"_id": 0, "password": 0})
+        poster = await db.users.find_one({"id": req["poster_id"]}, {"_id": 0, "password": 0})
+        enriched.append({**req, "job": job, "seeker": seeker, "poster": poster})
+    
+    return enriched
+
+@api_router.put("/interview-requests/{request_id}/respond")
+async def respond_to_interview(request_id: str, response: InterviewResponse, current_user: dict = Depends(get_current_user)):
+    """Respond to an interview request (seekers only)"""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Only job seekers can respond to interview requests")
+    
+    interview = await db.interview_requests.find_one({"id": request_id})
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview request not found")
+    
+    if interview["seeker_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    update_data = {
+        "status": "accepted" if response.accepted else "declined",
+        "selected_time": response.selected_time,
+        "meeting_link": response.meeting_link,
+        "response_notes": response.notes,
+        "responded_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.interview_requests.update_one({"id": request_id}, {"$set": update_data})
+    
+    # Notify poster
+    job = await db.jobs.find_one({"id": interview["job_id"]}, {"_id": 0})
+    seeker = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    
+    status_text = "accepted" if response.accepted else "declined"
+    subject = f"Interview {status_text.capitalize()} - {seeker.get('full_name')}"
+    html_content = f"""
+    <h2>Interview Response</h2>
+    <p><strong>{seeker.get('full_name')}</strong> has {status_text} your interview request for <strong>{job.get('title')}</strong>.</p>
+    {"<p><strong>Selected Time:</strong> " + response.selected_time + "</p>" if response.selected_time else ""}
+    <p>Log in to VitalaMatch for more details.</p>
+    """
+    sms_content = f"VitalaMatch: {seeker.get('full_name')} {status_text} interview for {job.get('title')}."
+    await NotificationService.send_notification(interview["poster_id"], subject, html_content, sms_content)
+    
+    return {"message": f"Interview {status_text}"}
+
+# ==================== EMPLOYER INTEGRATION SETTINGS ====================
+
+@api_router.put("/settings/calendly")
+async def save_calendly_settings(config: CalendlyConfig, current_user: dict = Depends(get_current_user)):
+    """Save employer's Calendly integration settings"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can configure Calendly")
+    
+    await db.employer_integrations.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "calendly_link": config.calendly_link,
+            "calendly_access_token": config.access_token,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"message": "Calendly settings saved"}
+
+@api_router.get("/settings/integrations")
+async def get_integration_settings(current_user: dict = Depends(get_current_user)):
+    """Get employer's integration settings"""
+    settings = await db.employer_integrations.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    return settings or {}
+
+@api_router.put("/settings/zoom")
+async def save_zoom_settings(config: ZoomConfig, current_user: dict = Depends(get_current_user)):
+    """Save employer's Zoom integration settings"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can configure Zoom")
+    
+    await db.employer_integrations.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {
+            "user_id": current_user["id"],
+            "zoom_link": config.zoom_link,
+            "zoom_access_token": config.access_token,
+            "zoom_refresh_token": config.refresh_token,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"message": "Zoom settings saved"}
+
+# ==================== SOCIAL FEED ROUTES ====================
+
+@api_router.post("/feed")
+async def create_feed_post(post: FeedPost, current_user: dict = Depends(get_current_user)):
+    """Create a new feed post (max 140 characters)"""
+    if len(post.content) > 140:
+        raise HTTPException(status_code=400, detail="Post content must be 140 characters or less")
+    
+    post_id = str(uuid.uuid4())
+    image_url = None
+    
+    # Handle image upload
+    if post.image_data:
+        try:
+            # Decode and save image
+            image_bytes = base64.b64decode(post.image_data.split(",")[-1] if "," in post.image_data else post.image_data)
+            image_filename = f"feed_{post_id}.jpg"
+            image_path = Path("uploads/feed") / image_filename
+            image_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            async with aiofiles.open(image_path, 'wb') as f:
+                await f.write(image_bytes)
+            
+            image_url = f"/uploads/feed/{image_filename}"
+        except Exception as e:
+            logger.error(f"Error saving feed image: {str(e)}")
+    
+    post_data = {
+        "id": post_id,
+        "user_id": current_user["id"],
+        "user_role": current_user["role"],
+        "content": post.content,
+        "image_url": image_url,
+        "visibility": post.visibility,
+        "comment_permission": post.comment_permission,
+        "likes_count": 0,
+        "comments_count": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.feed_posts.insert_one(post_data)
+    
+    # Add user info
+    post_data["user"] = {
+        "id": current_user["id"],
+        "full_name": current_user.get("full_name"),
+        "role": current_user["role"]
+    }
+    
+    return post_data
+
+@api_router.get("/feed")
+async def get_feed(current_user: dict = Depends(get_current_user), limit: int = 20, offset: int = 0):
+    """Get the social feed"""
+    # Get user's matches for visibility filtering
+    if current_user["role"] == "seeker":
+        matches = await db.matches.find({"seeker_id": current_user["id"]}, {"poster_id": 1}).to_list(1000)
+        matched_user_ids = [m["poster_id"] for m in matches]
+    else:
+        matches = await db.matches.find({"poster_id": current_user["id"]}, {"seeker_id": 1}).to_list(1000)
+        matched_user_ids = [m["seeker_id"] for m in matches]
+    
+    # Build query - show posts that are either public or from matches
+    query = {
+        "$or": [
+            {"visibility": "everyone"},
+            {"user_id": current_user["id"]},
+            {"user_id": {"$in": matched_user_ids}, "visibility": "matches_only"}
+        ]
+    }
+    
+    posts = await db.feed_posts.find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
+    
+    # Enrich posts with user info and like status
+    enriched_posts = []
+    for post in posts:
+        user = await db.users.find_one({"id": post["user_id"]}, {"_id": 0, "password": 0})
+        
+        # Get profile info based on role
+        if post.get("user_role") == "seeker":
+            profile = await db.seeker_profiles.find_one({"user_id": post["user_id"]}, {"_id": 0})
+        else:
+            profile = await db.poster_profiles.find_one({"user_id": post["user_id"]}, {"_id": 0})
+        
+        # Check if current user liked this post
+        user_liked = await db.feed_likes.find_one({"post_id": post["id"], "user_id": current_user["id"]}) is not None
+        
+        # Check if user can comment
+        can_comment = True
+        if post["comment_permission"] == "none":
+            can_comment = False
+        elif post["comment_permission"] == "matches_only":
+            can_comment = post["user_id"] == current_user["id"] or post["user_id"] in matched_user_ids
+        
+        enriched_posts.append({
+            **post,
+            "user": {
+                **user,
+                "profile_image": profile.get("profile_image") if profile else None,
+                "company_logo": profile.get("company_logo") if profile else None,
+                "company_name": profile.get("company_name") if profile else None
+            } if user else None,
+            "user_liked": user_liked,
+            "can_comment": can_comment
+        })
+    
+    return enriched_posts
+
+@api_router.post("/feed/{post_id}/like")
+async def like_post(post_id: str, current_user: dict = Depends(get_current_user)):
+    """Like a feed post"""
+    post = await db.feed_posts.find_one({"id": post_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check if already liked
+    existing = await db.feed_likes.find_one({"post_id": post_id, "user_id": current_user["id"]})
+    if existing:
+        # Unlike
+        await db.feed_likes.delete_one({"post_id": post_id, "user_id": current_user["id"]})
+        await db.feed_posts.update_one({"id": post_id}, {"$inc": {"likes_count": -1}})
+        return {"liked": False, "likes_count": post["likes_count"] - 1}
+    else:
+        # Like
+        await db.feed_likes.insert_one({
+            "id": str(uuid.uuid4()),
+            "post_id": post_id,
+            "user_id": current_user["id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        await db.feed_posts.update_one({"id": post_id}, {"$inc": {"likes_count": 1}})
+        return {"liked": True, "likes_count": post["likes_count"] + 1}
+
+@api_router.post("/feed/{post_id}/comment")
+async def comment_on_post(post_id: str, comment: FeedComment, current_user: dict = Depends(get_current_user)):
+    """Comment on a feed post"""
+    post = await db.feed_posts.find_one({"id": post_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check comment permission
+    if post["comment_permission"] == "none":
+        raise HTTPException(status_code=403, detail="Comments are disabled for this post")
+    
+    if post["comment_permission"] == "matches_only":
+        # Check if user is matched with post author
+        if current_user["role"] == "seeker":
+            match = await db.matches.find_one({"seeker_id": current_user["id"], "poster_id": post["user_id"]})
+        else:
+            match = await db.matches.find_one({"poster_id": current_user["id"], "seeker_id": post["user_id"]})
+        
+        if not match and post["user_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Only matches can comment on this post")
+    
+    comment_id = str(uuid.uuid4())
+    comment_data = {
+        "id": comment_id,
+        "post_id": post_id,
+        "user_id": current_user["id"],
+        "content": comment.content,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.feed_comments.insert_one(comment_data)
+    await db.feed_posts.update_one({"id": post_id}, {"$inc": {"comments_count": 1}})
+    
+    # Add user info
+    comment_data["user"] = {
+        "id": current_user["id"],
+        "full_name": current_user.get("full_name"),
+        "role": current_user["role"]
+    }
+    
+    return comment_data
+
+@api_router.get("/feed/{post_id}/comments")
+async def get_post_comments(post_id: str, current_user: dict = Depends(get_current_user)):
+    """Get comments for a post"""
+    post = await db.feed_posts.find_one({"id": post_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    comments = await db.feed_comments.find({"post_id": post_id}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    
+    enriched = []
+    for comment in comments:
+        user = await db.users.find_one({"id": comment["user_id"]}, {"_id": 0, "password": 0})
+        enriched.append({**comment, "user": user})
+    
+    return enriched
+
+@api_router.delete("/feed/{post_id}")
+async def delete_feed_post(post_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a feed post (owner only)"""
+    post = await db.feed_posts.find_one({"id": post_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    if post["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    await db.feed_posts.delete_one({"id": post_id})
+    await db.feed_likes.delete_many({"post_id": post_id})
+    await db.feed_comments.delete_many({"post_id": post_id})
+    
+    return {"message": "Post deleted"}
+
+@api_router.get("/feed/user/{user_id}")
+async def get_user_feed(user_id: str, current_user: dict = Depends(get_current_user), limit: int = 20, offset: int = 0):
+    """Get feed posts from a specific user"""
+    # Check visibility permissions
+    if user_id != current_user["id"]:
+        # Check if matched
+        if current_user["role"] == "seeker":
+            match = await db.matches.find_one({"seeker_id": current_user["id"], "poster_id": user_id})
+        else:
+            match = await db.matches.find_one({"poster_id": current_user["id"], "seeker_id": user_id})
+        
+        is_matched = match is not None
+        
+        query = {
+            "user_id": user_id,
+            "$or": [
+                {"visibility": "everyone"},
+                {"visibility": "matches_only"} if is_matched else {"visibility": "never_match"}  # never_match won't exist
+            ]
+        }
+    else:
+        query = {"user_id": user_id}
+    
+    posts = await db.feed_posts.find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
+    
+    return posts
 
 # ==================== LICENSE VERIFICATION ROUTES ====================
 
