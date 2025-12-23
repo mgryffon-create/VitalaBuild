@@ -114,8 +114,6 @@ const SwipePage = () => {
         {isEmpty ? (
           <div className="text-center py-16">
             <VitalaIcon className="w-24 h-24 mx-auto mb-4 opacity-50" />
-              )}
-            </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
               {isSeeker ? "No more jobs to show" : "No candidates to review"}
             </h2>
