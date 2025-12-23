@@ -44,6 +44,10 @@ TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
 
+# Nursys Configuration (License Verification)
+NURSYS_API_KEY = os.environ.get('NURSYS_API_KEY')
+NURSYS_API_URL = os.environ.get('NURSYS_API_URL', 'https://www.nursys.com/api/v1')
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
