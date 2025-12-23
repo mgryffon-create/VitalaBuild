@@ -627,6 +627,12 @@ class ZoomConfig(BaseModel):
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
 
+class BusinessEmailVerification(BaseModel):
+    business_email: str
+
+class BusinessEmailVerifyToken(BaseModel):
+    token: str
+
 class ReferenceRequest(BaseModel):
     referee_email: EmailStr
     referee_name: str
