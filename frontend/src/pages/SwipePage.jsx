@@ -10,6 +10,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import { X, Heart, MapPin, Clock, DollarSign, Briefcase, Award, Star, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, User, FileText, Gift, Calendar, HelpCircle } from "lucide-react";
+import VitalaIcon from "@/components/VitalaIcon";
 
 const SwipePage = () => {
   const { jobId } = useParams();
