@@ -541,7 +541,7 @@ class VitalaMatchAPITester:
         }
 
 def main():
-    tester = MedJobMatchAPITester()
+    tester = VitalaMatchAPITester()
     report = tester.run_all_tests()
     
     # Return appropriate exit code
