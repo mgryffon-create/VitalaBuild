@@ -400,6 +400,15 @@ const MatchesPage = () => {
 
                   {/* Message Input */}
                   <div className="p-4 border-t border-border">
+                    {/* Reply Probability Alert */}
+                    {replyProbability?.has_data && replyProbability?.exceeds_average && (
+                      <Alert className="mb-3 bg-amber-50 dark:bg-amber-900/20 border-amber-200">
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                        <AlertDescription className="text-sm text-amber-700 dark:text-amber-400">
+                          {replyProbability.message}
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     <form onSubmit={handleSendMessage} className="flex gap-2">
                       <Input
                         data-testid="message-input"
