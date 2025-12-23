@@ -13,7 +13,9 @@ import {
   Menu, 
   X,
   Briefcase,
-  MessageCircle
+  MessageCircle,
+  Shield,
+  CheckCircle
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -30,6 +32,7 @@ const DashboardLayout = ({ children }) => {
         { label: "Dashboard", icon: Home, path: "/seeker" },
         { label: "Find Jobs", icon: Heart, path: "/seeker/swipe" },
         { label: "My Profile", icon: User, path: "/seeker/profile" },
+        { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
         { label: "Documents", icon: FileText, path: "/seeker/documents" },
         { label: "Matches", icon: MessageCircle, path: "/matches" },
         { label: "References", icon: Users, path: "/references" },
@@ -39,6 +42,7 @@ const DashboardLayout = ({ children }) => {
         { label: "Dashboard", icon: Home, path: "/poster" },
         { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
         { label: "Company Profile", icon: User, path: "/poster/profile" },
+        { label: "Verify Licenses", icon: CheckCircle, path: "/poster/verifications" },
         { label: "Matches", icon: MessageCircle, path: "/matches" },
         { label: "References", icon: Users, path: "/references" },
         { label: "Settings", icon: Settings, path: "/settings" },
