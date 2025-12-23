@@ -3,14 +3,19 @@ import sys
 import json
 from datetime import datetime
 
-class MedJobMatchAPITester:
+class VitalaMatchAPITester:
     def __init__(self, base_url="https://nursetinder.preview.emergentagent.com/api"):
         self.base_url = base_url
-        self.token = None
-        self.user_id = None
+        self.seeker_token = None
+        self.poster_token = None
+        self.seeker_id = None
+        self.poster_id = None
+        self.current_token = None
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
+        self.job_id = None
+        self.match_id = None
 
     def log_test(self, name, success, details=""):
         """Log test result"""
