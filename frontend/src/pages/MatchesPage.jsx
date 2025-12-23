@@ -510,6 +510,133 @@ const MatchesPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Interview Request Dialog */}
+        <Dialog open={showInterviewDialog} onOpenChange={setShowInterviewDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Request Interview</DialogTitle>
+              <DialogDescription>
+                Send an interview invitation to {selectedMatch?.seeker?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label>Meeting Type</Label>
+                <Select
+                  value={interviewData.meeting_type}
+                  onValueChange={(v) => setInterviewData(prev => ({ ...prev, meeting_type: v }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="video"><Video className="w-4 h-4 inline mr-2" /> Video Call</SelectItem>
+                    <SelectItem value="phone"><Clock className="w-4 h-4 inline mr-2" /> Phone Call</SelectItem>
+                    <SelectItem value="in_person"><MapPin className="w-4 h-4 inline mr-2" /> In Person</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Duration (minutes)</Label>
+                <Select
+                  value={String(interviewData.duration_minutes)}
+                  onValueChange={(v) => setInterviewData(prev => ({ ...prev, duration_minutes: parseInt(v) }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                    <SelectItem value="45">45 minutes</SelectItem>
+                    <SelectItem value="60">60 minutes</SelectItem>
+                    <SelectItem value="90">90 minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Proposed Times</Label>
+                <div className="space-y-2 mt-1">
+                  {interviewData.proposed_times.map((time, index) => (
+                    <Input
+                      key={index}
+                      type="datetime-local"
+                      value={time}
+                      onChange={(e) => updateProposedTime(index, e.target.value)}
+                    />
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addProposedTime}>
+                    + Add Another Time
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Calendly Link (optional)</Label>
+                <Input
+                  value={interviewData.calendly_link}
+                  onChange={(e) => setInterviewData(prev => ({ ...prev, calendly_link: e.target.value }))}
+                  placeholder="https://calendly.com/your-link"
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label>Zoom Link (optional)</Label>
+                <Input
+                  value={interviewData.zoom_link}
+                  onChange={(e) => setInterviewData(prev => ({ ...prev, zoom_link: e.target.value }))}
+                  placeholder="https://zoom.us/j/..."
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={interviewData.notes}
+                  onChange={(e) => setInterviewData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any additional information for the candidate..."
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowInterviewDialog(false)}>Cancel</Button>
+              <Button onClick={handleRequestInterview}>
+                <Calendar className="w-4 h-4 mr-1" /> Send Request
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* License Verification Dialog */}
+        <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request License Verification</DialogTitle>
+              <DialogDescription>
+                Request Nursys verification for {selectedMatch?.seeker?.full_name}'s professional license.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  This will initiate an official license verification through Nursys. The candidate will be notified and verification results will be updated in their profile.
+                </AlertDescription>
+              </Alert>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowVerifyDialog(false)}>Cancel</Button>
+              <Button onClick={handleRequestLicenseVerification} disabled={verifyingLicense}>
+                {verifyingLicense ? "Requesting..." : "Request Verification"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
