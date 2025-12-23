@@ -196,12 +196,107 @@ const SettingsPage = () => {
           </Button>
         </div>
 
-        {/* Notification Channels */}
+        {/* Install App Card */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-primary" />
+              Install VitalaMatch App
+            </CardTitle>
+            <CardDescription>
+              Install VitalaMatch on your device for the best experience
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isInstalled ? (
+              <Alert className="border-green-500 bg-green-50 dark:bg-green-900/20">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                <AlertDescription className="text-green-700 dark:text-green-400">
+                  VitalaMatch is installed on your device!
+                </AlertDescription>
+              </Alert>
+            ) : deferredPrompt ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Add VitalaMatch to your home screen for quick access and offline support.
+                </p>
+                <Button onClick={handleInstallApp} className="bg-primary hover:bg-primary/90">
+                  <Download className="w-4 h-4 mr-2" /> Install App
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  To install VitalaMatch, open this site in Chrome, Safari, or Edge and look for the "Add to Home Screen" or "Install" option in your browser menu.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="px-2 py-1 bg-muted rounded">Chrome: Menu → Install app</span>
+                  <span className="px-2 py-1 bg-muted rounded">Safari: Share → Add to Home Screen</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Push Notifications Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" />
-              Notification Channels
+              Push Notifications
+            </CardTitle>
+            <CardDescription>
+              Receive instant notifications on your device
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!pushSupported ? (
+              <Alert>
+                <XCircle className="w-4 h-4" />
+                <AlertDescription>
+                  Push notifications are not supported in your browser. Try using Chrome, Firefox, or Edge.
+                </AlertDescription>
+              </Alert>
+            ) : pushPermission === 'denied' ? (
+              <Alert className="border-destructive">
+                <XCircle className="w-4 h-4 text-destructive" />
+                <AlertDescription>
+                  Notification permission was denied. Please enable notifications in your browser settings to receive alerts.
+                </AlertDescription>
+              </Alert>
+            ) : pushSubscribed ? (
+              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <div>
+                    <p className="font-medium text-green-700 dark:text-green-400">Push notifications enabled</p>
+                    <p className="text-sm text-green-600 dark:text-green-500">You'll receive instant alerts for matches, messages, and more.</p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleDisablePush}>
+                  Disable
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="font-medium text-foreground">Enable push notifications</p>
+                  <p className="text-sm text-muted-foreground">Get instant alerts for new matches, messages, and interview requests.</p>
+                </div>
+                <Button onClick={handleEnablePush} className="bg-primary hover:bg-primary/90">
+                  Enable
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Notification Channels */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-primary" />
+              Email & SMS Notifications
             </CardTitle>
             <CardDescription>
               Choose how you want to receive notifications
