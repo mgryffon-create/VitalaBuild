@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class VitalaMatchAPITester:
-    def __init__(self, base_url="https://nursetinder.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://medjobsuite.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.seeker_token = None
         self.poster_token = None
