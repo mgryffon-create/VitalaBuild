@@ -101,9 +101,14 @@ const JobFormPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId, navigate]);
 
-  const handleSave = async () => {
+  useEffect(() => {
+    fetchSpecialties();
+    if (jobId) {
+      fetchJob();
+    }
+  }, [jobId, fetchJob, fetchSpecialties]);
     if (!job.title || !job.description || !job.location || !job.specialty) {
       toast.error("Please fill in all required fields");
       return;
