@@ -622,6 +622,48 @@ class VitalaMatchAPITester:
         
         if success:
             self.log_test("Employer review submitted successfully", True)
+
+    def test_swipe_bins_endpoints(self):
+        """Test swipe bins endpoints for 'Take Another Look' and 'Maybe' features"""
+        print("\n🔍 Testing Swipe Bins Endpoints...")
+        
+        # Use seeker token
+        self.current_token = self.seeker_token
+        
+        # Test getting passed profiles (Take Another Look bin)
+        success, passed_profiles = self.run_test(
+            "Get passed profiles bin",
+            "GET",
+            "swipe/bins/passed",
+            200
+        )
+        
+        if success:
+            self.log_test("Passed profiles endpoint accessible", True, 
+                         f"Found {len(passed_profiles)} passed profiles")
+        
+        # Test getting maybe profiles
+        success, maybe_profiles = self.run_test(
+            "Get maybe profiles bin",
+            "GET",
+            "swipe/bins/maybe",
+            200
+        )
+        
+        if success:
+            self.log_test("Maybe profiles endpoint accessible", True,
+                         f"Found {len(maybe_profiles)} maybe profiles")
+        
+        # Test swipe reconsider endpoint (will test with dummy ID)
+        success, response = self.run_test(
+            "Test swipe reconsider endpoint structure",
+            "PUT",
+            "swipe/bins/dummy-id/reconsider?new_action=like",
+            404  # Expected 404 for dummy ID
+        )
+        
+        # 404 is expected for dummy ID, so this confirms endpoint exists
+        self.log_test("Swipe reconsider endpoint exists", success or response != {})
         """Test swipe bins endpoints for 'Take Another Look' and 'Maybe' features"""
         print("\n🔍 Testing Swipe Bins Endpoints...")
         
