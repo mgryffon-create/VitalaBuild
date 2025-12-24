@@ -123,17 +123,17 @@ class VitalaMatchAPITester:
         return {}
 
     def test_auth_flow(self):
-        """Test authentication for both seeker and poster"""
+        """Test authentication for both seeker and poster using provided test credentials"""
         print("\n🔍 Testing VitalaMatch Authentication...")
         
-        # Test seeker login/registration
+        # Test seeker login with provided credentials
         seeker_login_data = {
-            "email": "testseeker@vitalamatch.com",
+            "email": "seeker_test@vitalamatch.com",
             "password": "test123"
         }
         
         success, response = self.run_test(
-            "Login seeker",
+            "Login test seeker",
             "POST",
             "auth/login",
             200,
@@ -143,14 +143,14 @@ class VitalaMatchAPITester:
         if not success:
             # Try to register seeker
             seeker_register_data = {
-                "email": "testseeker@vitalamatch.com",
+                "email": "seeker_test@vitalamatch.com",
                 "password": "test123",
                 "role": "seeker",
                 "full_name": "Test Seeker"
             }
             
             success, response = self.run_test(
-                "Register seeker",
+                "Register test seeker",
                 "POST",
                 "auth/register",
                 200,
@@ -162,41 +162,41 @@ class VitalaMatchAPITester:
             self.seeker_id = response['user']['id']
             self.log_test("Seeker token received", True, f"User ID: {self.seeker_id}")
         
-        # Test poster login/registration
-        poster_login_data = {
-            "email": "testposter@vitalamatch.com",
+        # Test employer login with provided credentials
+        employer_login_data = {
+            "email": "employer_test@vitalamatch.com",
             "password": "test123"
         }
         
         success, response = self.run_test(
-            "Login poster",
+            "Login test employer",
             "POST",
             "auth/login",
             200,
-            poster_login_data
+            employer_login_data
         )
         
         if not success:
-            # Try to register poster
-            poster_register_data = {
-                "email": "testposter@vitalamatch.com",
+            # Try to register employer
+            employer_register_data = {
+                "email": "employer_test@vitalamatch.com",
                 "password": "test123",
                 "role": "poster",
-                "full_name": "Test Hospital"
+                "full_name": "Test Employer"
             }
             
             success, response = self.run_test(
-                "Register poster",
+                "Register test employer",
                 "POST",
                 "auth/register",
                 200,
-                poster_register_data
+                employer_register_data
             )
         
         if success and 'access_token' in response:
             self.poster_token = response['access_token']
             self.poster_id = response['user']['id']
-            self.log_test("Poster token received", True, f"User ID: {self.poster_id}")
+            self.log_test("Employer token received", True, f"User ID: {self.poster_id}")
         
         return self.seeker_token and self.poster_token
 
