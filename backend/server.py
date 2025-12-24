@@ -193,13 +193,14 @@ class NotificationService:
     
     @staticmethod
     async def send_sms(to_phone: str, message: str) -> bool:
-        """Send SMS via Twilio"""
-        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
+        """Send SMS via Twilio using API Key authentication"""
+        if not all([TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_PHONE_NUMBER]):
             logger.warning(f"Twilio not configured. Would send SMS to {to_phone}: {message}")
             return False
         
         try:
-            client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            # Use API Key + Secret authentication
+            client = TwilioClient(TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_ACCOUNT_SID)
             msg = client.messages.create(
                 body=message,
                 from_=TWILIO_PHONE_NUMBER,
