@@ -633,6 +633,63 @@ class BusinessEmailVerification(BaseModel):
 class BusinessEmailVerifyToken(BaseModel):
     token: str
 
+# ==================== HIRING SUITE MODELS ====================
+
+class EmploymentOffer(BaseModel):
+    match_id: str
+    job_id: str
+    seeker_id: str
+    position_title: str
+    salary_amount: float
+    salary_type: str = "annual"  # annual, hourly
+    start_date: str
+    expiration_date: str
+    conditions: List[str] = []  # e.g., ["Background check", "Drug screening", "License verification"]
+    benefits_summary: Optional[str] = None
+    additional_terms: Optional[str] = None
+
+class OfferResponse(BaseModel):
+    accepted: bool
+    notes: Optional[str] = None
+
+class OnboardingChecklistItem(BaseModel):
+    name: str
+    description: Optional[str] = None
+    required: bool = True
+    due_days: int = 7  # Days after offer acceptance
+
+class OnboardingChecklist(BaseModel):
+    employment_id: str
+    items: List[OnboardingChecklistItem]
+
+class HiringDocument(BaseModel):
+    employment_id: str
+    document_type: str  # i9, w4, state_tax, direct_deposit, emergency_contact, policy_ack
+    form_data: dict
+    signature: Optional[str] = None  # Base64 signature image
+    signed_at: Optional[str] = None
+
+class PolicyDocument(BaseModel):
+    title: str
+    description: Optional[str] = None
+    file_data: str  # Base64 encoded PDF
+    file_name: str
+    requires_signature: bool = True
+    version: str = "1.0"
+
+class PolicySignature(BaseModel):
+    policy_id: str
+    signature: str  # Base64 signature image
+
+class EmploymentReview(BaseModel):
+    employment_id: str
+    rating: int  # 1-5 stars
+    communication_rating: int = 0
+    professionalism_rating: int = 0
+    reliability_rating: int = 0
+    review_text: str
+    would_recommend: bool = True
+
 class ReferenceRequest(BaseModel):
     referee_email: EmailStr
     referee_name: str
