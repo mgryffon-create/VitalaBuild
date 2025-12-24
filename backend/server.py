@@ -1037,7 +1037,8 @@ async def send_business_email_verification(
     )
     
     # Send verification email
-    verification_link = f"{os.environ.get('FRONTEND_URL', 'https://vitalamatch.com')}/verify-business-email?token={token}"
+    frontend_url = os.environ.get('FRONTEND_URL', os.environ.get('REACT_APP_BACKEND_URL', '').replace('/api', ''))
+    verification_link = f"{frontend_url}/verify-business-email?token={token}"
     
     subject = "VitalaMatch - Verify Your Business Email"
     html_content = f"""
