@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -25,11 +25,7 @@ const SwipePage = () => {
 
   const isSeeker = user?.role === "seeker";
 
-  useEffect(() => {
-    fetchCards();
-  }, [jobId]);
-
-  const fetchCards = async () => {
+  const fetchCards = useCallback(async () => {
     try {
       let response;
       if (isSeeker) {
@@ -43,7 +39,11 @@ const SwipePage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isSeeker, jobId]);
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
 
   const handleSwipe = async (direction) => {
     if (currentIndex >= cards.length || expandedCard) return;
