@@ -63,7 +63,7 @@ const MatchesPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const fetchMatches = async () => {
+  const fetchMatches = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/matches`);
       setMatches(response.data);
@@ -75,25 +75,25 @@ const MatchesPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMatch]);
 
-  const fetchMessages = async (matchId) => {
+  const fetchMessages = useCallback(async (matchId) => {
     try {
       const response = await axios.get(`${API}/matches/${matchId}/messages`);
       setMessages(response.data);
     } catch (error) {
       console.error("Failed to load messages");
     }
-  };
+  }, []);
 
-  const fetchReplyProbability = async (matchId) => {
+  const fetchReplyProbability = useCallback(async (matchId) => {
     try {
       const response = await axios.get(`${API}/matches/${matchId}/reply-probability`);
       setReplyProbability(response.data);
     } catch (error) {
       setReplyProbability(null);
     }
-  };
+  }, []);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
