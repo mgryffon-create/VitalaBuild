@@ -695,13 +695,7 @@ const OnboardingDetails = ({ employment, onRefresh }) => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (employment?.id) {
-      fetchOnboardingData();
-    }
-  }, [employment]);
-
-  const fetchOnboardingData = async () => {
+  const fetchOnboardingData = useCallback(async () => {
     try {
       const [checklistRes, docsRes] = await Promise.all([
         axios.get(`${API}/hiring/onboarding/${employment.id}`),
