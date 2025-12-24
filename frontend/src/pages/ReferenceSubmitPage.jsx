@@ -183,12 +183,12 @@ const ReferenceSubmitPage = () => {
                   <p className="text-sm text-muted-foreground">Reference request from</p>
                   <h2 className="text-xl font-bold text-foreground">{requestInfo?.requester_name}</h2>
                   <p className="text-muted-foreground mt-1">
-                    {requestInfo?.referee_name}, you've been asked to provide a{" "}
+                    {requestInfo?.referee_name}, you&apos;ve been asked to provide a{" "}
                     {requestInfo?.reference_type === "facility" ? "facility review" : "professional reference"}.
                   </p>
                   {requestInfo?.message && (
                     <p className="mt-3 p-3 bg-card rounded-lg text-sm italic text-muted-foreground">
-                      "{requestInfo.message}"
+                      "                      &quot;{requestInfo.message}&quot;"
                     </p>
                   )}
                 </div>
