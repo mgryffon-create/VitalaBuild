@@ -75,13 +75,6 @@ const JobFormPage = () => {
     "Meal Allowance"
   ];
 
-  useEffect(() => {
-    fetchSpecialties();
-    if (jobId) {
-      fetchJob();
-    }
-  }, [jobId, fetchJob, fetchSpecialties]);
-
   const fetchSpecialties = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/specialties`);
@@ -109,6 +102,8 @@ const JobFormPage = () => {
       fetchJob();
     }
   }, [jobId, fetchJob, fetchSpecialties]);
+
+  const handleSave = async () => {
     if (!job.title || !job.description || !job.location || !job.specialty) {
       toast.error("Please fill in all required fields");
       return;
