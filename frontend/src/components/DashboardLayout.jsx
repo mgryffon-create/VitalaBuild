@@ -21,7 +21,10 @@ import {
   Calendar,
   Stethoscope,
   ClipboardList,
-  Gift
+  Gift,
+  ChevronDown,
+  ChevronRight,
+  UserCheck
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
