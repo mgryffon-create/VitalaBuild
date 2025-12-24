@@ -226,7 +226,7 @@ const SwipePage = () => {
                 <Sparkles className="w-10 h-10 text-secondary" />
               </div>
               <DialogHeader>
-                <DialogTitle className="text-2xl text-center">It's a Match!</DialogTitle>
+                <DialogTitle className="text-2xl text-center">It&apos;s a Match!</DialogTitle>
                 <DialogDescription className="text-center">
                   {isSeeker
                     ? `${matchData?.card?.company_name || "The employer"} is interested in you!`

@@ -788,7 +788,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               <Heart className="w-5 h-5 text-primary" />
               Desired Benefits
             </CardTitle>
-            <CardDescription>Benefits you're looking for</CardDescription>
+            <CardDescription>Benefits you&apos;re looking for</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -824,7 +824,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               <MapPin className="w-5 h-5 text-primary" />
               Preferred Locations
             </CardTitle>
-            <CardDescription>Where you'd like to work</CardDescription>
+            <CardDescription>Where you&apos;d like to work</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">

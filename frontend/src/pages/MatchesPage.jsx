@@ -618,7 +618,7 @@ const MatchesPage = () => {
             <DialogHeader>
               <DialogTitle>Request License Verification</DialogTitle>
               <DialogDescription>
-                Request Nursys verification for {selectedMatch?.seeker?.full_name}'s professional license.
+                Request Nursys verification for {selectedMatch?.seeker?.full_name}&apos;s professional license.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
