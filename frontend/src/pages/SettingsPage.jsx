@@ -227,7 +227,7 @@ const SettingsPage = () => {
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  To install VitalaMatch, open this site in Chrome, Safari, or Edge and look for the "Add to Home Screen" or "Install" option in your browser menu.
+                  To install VitalaMatch, open this site in Chrome, Safari, or Edge and look for the &quot;Add to Home Screen&quot; or &quot;Install&quot; option in your browser menu.
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="px-2 py-1 bg-muted rounded">Chrome: Menu → Install app</span>
@@ -270,7 +270,7 @@ const SettingsPage = () => {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <div>
                     <p className="font-medium text-green-700 dark:text-green-400">Push notifications enabled</p>
-                    <p className="text-sm text-green-600 dark:text-green-500">You'll receive instant alerts for matches, messages, and more.</p>
+                    <p className="text-sm text-green-600 dark:text-green-500">You&apos;ll receive instant alerts for matches, messages, and more.</p>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleDisablePush}>
