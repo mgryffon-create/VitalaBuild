@@ -4,20 +4,38 @@ import "@/index.css";
 import App from "@/App";
 
 // Suppress ResizeObserver loop error (common with UI libraries, doesn't affect functionality)
-const resizeObserverError = window.onerror;
-window.onerror = (message, source, lineno, colno, error) => {
-  if (message === "ResizeObserver loop completed with undelivered notifications.") {
-    return true; // Suppress this specific error
-  }
-  return resizeObserverError ? resizeObserverError(message, source, lineno, colno, error) : false;
+// This error is benign and occurs when ResizeObserver can't deliver all observations in a single frame
+const suppressResizeObserverError = () => {
+  const resizeObserverErrMsg = "ResizeObserver loop completed with undelivered notifications.";
+  
+  // Suppress in window.onerror
+  const originalOnError = window.onerror;
+  window.onerror = (message, source, lineno, colno, error) => {
+    if (message === resizeObserverErrMsg || (error && error.message === resizeObserverErrMsg)) {
+      return true;
+    }
+    return originalOnError ? originalOnError(message, source, lineno, colno, error) : false;
+  };
+
+  // Suppress in error event listener
+  window.addEventListener("error", (e) => {
+    if (e.message === resizeObserverErrMsg) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return true;
+    }
+  });
+
+  // Suppress in unhandledrejection
+  window.addEventListener("unhandledrejection", (e) => {
+    if (e.reason && e.reason.message === resizeObserverErrMsg) {
+      e.preventDefault();
+      return true;
+    }
+  });
 };
 
-// Also handle it in the error event
-window.addEventListener("error", (e) => {
-  if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
-    e.stopImmediatePropagation();
-  }
-});
+suppressResizeObserverError();
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
