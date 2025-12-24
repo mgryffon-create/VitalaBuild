@@ -41,7 +41,8 @@ SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@vitalamatch
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
+TWILIO_API_KEY = os.environ.get('TWILIO_API_KEY')
+TWILIO_API_SECRET = os.environ.get('TWILIO_API_SECRET')
 TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER')
 
 # Nursys Configuration (License Verification)
