@@ -1090,6 +1090,7 @@ class VitalaMatchAPITester:
         self.test_hiring_suite_employments()
         self.test_hiring_suite_documents()
         self.test_hiring_suite_reviews()
+        self.test_hiring_suite_complete_flow()
         
         # Test existing VitalaMatch features
         print("\n" + "="*50)
