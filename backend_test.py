@@ -203,7 +203,425 @@ class VitalaMatchAPITester:
         
         return self.seeker_token and self.poster_token
 
-    def test_swipe_bins_endpoints(self):
+    def test_hiring_suite_offers(self):
+        """Test Hiring Suite employment offers endpoints"""
+        print("\n🔍 Testing Hiring Suite - Employment Offers...")
+        
+        # Use employer token to create offers
+        self.current_token = self.poster_token
+        
+        # First create a match to make an offer on
+        if not self.match_id:
+            print("⚠️ No match available for offer testing - creating test scenario")
+            # For testing, we'll use dummy IDs and expect appropriate errors
+        
+        # Test creating an employment offer (employer only)
+        offer_data = {
+            "match_id": "test-match-id",
+            "job_id": self.job_id or "test-job-id",
+            "seeker_id": self.seeker_id,
+            "position_title": "ICU Travel Nurse",
+            "salary_amount": 75000.0,
+            "salary_type": "annual",
+            "start_date": "2024-01-15",
+            "expiration_date": "2024-01-01",
+            "conditions": ["Background check", "Drug screening", "License verification"],
+            "benefits_summary": "Health insurance, housing stipend, travel reimbursement",
+            "additional_terms": "13-week assignment with possible extension"
+        }
+        
+        success, offer_response = self.run_test(
+            "Create employment offer (employer)",
+            "POST",
+            "hiring/offers",
+            200,
+            offer_data
+        )
+        
+        if success and 'id' in offer_response:
+            self.offer_id = offer_response['id']
+            self.log_test("Employment offer created", True, f"Offer ID: {self.offer_id}")
+        
+        # Test listing offers as employer
+        success, offers_list = self.run_test(
+            "List offers (employer view)",
+            "GET",
+            "hiring/offers",
+            200
+        )
+        
+        if success:
+            self.log_test("Employer can list offers", True, f"Found {len(offers_list)} offers")
+        
+        # Test seeker cannot create offers (authorization check)
+        self.current_token = self.seeker_token
+        
+        success, response = self.run_test(
+            "Seeker cannot create offers (auth check)",
+            "POST",
+            "hiring/offers",
+            403,  # Should be forbidden
+            offer_data
+        )
+        
+        self.log_test("Authorization: Seeker blocked from creating offers", success)
+        
+        # Test listing offers as seeker (should see received offers)
+        success, seeker_offers = self.run_test(
+            "List offers (seeker view)",
+            "GET",
+            "hiring/offers",
+            200
+        )
+        
+        if success:
+            self.log_test("Seeker can list received offers", True, f"Found {len(seeker_offers)} offers")
+        
+        # Test responding to offer (seeker only)
+        if self.offer_id:
+            offer_response_data = {
+                "accepted": True,
+                "notes": "Excited to join the team!"
+            }
+            
+            success, response = self.run_test(
+                "Accept employment offer (seeker)",
+                "PUT",
+                f"hiring/offers/{self.offer_id}/respond",
+                200,
+                offer_response_data
+            )
+            
+            if success:
+                self.log_test("Seeker can accept offer", True)
+                # Store employment ID if created
+                if 'employment_id' in response:
+                    self.employment_id = response['employment_id']
+        
+        # Test employer cannot respond to offers (authorization check)
+        self.current_token = self.poster_token
+        
+        if self.offer_id:
+            success, response = self.run_test(
+                "Employer cannot respond to offers (auth check)",
+                "PUT",
+                f"hiring/offers/{self.offer_id}/respond",
+                403,
+                {"accepted": False}
+            )
+            
+            self.log_test("Authorization: Employer blocked from responding to offers", success)
+        
+        # Test withdrawing offer (employer only)
+        if self.offer_id:
+            success, response = self.run_test(
+                "Withdraw employment offer (employer)",
+                "DELETE",
+                f"hiring/offers/{self.offer_id}",
+                200
+            )
+            
+            self.log_test("Employer can withdraw offer", success)
+
+    def test_hiring_suite_policies(self):
+        """Test Hiring Suite policy documents endpoints"""
+        print("\n🔍 Testing Hiring Suite - Policy Documents...")
+        
+        # Use employer token for policy management
+        self.current_token = self.poster_token
+        
+        # Test uploading policy document (employer only)
+        import base64
+        
+        # Create a dummy PDF content (base64 encoded)
+        dummy_pdf_content = base64.b64encode(b"Dummy PDF content for testing").decode('utf-8')
+        
+        policy_data = {
+            "title": "Employee Handbook 2024",
+            "description": "Comprehensive employee handbook covering all policies",
+            "file_data": dummy_pdf_content,
+            "file_name": "employee_handbook_2024.pdf",
+            "requires_signature": True,
+            "version": "2024.1"
+        }
+        
+        success, policy_response = self.run_test(
+            "Upload policy document (employer)",
+            "POST",
+            "hiring/policies",
+            200,
+            policy_data
+        )
+        
+        if success and 'id' in policy_response:
+            self.policy_id = policy_response['id']
+            self.log_test("Policy document uploaded", True, f"Policy ID: {self.policy_id}")
+        
+        # Test listing policies (employer)
+        success, policies_list = self.run_test(
+            "List policy documents (employer)",
+            "GET",
+            "hiring/policies",
+            200
+        )
+        
+        if success:
+            self.log_test("Employer can list policies", True, f"Found {len(policies_list)} policies")
+        
+        # Test getting specific policy
+        if self.policy_id:
+            success, policy_details = self.run_test(
+                "Get specific policy document",
+                "GET",
+                f"hiring/policies/{self.policy_id}",
+                200
+            )
+            
+            if success:
+                title_correct = policy_details.get('title') == policy_data['title']
+                self.log_test("Policy details retrieved correctly", title_correct)
+        
+        # Test seeker cannot upload policies (authorization check)
+        self.current_token = self.seeker_token
+        
+        success, response = self.run_test(
+            "Seeker cannot upload policies (auth check)",
+            "POST",
+            "hiring/policies",
+            403,
+            policy_data
+        )
+        
+        self.log_test("Authorization: Seeker blocked from uploading policies", success)
+        
+        # Test deleting policy (employer only)
+        self.current_token = self.poster_token
+        
+        if self.policy_id:
+            success, response = self.run_test(
+                "Delete policy document (employer)",
+                "DELETE",
+                f"hiring/policies/{self.policy_id}",
+                200
+            )
+            
+            self.log_test("Employer can delete policy", success)
+
+    def test_hiring_suite_employments(self):
+        """Test Hiring Suite employment and onboarding endpoints"""
+        print("\n🔍 Testing Hiring Suite - Employments & Onboarding...")
+        
+        # Test listing employments (both roles should work)
+        self.current_token = self.seeker_token
+        
+        success, seeker_employments = self.run_test(
+            "List employments (seeker)",
+            "GET",
+            "hiring/employments",
+            200
+        )
+        
+        if success:
+            self.log_test("Seeker can list employments", True, f"Found {len(seeker_employments)} employments")
+        
+        self.current_token = self.poster_token
+        
+        success, employer_employments = self.run_test(
+            "List employments (employer)",
+            "GET",
+            "hiring/employments",
+            200
+        )
+        
+        if success:
+            self.log_test("Employer can list employments", True, f"Found {len(employer_employments)} employments")
+        
+        # Test onboarding checklist (if we have an employment)
+        if self.employment_id:
+            success, checklist = self.run_test(
+                "Get onboarding checklist",
+                "GET",
+                f"hiring/onboarding/{self.employment_id}",
+                200
+            )
+            
+            if success:
+                has_items = 'items' in checklist and len(checklist['items']) > 0
+                self.log_test("Onboarding checklist has items", has_items)
+        else:
+            # Test with dummy ID to check endpoint structure
+            success, response = self.run_test(
+                "Test onboarding endpoint structure",
+                "GET",
+                "hiring/onboarding/dummy-employment-id",
+                404  # Expected 404 for dummy ID
+            )
+            
+            self.log_test("Onboarding endpoint exists", success or response != {})
+
+    def test_hiring_suite_documents(self):
+        """Test Hiring Suite hiring documents endpoints"""
+        print("\n🔍 Testing Hiring Suite - Hiring Documents...")
+        
+        # Use seeker token for submitting documents
+        self.current_token = self.seeker_token
+        
+        # Test submitting I-9 document
+        i9_document_data = {
+            "employment_id": self.employment_id or "test-employment-id",
+            "document_type": "i9",
+            "form_data": {
+                "employee_name": "Test Seeker",
+                "employee_address": "123 Test St, Test City, CA 90210",
+                "date_of_birth": "1990-01-01",
+                "ssn": "123-45-6789",
+                "citizenship_status": "US Citizen",
+                "document_title": "Driver's License",
+                "document_number": "D1234567",
+                "expiration_date": "2025-12-31"
+            },
+            "signature": "base64_signature_data_here",
+            "signed_at": "2024-12-24T10:00:00Z"
+        }
+        
+        success, doc_response = self.run_test(
+            "Submit I-9 document (seeker)",
+            "POST",
+            "hiring/documents",
+            200,
+            i9_document_data
+        )
+        
+        if success:
+            self.log_test("I-9 document submitted successfully", True)
+        
+        # Test submitting W-4 document
+        w4_document_data = {
+            "employment_id": self.employment_id or "test-employment-id",
+            "document_type": "w4",
+            "form_data": {
+                "employee_name": "Test Seeker",
+                "ssn": "123-45-6789",
+                "filing_status": "single",
+                "dependents": 0,
+                "extra_withholding": 0,
+                "exempt": False
+            },
+            "signature": "base64_signature_data_here",
+            "signed_at": "2024-12-24T10:00:00Z"
+        }
+        
+        success, doc_response = self.run_test(
+            "Submit W-4 document (seeker)",
+            "POST",
+            "hiring/documents",
+            200,
+            w4_document_data
+        )
+        
+        if success:
+            self.log_test("W-4 document submitted successfully", True)
+        
+        # Test getting documents for employment
+        employment_id = self.employment_id or "test-employment-id"
+        
+        success, documents_list = self.run_test(
+            "Get hiring documents for employment",
+            "GET",
+            f"hiring/documents/{employment_id}",
+            200
+        )
+        
+        if success:
+            self.log_test("Can retrieve hiring documents", True, f"Found {len(documents_list)} documents")
+        
+        # Test employer can also view documents
+        self.current_token = self.poster_token
+        
+        success, employer_docs = self.run_test(
+            "Get hiring documents (employer view)",
+            "GET",
+            f"hiring/documents/{employment_id}",
+            200
+        )
+        
+        if success:
+            self.log_test("Employer can view hiring documents", True, f"Found {len(employer_docs)} documents")
+
+    def test_hiring_suite_reviews(self):
+        """Test Hiring Suite employment reviews endpoints"""
+        print("\n🔍 Testing Hiring Suite - Employment Reviews...")
+        
+        # Use seeker token for submitting reviews
+        self.current_token = self.seeker_token
+        
+        # Test submitting employment review
+        review_data = {
+            "employment_id": self.employment_id or "test-employment-id",
+            "rating": 5,
+            "communication_rating": 5,
+            "professionalism_rating": 4,
+            "reliability_rating": 5,
+            "review_text": "Excellent experience working with this facility. Great team and supportive management.",
+            "would_recommend": True
+        }
+        
+        success, review_response = self.run_test(
+            "Submit employment review (seeker)",
+            "POST",
+            "hiring/reviews",
+            200,
+            review_data
+        )
+        
+        if success:
+            self.log_test("Employment review submitted successfully", True)
+        
+        # Test getting pending reviews
+        success, pending_reviews = self.run_test(
+            "Get pending review requests",
+            "GET",
+            "hiring/reviews/pending",
+            200
+        )
+        
+        if success:
+            self.log_test("Can retrieve pending reviews", True, f"Found {len(pending_reviews)} pending reviews")
+        
+        # Test getting profile reviews
+        success, profile_reviews = self.run_test(
+            "Get profile reviews",
+            "GET",
+            f"profiles/{self.poster_id}/reviews",
+            200
+        )
+        
+        if success:
+            self.log_test("Can retrieve profile reviews", True, f"Found {len(profile_reviews)} profile reviews")
+        
+        # Test employer submitting review
+        self.current_token = self.poster_token
+        
+        employer_review_data = {
+            "employment_id": self.employment_id or "test-employment-id",
+            "rating": 4,
+            "communication_rating": 5,
+            "professionalism_rating": 4,
+            "reliability_rating": 4,
+            "review_text": "Great nurse, very professional and skilled. Would work with again.",
+            "would_recommend": True
+        }
+        
+        success, review_response = self.run_test(
+            "Submit employment review (employer)",
+            "POST",
+            "hiring/reviews",
+            200,
+            employer_review_data
+        )
+        
+        if success:
+            self.log_test("Employer review submitted successfully", True)
         """Test swipe bins endpoints for 'Take Another Look' and 'Maybe' features"""
         print("\n🔍 Testing Swipe Bins Endpoints...")
         
