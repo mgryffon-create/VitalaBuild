@@ -2564,6 +2564,768 @@ async def get_push_subscription(current_user: dict = Depends(get_current_user)):
     sub = await db.push_subscriptions.find_one({"user_id": current_user["id"]}, {"_id": 0})
     return {"subscribed": bool(sub), "endpoint": sub.get("endpoint") if sub else None}
 
+# ==================== HIRING SUITE ====================
+
+# ----- Employment Offers -----
+
+@api_router.post("/hiring/offers")
+async def create_employment_offer(offer: EmploymentOffer, current_user: dict = Depends(get_current_user)):
+    """Create a conditional employment offer (employer only)"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can send offers")
+    
+    # Verify match exists and belongs to this employer
+    match = await db.matches.find_one({"id": offer.match_id})
+    if not match or match["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Verify job belongs to employer
+    job = await db.jobs.find_one({"id": offer.job_id, "poster_id": current_user["id"]})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    offer_id = str(uuid.uuid4())
+    offer_data = {
+        "id": offer_id,
+        "match_id": offer.match_id,
+        "job_id": offer.job_id,
+        "poster_id": current_user["id"],
+        "seeker_id": offer.seeker_id,
+        "position_title": offer.position_title,
+        "salary_amount": offer.salary_amount,
+        "salary_type": offer.salary_type,
+        "start_date": offer.start_date,
+        "expiration_date": offer.expiration_date,
+        "conditions": offer.conditions,
+        "benefits_summary": offer.benefits_summary,
+        "additional_terms": offer.additional_terms,
+        "status": "pending",  # pending, accepted, rejected, withdrawn, expired
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.employment_offers.insert_one(offer_data)
+    
+    # Notify the seeker
+    await NotificationService.send_notification(
+        offer.seeker_id,
+        "You've Received a Job Offer!",
+        f"<h2>Congratulations!</h2><p>You've received a conditional offer for <strong>{offer.position_title}</strong>.</p><p>Log in to VitalaMatch to review and respond.</p>",
+        f"VitalaMatch: You've received a job offer for {offer.position_title}! Log in to respond."
+    )
+    
+    return {"id": offer_id, "message": "Offer sent successfully"}
+
+@api_router.get("/hiring/offers")
+async def get_employment_offers(current_user: dict = Depends(get_current_user)):
+    """Get all employment offers (sent or received based on role)"""
+    if current_user["role"] == "poster":
+        offers = await db.employment_offers.find(
+            {"poster_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(100)
+    else:
+        offers = await db.employment_offers.find(
+            {"seeker_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(100)
+    
+    # Check for expired offers
+    for offer in offers:
+        if offer["status"] == "pending":
+            try:
+                exp_date = datetime.fromisoformat(offer["expiration_date"].replace('Z', '+00:00'))
+                if exp_date < datetime.now(timezone.utc):
+                    await db.employment_offers.update_one(
+                        {"id": offer["id"]},
+                        {"$set": {"status": "expired", "updated_at": datetime.now(timezone.utc).isoformat()}}
+                    )
+                    offer["status"] = "expired"
+            except (ValueError, KeyError):
+                pass
+    
+    # Enrich with job and user data
+    enriched_offers = []
+    for offer in offers:
+        job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0})
+        seeker = await db.users.find_one({"id": offer["seeker_id"]}, {"_id": 0, "password": 0})
+        poster = await db.users.find_one({"id": offer["poster_id"]}, {"_id": 0, "password": 0})
+        poster_profile = await db.poster_profiles.find_one({"user_id": offer["poster_id"]}, {"_id": 0})
+        
+        enriched_offers.append({
+            **offer,
+            "job": job,
+            "seeker": seeker,
+            "poster": poster,
+            "company_name": poster_profile.get("company_name") if poster_profile else None
+        })
+    
+    return enriched_offers
+
+@api_router.get("/hiring/offers/{offer_id}")
+async def get_employment_offer(offer_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific employment offer"""
+    offer = await db.employment_offers.find_one({"id": offer_id}, {"_id": 0})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user["id"] not in [offer["poster_id"], offer["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized to view this offer")
+    
+    job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0})
+    poster_profile = await db.poster_profiles.find_one({"user_id": offer["poster_id"]}, {"_id": 0})
+    
+    return {
+        **offer,
+        "job": job,
+        "company_name": poster_profile.get("company_name") if poster_profile else None
+    }
+
+@api_router.put("/hiring/offers/{offer_id}/respond")
+async def respond_to_offer(offer_id: str, response: OfferResponse, current_user: dict = Depends(get_current_user)):
+    """Accept or reject an employment offer (seeker only)"""
+    offer = await db.employment_offers.find_one({"id": offer_id})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if offer["seeker_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the recipient can respond to this offer")
+    
+    if offer["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Cannot respond to {offer['status']} offer")
+    
+    # Check if expired
+    try:
+        exp_date = datetime.fromisoformat(offer["expiration_date"].replace('Z', '+00:00'))
+        if exp_date < datetime.now(timezone.utc):
+            await db.employment_offers.update_one(
+                {"id": offer_id},
+                {"$set": {"status": "expired", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            raise HTTPException(status_code=400, detail="This offer has expired")
+    except ValueError:
+        pass
+    
+    new_status = "accepted" if response.accepted else "rejected"
+    update_data = {
+        "status": new_status,
+        "response_notes": response.notes,
+        "responded_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.employment_offers.update_one({"id": offer_id}, {"$set": update_data})
+    
+    # If accepted, create employment record and onboarding checklist
+    employment_id = None
+    if response.accepted:
+        employment_id = str(uuid.uuid4())
+        employment = {
+            "id": employment_id,
+            "offer_id": offer_id,
+            "poster_id": offer["poster_id"],
+            "seeker_id": offer["seeker_id"],
+            "job_id": offer["job_id"],
+            "position_title": offer["position_title"],
+            "start_date": offer["start_date"],
+            "status": "onboarding",  # onboarding, active, completed
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.employments.insert_one(employment)
+        
+        # Create default onboarding checklist
+        default_items = [
+            {"id": str(uuid.uuid4()), "name": "I-9 Employment Eligibility", "description": "Verify identity and employment authorization", "required": True, "due_days": 3, "status": "pending"},
+            {"id": str(uuid.uuid4()), "name": "W-4 Tax Withholding", "description": "Federal tax withholding form", "required": True, "due_days": 7, "status": "pending"},
+            {"id": str(uuid.uuid4()), "name": "State Tax Form", "description": "State tax withholding form", "required": True, "due_days": 7, "status": "pending"},
+            {"id": str(uuid.uuid4()), "name": "Direct Deposit Setup", "description": "Bank account information for payroll", "required": True, "due_days": 7, "status": "pending"},
+            {"id": str(uuid.uuid4()), "name": "Emergency Contact", "description": "Emergency contact information", "required": True, "due_days": 7, "status": "pending"},
+            {"id": str(uuid.uuid4()), "name": "Policy Handbook Review", "description": "Read and acknowledge company policies", "required": True, "due_days": 14, "status": "pending"},
+        ]
+        
+        onboarding = {
+            "id": str(uuid.uuid4()),
+            "employment_id": employment_id,
+            "items": default_items,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.onboarding_checklists.insert_one(onboarding)
+    
+    # Notify the employer
+    seeker = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    action = "accepted" if response.accepted else "declined"
+    await NotificationService.send_notification(
+        offer["poster_id"],
+        f"Offer {action.capitalize()}",
+        f"<p><strong>{seeker['full_name']}</strong> has {action} your offer for <strong>{offer['position_title']}</strong>.</p>",
+        f"VitalaMatch: {seeker['full_name']} has {action} your job offer."
+    )
+    
+    return {
+        "message": f"Offer {new_status}",
+        "employment_id": employment_id
+    }
+
+@api_router.delete("/hiring/offers/{offer_id}")
+async def withdraw_offer(offer_id: str, current_user: dict = Depends(get_current_user)):
+    """Withdraw an employment offer (employer only)"""
+    offer = await db.employment_offers.find_one({"id": offer_id})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if offer["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the sender can withdraw this offer")
+    
+    if offer["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Cannot withdraw {offer['status']} offer")
+    
+    await db.employment_offers.update_one(
+        {"id": offer_id},
+        {"$set": {"status": "withdrawn", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Notify the seeker
+    await NotificationService.send_notification(
+        offer["seeker_id"],
+        "Offer Withdrawn",
+        f"<p>The offer for <strong>{offer['position_title']}</strong> has been withdrawn by the employer.</p>",
+        f"VitalaMatch: The job offer for {offer['position_title']} has been withdrawn."
+    )
+    
+    return {"message": "Offer withdrawn"}
+
+# ----- Onboarding -----
+
+@api_router.get("/hiring/employments")
+async def get_employments(current_user: dict = Depends(get_current_user)):
+    """Get all employments for the current user"""
+    if current_user["role"] == "poster":
+        employments = await db.employments.find(
+            {"poster_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(100)
+    else:
+        employments = await db.employments.find(
+            {"seeker_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(100)
+    
+    # Enrich with user data
+    enriched = []
+    for emp in employments:
+        seeker = await db.users.find_one({"id": emp["seeker_id"]}, {"_id": 0, "password": 0})
+        poster = await db.users.find_one({"id": emp["poster_id"]}, {"_id": 0, "password": 0})
+        poster_profile = await db.poster_profiles.find_one({"user_id": emp["poster_id"]}, {"_id": 0})
+        onboarding = await db.onboarding_checklists.find_one({"employment_id": emp["id"]}, {"_id": 0})
+        
+        # Calculate onboarding progress
+        progress = 0
+        if onboarding and onboarding.get("items"):
+            completed = sum(1 for item in onboarding["items"] if item.get("status") == "completed")
+            progress = int((completed / len(onboarding["items"])) * 100)
+        
+        enriched.append({
+            **emp,
+            "seeker": seeker,
+            "poster": poster,
+            "company_name": poster_profile.get("company_name") if poster_profile else None,
+            "onboarding_progress": progress
+        })
+    
+    return enriched
+
+@api_router.get("/hiring/employments/{employment_id}")
+async def get_employment(employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific employment record"""
+    employment = await db.employments.find_one({"id": employment_id}, {"_id": 0})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    onboarding = await db.onboarding_checklists.find_one({"employment_id": employment_id}, {"_id": 0})
+    documents = await db.hiring_documents.find({"employment_id": employment_id}, {"_id": 0, "form_data": 0}).to_list(50)
+    
+    return {
+        **employment,
+        "onboarding": onboarding,
+        "documents": documents
+    }
+
+@api_router.get("/hiring/onboarding/{employment_id}")
+async def get_onboarding_checklist(employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Get onboarding checklist for an employment"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    checklist = await db.onboarding_checklists.find_one({"employment_id": employment_id}, {"_id": 0})
+    return checklist or {"items": []}
+
+@api_router.post("/hiring/onboarding/{employment_id}/items")
+async def add_onboarding_item(employment_id: str, item: OnboardingChecklistItem, current_user: dict = Depends(get_current_user)):
+    """Add an item to the onboarding checklist (employer only)"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if employment["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only employer can add onboarding items")
+    
+    item_data = {
+        "id": str(uuid.uuid4()),
+        "name": item.name,
+        "description": item.description,
+        "required": item.required,
+        "due_days": item.due_days,
+        "status": "pending"
+    }
+    
+    await db.onboarding_checklists.update_one(
+        {"employment_id": employment_id},
+        {"$push": {"items": item_data}}
+    )
+    
+    return {"id": item_data["id"], "message": "Item added"}
+
+@api_router.put("/hiring/onboarding/{employment_id}/items/{item_id}")
+async def update_onboarding_item(employment_id: str, item_id: str, status: str, current_user: dict = Depends(get_current_user)):
+    """Update onboarding item status"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    await db.onboarding_checklists.update_one(
+        {"employment_id": employment_id, "items.id": item_id},
+        {"$set": {"items.$.status": status, "items.$.updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Item updated"}
+
+# ----- Hiring Documents (I-9, W-4, etc.) -----
+
+@api_router.post("/hiring/documents")
+async def submit_hiring_document(doc: HiringDocument, current_user: dict = Depends(get_current_user)):
+    """Submit a hiring document (seeker only)"""
+    employment = await db.employments.find_one({"id": doc.employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if employment["seeker_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the employee can submit documents")
+    
+    doc_id = str(uuid.uuid4())
+    doc_data = {
+        "id": doc_id,
+        "employment_id": doc.employment_id,
+        "seeker_id": current_user["id"],
+        "poster_id": employment["poster_id"],
+        "document_type": doc.document_type,
+        "form_data": doc.form_data,
+        "signature": doc.signature,
+        "signed_at": doc.signed_at or datetime.now(timezone.utc).isoformat(),
+        "status": "submitted",  # submitted, approved, rejected
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.hiring_documents.insert_one(doc_data)
+    
+    # Mark corresponding onboarding item as completed
+    type_to_item = {
+        "i9": "I-9 Employment Eligibility",
+        "w4": "W-4 Tax Withholding",
+        "state_tax": "State Tax Form",
+        "direct_deposit": "Direct Deposit Setup",
+        "emergency_contact": "Emergency Contact"
+    }
+    
+    item_name = type_to_item.get(doc.document_type)
+    if item_name:
+        await db.onboarding_checklists.update_one(
+            {"employment_id": doc.employment_id, "items.name": item_name},
+            {"$set": {"items.$.status": "completed", "items.$.updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    
+    # Notify employer
+    await NotificationService.send_notification(
+        employment["poster_id"],
+        f"Document Submitted: {doc.document_type.upper()}",
+        f"<p>A new {doc.document_type.upper()} document has been submitted for review.</p>",
+        f"VitalaMatch: New {doc.document_type.upper()} document submitted for review."
+    )
+    
+    return {"id": doc_id, "message": "Document submitted"}
+
+@api_router.get("/hiring/documents/{employment_id}")
+async def get_hiring_documents(employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all hiring documents for an employment"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    docs = await db.hiring_documents.find(
+        {"employment_id": employment_id},
+        {"_id": 0}
+    ).to_list(50)
+    
+    return docs
+
+@api_router.put("/hiring/documents/{doc_id}/review")
+async def review_hiring_document(doc_id: str, approved: bool, notes: str = None, current_user: dict = Depends(get_current_user)):
+    """Review a hiring document (employer only)"""
+    doc = await db.hiring_documents.find_one({"id": doc_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    if doc["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only employer can review documents")
+    
+    status = "approved" if approved else "rejected"
+    await db.hiring_documents.update_one(
+        {"id": doc_id},
+        {"$set": {
+            "status": status,
+            "review_notes": notes,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": current_user["id"]
+        }}
+    )
+    
+    return {"message": f"Document {status}"}
+
+# ----- Policy Documents (Handbooks) -----
+
+@api_router.post("/hiring/policies")
+async def upload_policy_document(policy: PolicyDocument, current_user: dict = Depends(get_current_user)):
+    """Upload a policy document (employer only)"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can upload policies")
+    
+    policy_id = str(uuid.uuid4())
+    policy_data = {
+        "id": policy_id,
+        "poster_id": current_user["id"],
+        "title": policy.title,
+        "description": policy.description,
+        "file_data": policy.file_data,
+        "file_name": policy.file_name,
+        "requires_signature": policy.requires_signature,
+        "version": policy.version,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.policy_documents.insert_one(policy_data)
+    return {"id": policy_id, "message": "Policy uploaded"}
+
+@api_router.get("/hiring/policies")
+async def get_policy_documents(current_user: dict = Depends(get_current_user)):
+    """Get all policy documents for the employer"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can view their policies")
+    
+    policies = await db.policy_documents.find(
+        {"poster_id": current_user["id"], "is_active": True},
+        {"_id": 0, "file_data": 0}  # Exclude file data for listing
+    ).to_list(100)
+    
+    return policies
+
+@api_router.get("/hiring/policies/{policy_id}")
+async def get_policy_document(policy_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific policy document with file data"""
+    policy = await db.policy_documents.find_one({"id": policy_id}, {"_id": 0})
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    # Employers can see their own policies, employees can see policies from their employer
+    if current_user["role"] == "poster":
+        if policy["poster_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    else:
+        # Check if seeker has employment with this employer
+        employment = await db.employments.find_one({
+            "seeker_id": current_user["id"],
+            "poster_id": policy["poster_id"]
+        })
+        if not employment:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    
+    return policy
+
+@api_router.delete("/hiring/policies/{policy_id}")
+async def delete_policy_document(policy_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete/deactivate a policy document (employer only)"""
+    policy = await db.policy_documents.find_one({"id": policy_id})
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    if policy["poster_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    await db.policy_documents.update_one(
+        {"id": policy_id},
+        {"$set": {"is_active": False, "deleted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Policy deleted"}
+
+@api_router.get("/hiring/policies/for-employment/{employment_id}")
+async def get_policies_for_employment(employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Get policies that need to be signed for an employment"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get all active policies from the employer
+    policies = await db.policy_documents.find(
+        {"poster_id": employment["poster_id"], "is_active": True},
+        {"_id": 0, "file_data": 0}
+    ).to_list(100)
+    
+    # Get signatures for this employment
+    signatures = await db.policy_signatures.find(
+        {"employment_id": employment_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    signed_policy_ids = {sig["policy_id"] for sig in signatures}
+    
+    # Add signed status to each policy
+    for policy in policies:
+        policy["signed"] = policy["id"] in signed_policy_ids
+    
+    return policies
+
+@api_router.post("/hiring/policies/{policy_id}/sign")
+async def sign_policy(policy_id: str, signature: PolicySignature, employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Sign a policy document (employee only)"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if employment["seeker_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Only the employee can sign")
+    
+    policy = await db.policy_documents.find_one({"id": policy_id})
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    if policy["poster_id"] != employment["poster_id"]:
+        raise HTTPException(status_code=400, detail="Policy doesn't belong to this employer")
+    
+    sig_id = str(uuid.uuid4())
+    sig_data = {
+        "id": sig_id,
+        "policy_id": policy_id,
+        "employment_id": employment_id,
+        "seeker_id": current_user["id"],
+        "signature": signature.signature,
+        "signed_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.policy_signatures.insert_one(sig_data)
+    
+    # Check if all policies are signed, update onboarding item
+    all_policies = await db.policy_documents.find(
+        {"poster_id": employment["poster_id"], "is_active": True, "requires_signature": True}
+    ).to_list(100)
+    
+    all_signatures = await db.policy_signatures.find({"employment_id": employment_id}).to_list(100)
+    signed_ids = {s["policy_id"] for s in all_signatures}
+    
+    if all(p["id"] in signed_ids for p in all_policies):
+        await db.onboarding_checklists.update_one(
+            {"employment_id": employment_id, "items.name": "Policy Handbook Review"},
+            {"$set": {"items.$.status": "completed", "items.$.updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    
+    return {"id": sig_id, "message": "Policy signed"}
+
+# ----- Employment Reviews -----
+
+@api_router.post("/hiring/reviews")
+async def submit_employment_review(review: EmploymentReview, current_user: dict = Depends(get_current_user)):
+    """Submit a review for an employment relationship"""
+    employment = await db.employments.find_one({"id": review.employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Determine who is being reviewed
+    if current_user["id"] == employment["poster_id"]:
+        reviewee_id = employment["seeker_id"]
+        reviewer_type = "employer"
+    else:
+        reviewee_id = employment["poster_id"]
+        reviewer_type = "employee"
+    
+    # Check if already reviewed
+    existing = await db.employment_reviews.find_one({
+        "employment_id": review.employment_id,
+        "reviewer_id": current_user["id"]
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already submitted a review")
+    
+    review_id = str(uuid.uuid4())
+    review_data = {
+        "id": review_id,
+        "employment_id": review.employment_id,
+        "reviewer_id": current_user["id"],
+        "reviewee_id": reviewee_id,
+        "reviewer_type": reviewer_type,
+        "rating": review.rating,
+        "communication_rating": review.communication_rating,
+        "professionalism_rating": review.professionalism_rating,
+        "reliability_rating": review.reliability_rating,
+        "review_text": review.review_text,
+        "would_recommend": review.would_recommend,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.employment_reviews.insert_one(review_data)
+    
+    # Update employment to mark as completed if both reviewed
+    other_review = await db.employment_reviews.find_one({
+        "employment_id": review.employment_id,
+        "reviewer_id": reviewee_id
+    })
+    
+    if other_review:
+        await db.employments.update_one(
+            {"id": review.employment_id},
+            {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    
+    return {"id": review_id, "message": "Review submitted"}
+
+@api_router.get("/hiring/reviews/pending")
+async def get_pending_reviews(current_user: dict = Depends(get_current_user)):
+    """Get employments pending review from current user"""
+    if current_user["role"] == "poster":
+        employments = await db.employments.find(
+            {"poster_id": current_user["id"], "status": {"$in": ["active", "onboarding"]}}
+        ).to_list(100)
+    else:
+        employments = await db.employments.find(
+            {"seeker_id": current_user["id"], "status": {"$in": ["active", "onboarding"]}}
+        ).to_list(100)
+    
+    pending = []
+    for emp in employments:
+        # Check if current user has already reviewed
+        existing_review = await db.employment_reviews.find_one({
+            "employment_id": emp["id"],
+            "reviewer_id": current_user["id"]
+        })
+        
+        if not existing_review:
+            # Check if employment is old enough to review (e.g., 30+ days)
+            created = datetime.fromisoformat(emp["created_at"].replace('Z', '+00:00'))
+            if (datetime.now(timezone.utc) - created).days >= 30:
+                other_user_id = emp["seeker_id"] if current_user["role"] == "poster" else emp["poster_id"]
+                other_user = await db.users.find_one({"id": other_user_id}, {"_id": 0, "password": 0})
+                pending.append({
+                    "employment_id": emp["id"],
+                    "position_title": emp.get("position_title"),
+                    "other_party": other_user,
+                    "start_date": emp.get("start_date"),
+                    "days_employed": (datetime.now(timezone.utc) - created).days
+                })
+    
+    return pending
+
+@api_router.get("/profiles/{user_id}/reviews")
+async def get_profile_reviews(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get reviews for a user's profile"""
+    reviews = await db.employment_reviews.find(
+        {"reviewee_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Calculate averages
+    if reviews:
+        avg_rating = sum(r["rating"] for r in reviews) / len(reviews)
+        avg_communication = sum(r.get("communication_rating", 0) for r in reviews) / len(reviews)
+        avg_professionalism = sum(r.get("professionalism_rating", 0) for r in reviews) / len(reviews)
+        avg_reliability = sum(r.get("reliability_rating", 0) for r in reviews) / len(reviews)
+        recommend_pct = sum(1 for r in reviews if r.get("would_recommend")) / len(reviews) * 100
+    else:
+        avg_rating = avg_communication = avg_professionalism = avg_reliability = recommend_pct = 0
+    
+    # Enrich reviews with reviewer info (hide identity for employee reviews)
+    enriched = []
+    for review in reviews:
+        reviewer = await db.users.find_one({"id": review["reviewer_id"]}, {"_id": 0, "password": 0})
+        
+        # For employer reviews of employees, show company name
+        # For employee reviews of employers, show generic "Former Employee"
+        if review["reviewer_type"] == "employer":
+            poster_profile = await db.poster_profiles.find_one({"user_id": review["reviewer_id"]}, {"_id": 0})
+            reviewer_display = poster_profile.get("company_name", "Employer") if poster_profile else "Employer"
+        else:
+            reviewer_display = "Former Employee"
+        
+        enriched.append({
+            **review,
+            "reviewer_display": reviewer_display
+        })
+    
+    return {
+        "reviews": enriched,
+        "stats": {
+            "total_reviews": len(reviews),
+            "avg_rating": round(avg_rating, 1),
+            "avg_communication": round(avg_communication, 1),
+            "avg_professionalism": round(avg_professionalism, 1),
+            "avg_reliability": round(avg_reliability, 1),
+            "recommendation_percentage": round(recommend_pct)
+        }
+    }
+
+@api_router.post("/hiring/request-review/{employment_id}")
+async def request_review(employment_id: str, current_user: dict = Depends(get_current_user)):
+    """Send review request notification to the other party"""
+    employment = await db.employments.find_one({"id": employment_id})
+    if not employment:
+        raise HTTPException(status_code=404, detail="Employment not found")
+    
+    if current_user["id"] not in [employment["poster_id"], employment["seeker_id"]]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Determine other party
+    if current_user["id"] == employment["poster_id"]:
+        other_party_id = employment["seeker_id"]
+    else:
+        other_party_id = employment["poster_id"]
+    
+    # Send notification
+    await NotificationService.send_notification(
+        other_party_id,
+        "Review Request",
+        f"<p>You've been asked to leave a review for your experience at <strong>{employment.get('position_title', 'your position')}</strong>.</p><p>Your feedback helps others make informed decisions.</p>",
+        f"VitalaMatch: Please leave a review for your recent employment experience."
+    )
+    
+    return {"message": "Review request sent"}
+
 # ==================== STATS/DASHBOARD ====================
 
 @api_router.get("/stats")
