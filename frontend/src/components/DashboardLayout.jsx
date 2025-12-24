@@ -19,7 +19,9 @@ import {
   HelpCircle,
   Rss,
   Calendar,
-  Stethoscope
+  Stethoscope,
+  ClipboardList,
+  Gift
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
