@@ -86,6 +86,10 @@ const DashboardLayout = ({ children }) => {
     return location.pathname.startsWith(path);
   };
 
+  const isCategoryActive = (children) => {
+    return children?.some(child => isActive(child.path));
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -110,22 +114,70 @@ const DashboardLayout = ({ children }) => {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => (
-          <button
-            key={item.path}
-            data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-            onClick={() => {
-              navigate(item.path);
-              if (mobile) setMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
-              isActive(item.path)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="font-medium">{item.label}</span>
-          </button>
+          item.isCategory ? (
+            // Collapsible category
+            <div key={item.label}>
+              <button
+                data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                onClick={() => setCandidatesExpanded(!candidatesExpanded)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all ${
+                  isCategoryActive(item.children)
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </div>
+                {candidatesExpanded ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
+              {candidatesExpanded && (
+                <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-2">
+                  {item.children.map((child) => (
+                    <button
+                      key={child.path}
+                      data-testid={`nav-${child.label.toLowerCase().replace(/\s+/g, "-")}`}
+                      onClick={() => {
+                        navigate(child.path);
+                        if (mobile) setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition-all text-sm ${
+                        isActive(child.path)
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <child.icon className="w-4 h-4" />
+                      <span className="font-medium">{child.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            // Regular nav item
+            <button
+              key={item.path}
+              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+              onClick={() => {
+                navigate(item.path);
+                if (mobile) setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                isActive(item.path)
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="font-medium">{item.label}</span>
+            </button>
+          )
         ))}
       </nav>
 
