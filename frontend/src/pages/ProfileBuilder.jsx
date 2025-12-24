@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,7 @@ const ProfileBuilder = () => {
 
   const isSeeker = user?.role === "seeker";
 
-  useEffect(() => {
-    fetchProfile();
-    fetchSpecialties();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const endpoint = isSeeker ? "/profile/seeker" : "/profile/poster";
       const response = await axios.get(`${API}${endpoint}`);
@@ -40,9 +35,9 @@ const ProfileBuilder = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isSeeker]);
 
-  const fetchSpecialties = async () => {
+  const fetchSpecialties = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/specialties`);
       setSpecialties(response.data);
