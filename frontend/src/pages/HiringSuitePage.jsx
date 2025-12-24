@@ -708,7 +708,13 @@ const OnboardingDetails = ({ employment, onRefresh }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [employment?.id]);
+
+  useEffect(() => {
+    if (employment?.id) {
+      fetchOnboardingData();
+    }
+  }, [employment?.id, fetchOnboardingData]);
 
   const handleReviewDocument = async (docId, approved) => {
     try {
