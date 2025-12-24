@@ -69,7 +69,6 @@ const ReferenceSubmitPage = () => {
   useEffect(() => {
     fetchRequestInfo();
   }, [fetchRequestInfo]);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
