@@ -256,6 +256,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/poster/hiring"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <HiringSuitePage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Shared Routes */}
           <Route
