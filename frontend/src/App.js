@@ -206,6 +206,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/seeker/offers"
+            element={
+              <ProtectedRoute allowedRoles={["seeker"]}>
+                <MyOffersPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Poster Routes */}
           <Route
