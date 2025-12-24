@@ -1,17 +1,139 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Heart, MessageCircle, Image, Send, Globe, Users, Lock, MoreHorizontal, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Image, Send, Globe, Users, Lock, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+// Helper function for visibility icons
+const getVisibilityIcon = (visibility) => {
+  switch (visibility) {
+    case "everyone": return <Globe className="w-3 h-3" />;
+    case "matches_only": return <Users className="w-3 h-3" />;
+    default: return <Lock className="w-3 h-3" />;
+  }
+};
+
+// PostCard component moved outside FeedPage
+const PostCard = ({ 
+  post, 
+  user, 
+  showComments, 
+  comments, 
+  newComments, 
+  onLike, 
+  onDelete, 
+  onLoadComments, 
+  onComment, 
+  onCommentChange 
+}) => (
+  <Card className="mb-4">
+    <CardHeader className="pb-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <Avatar className="w-10 h-10">
+            <AvatarImage src={post.user?.profile_image || post.user?.company_logo} />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {post.user?.full_name?.charAt(0) || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-semibold text-foreground">
+              {post.user?.full_name || post.user?.company_name}
+            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+              <span className="flex items-center gap-1">
+                {getVisibilityIcon(post.visibility)}
+                {post.visibility === "everyone" ? "Public" : "Matches"}
+              </span>
+            </div>
+          </div>
+        </div>
+        {post.user_id === user?.id && (
+          <Button variant="ghost" size="icon" onClick={() => onDelete(post.id)}>
+            <Trash2 className="w-4 h-4 text-muted-foreground" />
+          </Button>
+        )}
+      </div>
+    </CardHeader>
+    <CardContent className="pt-0">
+      <p className="text-foreground mb-3 whitespace-pre-wrap">{post.content}</p>
+      
+      {post.image_url && (
+        <div className="rounded-xl overflow-hidden mb-3">
+          <img src={post.image_url} alt="" className="w-full max-h-96 object-cover" />
+        </div>
+      )}
+      
+      <div className="flex items-center gap-4 pt-3 border-t border-border">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`flex items-center gap-2 ${post.user_liked ? "text-red-500" : "text-muted-foreground"}`}
+          onClick={() => onLike(post.id)}
+        >
+          <Heart className={`w-4 h-4 ${post.user_liked ? "fill-current" : ""}`} />
+          {post.likes_count || 0}
+        </Button>
+        
+        {post.can_comment && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-2 text-muted-foreground"
+            onClick={() => onLoadComments(post.id)}
+          >
+            <MessageCircle className="w-4 h-4" />
+            {post.comments_count || 0}
+          </Button>
+        )}
+      </div>
+      
+      {showComments[post.id] && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="space-y-3 mb-3">
+            {comments[post.id]?.map((comment) => (
+              <div key={comment.id} className="flex gap-2">
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-muted text-xs">
+                    {comment.user?.full_name?.charAt(0) || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 bg-muted rounded-lg p-2">
+                  <p className="text-xs font-medium text-foreground">{comment.user?.full_name}</p>
+                  <p className="text-sm text-foreground">{comment.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {post.can_comment && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Write a comment..."
+                value={newComments[post.id] || ""}
+                onChange={(e) => onCommentChange(post.id, e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && onComment(post.id)}
+                className="flex-1"
+              />
+              <Button size="icon" onClick={() => onComment(post.id)}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 const FeedPage = () => {
   const { user } = useAuth();
@@ -27,11 +149,7 @@ const FeedPage = () => {
   const [newComments, setNewComments] = useState({});
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    fetchFeed();
-  }, []);
-
-  const fetchFeed = async () => {
+  const fetchFeed = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/feed`);
       setPosts(response.data);
@@ -40,7 +158,11 @@ const FeedPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchFeed();
+  }, [fetchFeed]);
 
   const handleCreatePost = async () => {
     if (!newPost.trim() || newPost.length > 140) return;
@@ -67,11 +189,11 @@ const FeedPage = () => {
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setPostImage(event.target.result);
+      reader.onloadend = () => {
+        setPostImage(reader.result);
       };
       reader.readAsDataURL(file);
     }
@@ -79,32 +201,40 @@ const FeedPage = () => {
 
   const handleLike = async (postId) => {
     try {
-      const response = await axios.post(`${API}/feed/${postId}/like`);
-      setPosts(posts.map(p => 
-        p.id === postId 
-          ? { ...p, user_liked: response.data.liked, likes_count: response.data.likes_count }
-          : p
-      ));
+      await axios.post(`${API}/feed/${postId}/like`);
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            user_liked: !post.user_liked,
+            likes_count: post.user_liked ? post.likes_count - 1 : post.likes_count + 1
+          };
+        }
+        return post;
+      }));
     } catch (error) {
       toast.error("Failed to like post");
     }
   };
 
   const handleLoadComments = async (postId) => {
-    if (!showComments[postId]) {
-      try {
-        const response = await axios.get(`${API}/feed/${postId}/comments`);
-        setComments(prev => ({ ...prev, [postId]: response.data }));
-      } catch (error) {
-        toast.error("Failed to load comments");
-      }
+    if (showComments[postId]) {
+      setShowComments(prev => ({ ...prev, [postId]: false }));
+      return;
     }
-    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+    
+    try {
+      const response = await axios.get(`${API}/feed/${postId}/comments`);
+      setComments(prev => ({ ...prev, [postId]: response.data }));
+      setShowComments(prev => ({ ...prev, [postId]: true }));
+    } catch (error) {
+      toast.error("Failed to load comments");
+    }
   };
 
   const handleComment = async (postId) => {
-    const content = newComments[postId];
-    if (!content?.trim()) return;
+    const content = newComments[postId]?.trim();
+    if (!content) return;
     
     try {
       const response = await axios.post(`${API}/feed/${postId}/comment`, { content });
@@ -112,13 +242,20 @@ const FeedPage = () => {
         ...prev,
         [postId]: [...(prev[postId] || []), response.data]
       }));
-      setPosts(posts.map(p => 
-        p.id === postId ? { ...p, comments_count: p.comments_count + 1 } : p
-      ));
       setNewComments(prev => ({ ...prev, [postId]: "" }));
+      setPosts(posts.map(post => {
+        if (post.id === postId) {
+          return { ...post, comments_count: (post.comments_count || 0) + 1 };
+        }
+        return post;
+      }));
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to comment");
+      toast.error("Failed to add comment");
     }
+  };
+
+  const handleCommentChange = (postId, value) => {
+    setNewComments(prev => ({ ...prev, [postId]: value }));
   };
 
   const handleDeletePost = async (postId) => {
@@ -130,116 +267,6 @@ const FeedPage = () => {
       toast.error("Failed to delete post");
     }
   };
-
-  const getVisibilityIcon = (visibility) => {
-    switch (visibility) {
-      case "everyone": return <Globe className="w-3 h-3" />;
-      case "matches_only": return <Users className="w-3 h-3" />;
-      default: return <Lock className="w-3 h-3" />;
-    }
-  };
-
-  const PostCard = ({ post }) => (
-    <Card className="mb-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={post.user?.profile_image || post.user?.company_logo} />
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {post.user?.full_name?.charAt(0) || "?"}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-semibold text-foreground">
-                {post.user?.full_name || post.user?.company_name}
-              </p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
-                <span className="flex items-center gap-1">
-                  {getVisibilityIcon(post.visibility)}
-                  {post.visibility === "everyone" ? "Public" : "Matches"}
-                </span>
-              </div>
-            </div>
-          </div>
-          {post.user_id === user?.id && (
-            <Button variant="ghost" size="icon" onClick={() => handleDeletePost(post.id)}>
-              <Trash2 className="w-4 h-4 text-muted-foreground" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <p className="text-foreground mb-3 whitespace-pre-wrap">{post.content}</p>
-        
-        {post.image_url && (
-          <div className="rounded-xl overflow-hidden mb-3">
-            <img src={post.image_url} alt="" className="w-full max-h-96 object-cover" />
-          </div>
-        )}
-        
-        <div className="flex items-center gap-4 pt-3 border-t border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex items-center gap-2 ${post.user_liked ? "text-red-500" : "text-muted-foreground"}`}
-            onClick={() => handleLike(post.id)}
-          >
-            <Heart className={`w-4 h-4 ${post.user_liked ? "fill-current" : ""}`} />
-            {post.likes_count || 0}
-          </Button>
-          
-          {post.can_comment && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-2 text-muted-foreground"
-              onClick={() => handleLoadComments(post.id)}
-            >
-              <MessageCircle className="w-4 h-4" />
-              {post.comments_count || 0}
-            </Button>
-          )}
-        </div>
-        
-        {showComments[post.id] && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="space-y-3 mb-3">
-              {comments[post.id]?.map((comment) => (
-                <div key={comment.id} className="flex gap-2">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-muted text-xs">
-                      {comment.user?.full_name?.charAt(0) || "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 bg-muted rounded-lg p-2">
-                    <p className="text-xs font-medium text-foreground">{comment.user?.full_name}</p>
-                    <p className="text-sm text-foreground">{comment.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {post.can_comment && (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Write a comment..."
-                  value={newComments[post.id] || ""}
-                  onChange={(e) => setNewComments(prev => ({ ...prev, [post.id]: e.target.value }))}
-                  onKeyPress={(e) => e.key === "Enter" && handleComment(post.id)}
-                  className="flex-1"
-                />
-                <Button size="icon" onClick={() => handleComment(post.id)}>
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   return (
     <DashboardLayout>
@@ -344,7 +371,21 @@ const FeedPage = () => {
             <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
           </div>
         ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} />)
+          posts.map((post) => (
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              user={user}
+              showComments={showComments}
+              comments={comments}
+              newComments={newComments}
+              onLike={handleLike}
+              onDelete={handleDeletePost}
+              onLoadComments={handleLoadComments}
+              onComment={handleComment}
+              onCommentChange={handleCommentChange}
+            />
+          ))
         )}
       </div>
     </DashboardLayout>
