@@ -74,4 +74,7 @@ None yet.
 
 ## Known Issues
 - Some ESLint warnings about nested components (not blocking)
-- Frontend for Hiring Suite not yet implemented
+
+## Frontend Pages Implemented
+- HiringSuitePage.jsx (employer): /poster/hiring - Send offers, manage onboarding, upload policies, reviews
+- MyOffersPage.jsx (seeker): /seeker/offers - View/respond to offers, complete onboarding, sign policies, reviews
