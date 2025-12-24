@@ -80,18 +80,18 @@ const JobFormPage = () => {
     if (jobId) {
       fetchJob();
     }
-  }, [jobId]);
+  }, [jobId, fetchJob, fetchSpecialties]);
 
-  const fetchSpecialties = async () => {
+  const fetchSpecialties = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/specialties`);
       setSpecialties(response.data);
     } catch (error) {
       console.error("Failed to load specialties");
     }
-  };
+  }, []);
 
-  const fetchJob = async () => {
+  const fetchJob = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/jobs/${jobId}`);
       setJob(response.data);
