@@ -922,7 +922,7 @@ class VitalaMatchAPITester:
             self.log_test("Test job created", True, f"Job ID: {self.job_id}")
 
     def run_all_tests(self):
-        """Run all VitalaMatch tests"""
+        """Run all VitalaMatch tests including Hiring Suite"""
         print("🚀 Starting VitalaMatch API Tests...")
         print(f"Testing against: {self.base_url}")
         
@@ -934,7 +934,22 @@ class VitalaMatchAPITester:
         # Setup test data
         self.setup_test_data()
         
-        # Test new VitalaMatch features
+        # Test Hiring Suite endpoints (NEW)
+        print("\n" + "="*50)
+        print("🏥 TESTING HIRING SUITE FUNCTIONALITY")
+        print("="*50)
+        
+        self.test_hiring_suite_offers()
+        self.test_hiring_suite_policies()
+        self.test_hiring_suite_employments()
+        self.test_hiring_suite_documents()
+        self.test_hiring_suite_reviews()
+        
+        # Test existing VitalaMatch features
+        print("\n" + "="*50)
+        print("📱 TESTING EXISTING FEATURES")
+        print("="*50)
+        
         self.test_swipe_bins_endpoints()
         self.test_feed_endpoints()
         self.test_interview_endpoints()
