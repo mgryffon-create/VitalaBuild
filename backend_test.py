@@ -16,6 +16,9 @@ class VitalaMatchAPITester:
         self.test_results = []
         self.job_id = None
         self.match_id = None
+        self.offer_id = None
+        self.employment_id = None
+        self.policy_id = None
 
     def log_test(self, name, success, details=""):
         """Log test result"""
