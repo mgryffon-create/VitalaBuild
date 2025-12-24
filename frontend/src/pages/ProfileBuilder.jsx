@@ -44,7 +44,12 @@ const ProfileBuilder = () => {
     } catch (error) {
       console.error("Failed to load specialties");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+    fetchSpecialties();
+  }, [fetchProfile, fetchSpecialties]);
 
   const handleSave = async () => {
     setSaving(true);
