@@ -1,15 +1,97 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { RotateCcw, HelpCircle, X, MapPin, Clock, DollarSign, Briefcase, User, Star, ChevronRight } from "lucide-react";
+import { RotateCcw, HelpCircle, X, MapPin, DollarSign, Briefcase, Star, ChevronRight } from "lucide-react";
 import VitalaIcon from "@/components/VitalaIcon";
+
+// ProfileCard moved outside SwipeBinsPage
+const ProfileCard = ({ profile, isSeeker, activeTab, onReconsider }) => (
+  <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+    <div className="h-32 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+      {isSeeker ? (
+        profile.company_logo ? (
+          <img src={profile.company_logo} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <Briefcase className="w-12 h-12 text-primary/50" />
+        )
+      ) : (
+        <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg">
+          <span className="text-2xl font-bold text-primary">
+            {profile.full_name?.charAt(0) || "?"}
+          </span>
+        </div>
+      )}
+    </div>
+    <CardContent className="p-4">
+      <h3 className="font-semibold text-lg text-foreground mb-1">
+        {isSeeker ? profile.title : profile.full_name}
+      </h3>
+      <p className="text-sm text-muted-foreground mb-3">
+        {isSeeker ? profile.company_name || "Healthcare Facility" : profile.specialty || "Medical Professional"}
+      </p>
+      
+      <div className="flex flex-wrap gap-1 mb-4">
+        {isSeeker ? (
+          <>
+            <Badge variant="secondary" className="text-xs">
+              <MapPin className="w-3 h-3 mr-1" /> {profile.location}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              <DollarSign className="w-3 h-3 mr-1" />
+              ${profile.pay_range?.min?.toLocaleString()} - ${profile.pay_range?.max?.toLocaleString()}
+            </Badge>
+          </>
+        ) : (
+          <>
+            <Badge variant="secondary" className="text-xs">
+              <Star className="w-3 h-3 mr-1" /> {profile.years_experience || 0} years exp
+            </Badge>
+            {profile.specialty && (
+              <Badge variant="outline" className="text-xs">
+                {profile.specialty}
+              </Badge>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-white"
+          onClick={() => onReconsider(profile.swipe_id, "pass")}
+          disabled={activeTab === "passed"}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="flex-1 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white"
+          onClick={() => onReconsider(profile.swipe_id, "maybe")}
+          disabled={activeTab === "maybe"}
+        >
+          <HelpCircle className="w-4 h-4" />
+        </Button>
+        <Button
+          size="sm"
+          className="flex-1 bg-secondary hover:bg-secondary/90"
+          onClick={() => onReconsider(profile.swipe_id, "like")}
+        >
+          <VitalaIcon className="w-5 h-5" />
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
 
 const SwipeBinsPage = () => {
   const { binType } = useParams();
@@ -21,11 +103,7 @@ const SwipeBinsPage = () => {
 
   const isSeeker = user?.role === "seeker";
 
-  useEffect(() => {
-    fetchProfiles(activeTab);
-  }, [activeTab]);
-
-  const fetchProfiles = async (type) => {
+  const fetchProfiles = useCallback(async (type) => {
     setLoading(true);
     try {
       const response = await axios.get(`${API}/swipe/bins/${type}`);
@@ -35,7 +113,11 @@ const SwipeBinsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProfiles(activeTab);
+  }, [activeTab, fetchProfiles]);
 
   const handleReconsider = async (swipeId, newAction) => {
     try {
@@ -52,87 +134,6 @@ const SwipeBinsPage = () => {
       toast.error("Failed to update");
     }
   };
-
-  const ProfileCard = ({ profile }) => (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="h-32 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-        {isSeeker ? (
-          profile.company_logo ? (
-            <img src={profile.company_logo} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <Briefcase className="w-12 h-12 text-primary/50" />
-          )
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg">
-            <span className="text-2xl font-bold text-primary">
-              {profile.full_name?.charAt(0) || "?"}
-            </span>
-          </div>
-        )}
-      </div>
-      <CardContent className="p-4">
-        <h3 className="font-semibold text-lg text-foreground mb-1">
-          {isSeeker ? profile.title : profile.full_name}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-3">
-          {isSeeker ? profile.company_name || "Healthcare Facility" : profile.specialty || "Medical Professional"}
-        </p>
-        
-        <div className="flex flex-wrap gap-1 mb-4">
-          {isSeeker ? (
-            <>
-              <Badge variant="secondary" className="text-xs">
-                <MapPin className="w-3 h-3 mr-1" /> {profile.location}
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                <DollarSign className="w-3 h-3 mr-1" />
-                ${profile.pay_range?.min?.toLocaleString()} - ${profile.pay_range?.max?.toLocaleString()}
-              </Badge>
-            </>
-          ) : (
-            <>
-              <Badge variant="secondary" className="text-xs">
-                <Star className="w-3 h-3 mr-1" /> {profile.years_experience || 0} years exp
-              </Badge>
-              {profile.specialty && (
-                <Badge variant="outline" className="text-xs">
-                  {profile.specialty}
-                </Badge>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-white"
-            onClick={() => handleReconsider(profile.swipe_id, "pass")}
-            disabled={activeTab === "passed"}
-          >
-            <X className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white"
-            onClick={() => handleReconsider(profile.swipe_id, "maybe")}
-            disabled={activeTab === "maybe"}
-          >
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            className="flex-1 bg-secondary hover:bg-secondary/90"
-            onClick={() => handleReconsider(profile.swipe_id, "like")}
-          >
-            <VitalaIcon className="w-5 h-5" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <DashboardLayout>
@@ -187,7 +188,13 @@ const SwipeBinsPage = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {profiles.map((profile) => (
-              <ProfileCard key={profile.swipe_id} profile={profile} />
+              <ProfileCard 
+                key={profile.swipe_id} 
+                profile={profile} 
+                isSeeker={isSeeker}
+                activeTab={activeTab}
+                onReconsider={handleReconsider}
+              />
             ))}
           </div>
         )}
