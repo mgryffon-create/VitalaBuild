@@ -188,7 +188,7 @@ const ReferenceSubmitPage = () => {
                   </p>
                   {requestInfo?.message && (
                     <p className="mt-3 p-3 bg-card rounded-lg text-sm italic text-muted-foreground">
-                      "                      &quot;{requestInfo.message}&quot;"
+                      &quot;{requestInfo.message}&quot;
                     </p>
                   )}
                 </div>
