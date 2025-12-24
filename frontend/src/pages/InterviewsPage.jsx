@@ -1,19 +1,128 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Calendar, Video, Phone, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink, Plus } from "lucide-react";
+import { Calendar, Video, Phone, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { format, parseISO } from "date-fns";
+
+// Helper functions moved outside component
+const getStatusBadge = (status) => {
+  switch (status) {
+    case "pending":
+      return <Badge variant="outline" className="text-amber-500 border-amber-500"><AlertCircle className="w-3 h-3 mr-1" /> Pending</Badge>;
+    case "accepted":
+      return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> Accepted</Badge>;
+    case "declined":
+      return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Declined</Badge>;
+    default:
+      return <Badge variant="secondary">{status}</Badge>;
+  }
+};
+
+const getMeetingTypeIcon = (type) => {
+  switch (type) {
+    case "video": return <Video className="w-4 h-4" />;
+    case "phone": return <Phone className="w-4 h-4" />;
+    case "in_person": return <MapPin className="w-4 h-4" />;
+    default: return <Calendar className="w-4 h-4" />;
+  }
+};
+
+// InterviewCard moved outside InterviewsPage
+const InterviewCard = ({ interview, isSeeker, onRespond }) => (
+  <Card className="mb-4">
+    <CardHeader className="pb-3">
+      <div className="flex items-start justify-between">
+        <div>
+          <CardTitle className="text-lg">
+            {isSeeker ? interview.job?.title : interview.seeker?.full_name}
+          </CardTitle>
+          <CardDescription>
+            {isSeeker ? interview.poster?.full_name : interview.job?.title}
+          </CardDescription>
+        </div>
+        {getStatusBadge(interview.status)}
+      </div>
+    </CardHeader>
+    <CardContent>
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {getMeetingTypeIcon(interview.meeting_type)}
+          <span className="capitalize">{interview.meeting_type} Interview</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="w-4 h-4" />
+          {interview.duration_minutes} minutes
+        </div>
+      </div>
+      
+      {interview.proposed_times?.length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm font-medium text-foreground mb-2">Proposed Times:</p>
+          <div className="flex flex-wrap gap-2">
+            {interview.proposed_times.map((time, i) => (
+              <Badge key={i} variant="outline" className="text-xs">
+                {format(parseISO(time), "MMM d, yyyy 'at' h:mm a")}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {interview.selected_time && (
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+          <p className="text-sm font-medium text-green-700 dark:text-green-400">
+            Scheduled: {format(parseISO(interview.selected_time), "EEEE, MMMM d, yyyy 'at' h:mm a")}
+          </p>
+        </div>
+      )}
+      
+      {(interview.calendly_link || interview.zoom_link) && (
+        <div className="flex gap-2 mb-4">
+          {interview.calendly_link && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={interview.calendly_link} target="_blank" rel="noopener noreferrer">
+                <Calendar className="w-4 h-4 mr-1" /> Calendly
+                <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          )}
+          {interview.zoom_link && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={interview.zoom_link} target="_blank" rel="noopener noreferrer">
+                <Video className="w-4 h-4 mr-1" /> Join Zoom
+                <ExternalLink className="w-3 h-3 ml-1" />
+              </a>
+            </Button>
+          )}
+        </div>
+      )}
+      
+      {interview.notes && (
+        <p className="text-sm text-muted-foreground mb-4">
+          <span className="font-medium">Notes:</span> {interview.notes}
+        </p>
+      )}
+      
+      {isSeeker && interview.status === "pending" && (
+        <div className="flex gap-2">
+          <Button className="flex-1" onClick={() => onRespond(interview)}>
+            <CheckCircle className="w-4 h-4 mr-1" /> Respond
+          </Button>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
 
 const InterviewsPage = () => {
   const { user } = useAuth();
@@ -27,14 +136,7 @@ const InterviewsPage = () => {
   const isSeeker = user?.role === "seeker";
   const isPoster = user?.role === "poster";
 
-  useEffect(() => {
-    fetchInterviews();
-    if (isPoster) {
-      fetchIntegrationSettings();
-    }
-  }, []);
-
-  const fetchInterviews = async () => {
+  const fetchInterviews = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/interview-requests`);
       setInterviews(response.data);
@@ -43,16 +145,23 @@ const InterviewsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchIntegrationSettings = async () => {
+  const fetchIntegrationSettings = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/settings/integrations`);
       setIntegrationSettings(response.data);
     } catch (error) {
       console.error("Failed to load integration settings");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInterviews();
+    if (isPoster) {
+      fetchIntegrationSettings();
+    }
+  }, [fetchInterviews, fetchIntegrationSettings, isPoster]);
 
   const handleRespond = async () => {
     if (!selectedInterview) return;
@@ -67,120 +176,11 @@ const InterviewsPage = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="outline" className="text-amber-500 border-amber-500"><AlertCircle className="w-3 h-3 mr-1" /> Pending</Badge>;
-      case "accepted":
-        return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> Accepted</Badge>;
-      case "declined":
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Declined</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
+  const openResponseDialog = (interview) => {
+    setSelectedInterview(interview);
+    setResponseData({ accepted: true, selected_time: interview.proposed_times?.[0] || "", notes: "" });
+    setResponseDialog(true);
   };
-
-  const getMeetingTypeIcon = (type) => {
-    switch (type) {
-      case "video": return <Video className="w-4 h-4" />;
-      case "phone": return <Phone className="w-4 h-4" />;
-      case "in_person": return <MapPin className="w-4 h-4" />;
-      default: return <Calendar className="w-4 h-4" />;
-    }
-  };
-
-  const InterviewCard = ({ interview }) => (
-    <Card className="mb-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg">
-              {isSeeker ? interview.job?.title : interview.seeker?.full_name}
-            </CardTitle>
-            <CardDescription>
-              {isSeeker ? interview.poster?.full_name : interview.job?.title}
-            </CardDescription>
-          </div>
-          {getStatusBadge(interview.status)}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {getMeetingTypeIcon(interview.meeting_type)}
-            <span className="capitalize">{interview.meeting_type} Interview</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="w-4 h-4" />
-            {interview.duration_minutes} minutes
-          </div>
-        </div>
-        
-        {interview.proposed_times?.length > 0 && (
-          <div className="mb-4">
-            <p className="text-sm font-medium text-foreground mb-2">Proposed Times:</p>
-            <div className="flex flex-wrap gap-2">
-              {interview.proposed_times.map((time, i) => (
-                <Badge key={i} variant="outline" className="text-xs">
-                  {format(parseISO(time), "MMM d, yyyy 'at' h:mm a")}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {interview.selected_time && (
-          <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <p className="text-sm font-medium text-green-700 dark:text-green-400">
-              Scheduled: {format(parseISO(interview.selected_time), "EEEE, MMMM d, yyyy 'at' h:mm a")}
-            </p>
-          </div>
-        )}
-        
-        {(interview.calendly_link || interview.zoom_link) && (
-          <div className="flex gap-2 mb-4">
-            {interview.calendly_link && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={interview.calendly_link} target="_blank" rel="noopener noreferrer">
-                  <Calendar className="w-4 h-4 mr-1" /> Calendly
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              </Button>
-            )}
-            {interview.zoom_link && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={interview.zoom_link} target="_blank" rel="noopener noreferrer">
-                  <Video className="w-4 h-4 mr-1" /> Join Zoom
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </a>
-              </Button>
-            )}
-          </div>
-        )}
-        
-        {interview.notes && (
-          <p className="text-sm text-muted-foreground mb-4">
-            <span className="font-medium">Notes:</span> {interview.notes}
-          </p>
-        )}
-        
-        {isSeeker && interview.status === "pending" && (
-          <div className="flex gap-2">
-            <Button
-              className="flex-1"
-              onClick={() => {
-                setSelectedInterview(interview);
-                setResponseData({ accepted: true, selected_time: interview.proposed_times?.[0] || "", notes: "" });
-                setResponseDialog(true);
-              }}
-            >
-              <CheckCircle className="w-4 h-4 mr-1" /> Respond
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   return (
     <DashboardLayout>
@@ -234,7 +234,12 @@ const InterviewsPage = () => {
         ) : (
           <div>
             {interviews.map((interview) => (
-              <InterviewCard key={interview.id} interview={interview} />
+              <InterviewCard 
+                key={interview.id} 
+                interview={interview} 
+                isSeeker={isSeeker}
+                onRespond={openResponseDialog}
+              />
             ))}
           </div>
         )}
