@@ -672,7 +672,29 @@ class VitalaMatchAPITester:
             document_data
         )
         
-        self.log_test("Document endpoint validates employment existence", success)
+        # Test employer submitting review
+        self.current_token = self.poster_token
+        
+        employer_review_data = {
+            "employment_id": self.employment_id or "test-employment-id",
+            "rating": 4,
+            "communication_rating": 5,
+            "professionalism_rating": 4,
+            "reliability_rating": 4,
+            "review_text": "Great nurse, very professional and skilled. Would work with again.",
+            "would_recommend": True
+        }
+        
+        success, review_response = self.run_test(
+            "Submit employment review (employer)",
+            "POST",
+            "hiring/reviews",
+            200,
+            employer_review_data
+        )
+        
+        if success:
+            self.log_test("Employer review submitted successfully", True)
 
     def test_swipe_bins_endpoints(self):
         """Test swipe bins endpoints for 'Take Another Look' and 'Maybe' features"""
