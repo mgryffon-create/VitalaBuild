@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,11 +55,7 @@ const ReferenceSubmitPage = () => {
     "Do Not Recommend"
   ];
 
-  useEffect(() => {
-    fetchRequestInfo();
-  }, [token]);
-
-  const fetchRequestInfo = async () => {
+  const fetchRequestInfo = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/references/submit/${token}`);
       setRequestInfo(response.data);
@@ -68,6 +64,11 @@ const ReferenceSubmitPage = () => {
     } finally {
       setLoading(false);
     }
+  }, [token]);
+
+  useEffect(() => {
+    fetchRequestInfo();
+  }, [fetchRequestInfo]);
   };
 
   const handleSubmit = async (e) => {
