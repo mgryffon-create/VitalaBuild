@@ -46,14 +46,14 @@ const MatchesPage = () => {
 
   useEffect(() => {
     fetchMatches();
-  }, []);
+  }, [fetchMatches]);
 
   useEffect(() => {
     if (selectedMatch) {
       fetchMessages(selectedMatch.id);
       fetchReplyProbability(selectedMatch.id);
     }
-  }, [selectedMatch]);
+  }, [selectedMatch, fetchMessages, fetchReplyProbability]);
 
   useEffect(() => {
     scrollToBottom();
