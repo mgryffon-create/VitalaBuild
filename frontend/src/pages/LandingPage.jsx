@@ -141,7 +141,7 @@ const LandingPage = () => {
               Why Choose VitalaMatch?
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              We've reimagined healthcare recruiting with modern technology and a user-first approach
+              We&apos;ve reimagined healthcare recruiting with modern technology and a user-first approach
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -216,7 +216,7 @@ const LandingPage = () => {
               onClick={() => navigate("/auth")}
               className="bg-white text-primary hover:bg-white/90"
             >
-              I'm a Job Seeker
+              I&apos;m a Job Seeker
             </Button>
             <Button
               data-testid="cta-poster-btn"
@@ -225,7 +225,7 @@ const LandingPage = () => {
               onClick={() => navigate("/auth")}
               className="border-white text-white hover:bg-white/10"
             >
-              I'm Hiring
+              I&apos;m Hiring
             </Button>
           </div>
         </div>

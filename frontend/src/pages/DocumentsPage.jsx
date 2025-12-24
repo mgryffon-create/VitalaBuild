@@ -352,7 +352,7 @@ const DocumentsPage = () => {
                   onChange={(e) => setUploadForm(prev => ({ ...prev, expiration_date: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  You'll receive a reminder 30 days before expiration
+                  You&apos;ll receive a reminder 30 days before expiration
                 </p>
               </div>
 
