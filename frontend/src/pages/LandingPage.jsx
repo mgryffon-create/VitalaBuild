@@ -113,6 +113,7 @@ const LandingPage = () => {
                   size="lg"
                   variant="outline"
                   className="text-lg px-8 py-6"
+                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Learn More
                 </Button>
