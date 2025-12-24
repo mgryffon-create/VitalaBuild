@@ -33,39 +33,51 @@ const DashboardLayout = ({ children }) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [candidatesExpanded, setCandidatesExpanded] = useState(true);
 
   const isSeeker = user?.role === "seeker";
 
-  const navigationItems = isSeeker
-    ? [
-        { label: "Dashboard", icon: Home, path: "/seeker" },
-        { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
-        { label: "My Profile", icon: User, path: "/seeker/profile" },
-        { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
-        { label: "Documents", icon: FileText, path: "/seeker/documents" },
-        { label: "My Offers", icon: Gift, path: "/seeker/offers" },
+  // Seeker navigation - flat list
+  const seekerNavItems = [
+    { label: "Dashboard", icon: Home, path: "/seeker" },
+    { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
+    { label: "My Profile", icon: User, path: "/seeker/profile" },
+    { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
+    { label: "Documents", icon: FileText, path: "/seeker/documents" },
+    { label: "My Offers", icon: Gift, path: "/seeker/offers" },
+    { label: "Matches", icon: MessageCircle, path: "/matches" },
+    { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
+    { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
+    { label: "Interviews", icon: Calendar, path: "/interviews" },
+    { label: "Feed", icon: Rss, path: "/feed" },
+    { label: "References", icon: Users, path: "/references" },
+    { label: "Settings", icon: Settings, path: "/settings" },
+  ];
+
+  // Employer navigation - with Candidates category
+  const posterNavItems = [
+    { label: "Dashboard", icon: Home, path: "/poster" },
+    { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+    { label: "Company Profile", icon: User, path: "/poster/profile" },
+    { label: "Hiring Suite", icon: ClipboardList, path: "/poster/hiring" },
+    { label: "Verify Licenses", icon: CheckCircle, path: "/poster/verifications" },
+    { 
+      label: "Candidates", 
+      icon: UserCheck, 
+      isCategory: true,
+      children: [
         { label: "Matches", icon: MessageCircle, path: "/matches" },
         { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
         { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
-        { label: "Interviews", icon: Calendar, path: "/interviews" },
-        { label: "Feed", icon: Rss, path: "/feed" },
-        { label: "References", icon: Users, path: "/references" },
-        { label: "Settings", icon: Settings, path: "/settings" },
       ]
-    : [
-        { label: "Dashboard", icon: Home, path: "/poster" },
-        { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-        { label: "Company Profile", icon: User, path: "/poster/profile" },
-        { label: "Hiring Suite", icon: ClipboardList, path: "/poster/hiring" },
-        { label: "Verify Licenses", icon: CheckCircle, path: "/poster/verifications" },
-        { label: "Matches", icon: MessageCircle, path: "/matches" },
-        { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
-        { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
-        { label: "Interviews", icon: Calendar, path: "/interviews" },
-        { label: "Feed", icon: Rss, path: "/feed" },
-        { label: "References", icon: Users, path: "/references" },
-        { label: "Settings", icon: Settings, path: "/settings" },
-      ];
+    },
+    { label: "Interviews", icon: Calendar, path: "/interviews" },
+    { label: "Feed", icon: Rss, path: "/feed" },
+    { label: "References", icon: Users, path: "/references" },
+    { label: "Settings", icon: Settings, path: "/settings" },
+  ];
+
+  const navigationItems = isSeeker ? seekerNavItems : posterNavItems;
 
   const isActive = (path) => {
     if (path === "/seeker" || path === "/poster") {
