@@ -23,6 +23,8 @@ const ProfileBuilder = () => {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({});
   const [specialties, setSpecialties] = useState({ nursing: [], allied_health: [], all: [] });
+  const [parsingResume, setParsingResume] = useState(false);
+  const resumeInputRef = useRef(null);
 
   const isSeeker = user?.role === "seeker";
 
@@ -67,6 +69,54 @@ const ProfileBuilder = () => {
       toast.error("Failed to save profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Please upload a PDF, DOC, DOCX, or TXT file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    setParsingResume(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axios.post(`${API}/profile/parse-resume`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const parsedData = response.data;
+      
+      // Merge parsed data with existing profile
+      setProfile(prev => ({
+        ...prev,
+        ...parsedData,
+        contact_info: { ...prev.contact_info, ...parsedData.contact_info },
+        work_history: [...(prev.work_history || []), ...(parsedData.work_history || [])],
+        certifications: [...(prev.certifications || []), ...(parsedData.certifications || [])],
+        skills: [...new Set([...(prev.skills || []), ...(parsedData.skills || [])])]
+      }));
+
+      toast.success("Resume parsed successfully! Please review and save your profile.");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to parse resume. Please fill in your details manually.");
+    } finally {
+      setParsingResume(false);
+      if (resumeInputRef.current) {
+        resumeInputRef.current.value = '';
+      }
     }
   };
 
