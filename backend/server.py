@@ -954,6 +954,140 @@ async def update_seeker_profile(profile: SeekerProfile, current_user: dict = Dep
     
     return {"message": "Profile updated successfully"}
 
+@api_router.post("/profile/parse-resume")
+async def parse_resume(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Parse a resume file and extract profile information"""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Not a job seeker")
+    
+    # Validate file type
+    allowed_types = ["application/pdf", "application/msword", 
+                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     "text/plain"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload PDF, DOC, DOCX, or TXT")
+    
+    # Read file content
+    content = await file.read()
+    
+    # For text files, decode directly
+    if file.content_type == "text/plain":
+        text_content = content.decode("utf-8", errors="ignore")
+    else:
+        # For PDF/DOC files, we'll extract text (simplified - in production use PyPDF2 or similar)
+        try:
+            # Try to decode as text first (for some PDFs)
+            text_content = content.decode("utf-8", errors="ignore")
+            # If it looks like binary, extract readable parts
+            if len([c for c in text_content[:100] if c.isalpha()]) < 20:
+                # Extract readable ASCII text from binary
+                import re
+                text_content = re.sub(r'[^\x20-\x7E\n\r]', ' ', content.decode("latin-1", errors="ignore"))
+                text_content = re.sub(r'\s+', ' ', text_content).strip()
+        except Exception:
+            text_content = ""
+    
+    if len(text_content) < 50:
+        raise HTTPException(status_code=400, detail="Could not extract text from resume. Please try a different format.")
+    
+    # Parse resume using pattern matching (simplified version)
+    # In production, this would use an LLM API for better extraction
+    parsed_data = await parse_resume_text(text_content)
+    
+    return parsed_data
+
+async def parse_resume_text(text: str) -> dict:
+    """Extract profile information from resume text"""
+    import re
+    
+    result = {
+        "bio": "",
+        "specialty": None,
+        "years_experience": None,
+        "skills": [],
+        "work_history": [],
+        "certifications": [],
+        "contact_info": {}
+    }
+    
+    # Extract email
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
+    if email_match:
+        result["contact_info"]["email"] = email_match.group()
+    
+    # Extract phone
+    phone_match = re.search(r'[\(]?\d{3}[\)\s\.-]?\s?\d{3}[\s\.-]?\d{4}', text)
+    if phone_match:
+        result["contact_info"]["phone"] = phone_match.group()
+    
+    # Extract skills (common healthcare keywords)
+    healthcare_skills = [
+        "BLS", "ACLS", "PALS", "NRP", "CPR", "IV Therapy", "Wound Care",
+        "Patient Assessment", "Electronic Medical Records", "EMR", "EHR",
+        "Epic", "Cerner", "Meditech", "Critical Care", "ICU", "Emergency",
+        "Pediatric", "Geriatric", "Oncology", "Cardiology", "Orthopedic",
+        "Surgical", "Medical-Surgical", "Telemetry", "Labor and Delivery",
+        "NICU", "PICU", "OR", "PACU", "Dialysis", "Chemotherapy",
+        "Phlebotomy", "Medication Administration", "Patient Education",
+        "Care Planning", "Discharge Planning", "Team Leadership"
+    ]
+    
+    text_lower = text.lower()
+    for skill in healthcare_skills:
+        if skill.lower() in text_lower:
+            result["skills"].append(skill)
+    
+    # Extract years of experience
+    exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)', text_lower)
+    if exp_match:
+        result["years_experience"] = int(exp_match.group(1))
+    
+    # Detect specialty from keywords
+    specialty_keywords = {
+        "Registered Nurse": ["registered nurse", "rn ", " rn,", "rn-"],
+        "Licensed Practical Nurse": ["licensed practical nurse", "lpn", "lvn"],
+        "Certified Nursing Assistant": ["certified nursing assistant", "cna", "nursing assistant"],
+        "Nurse Practitioner": ["nurse practitioner", "np ", "aprn", "fnp", "anp"],
+        "Physical Therapist": ["physical therapist", "pt ", "dpt"],
+        "Occupational Therapist": ["occupational therapist", "ot ", "otr"],
+        "Respiratory Therapist": ["respiratory therapist", "rt ", "rrt"],
+        "Medical Technologist": ["medical technologist", "mt ", "mlt"],
+        "Pharmacist": ["pharmacist", "pharmd", "rph"],
+        "Physician Assistant": ["physician assistant", "pa-c", "pa "],
+        "Radiologic Technologist": ["radiologic technologist", "x-ray tech", "rt(r)"],
+        "Surgical Technologist": ["surgical technologist", "surgical tech", "cst"],
+    }
+    
+    for specialty, keywords in specialty_keywords.items():
+        for keyword in keywords:
+            if keyword in text_lower:
+                result["specialty"] = specialty
+                break
+        if result["specialty"]:
+            break
+    
+    # Extract a bio (first paragraph or objective statement)
+    objective_match = re.search(r'(?:objective|summary|profile)[:\s]*([^\n]+(?:\n[^\n]+)?)', text_lower)
+    if objective_match:
+        result["bio"] = objective_match.group(1).strip()[:500]
+    
+    # Extract certifications
+    cert_patterns = [
+        r'(BLS|ACLS|PALS|NRP|TNCC|ENPC|CEN|CCRN|CNOR|OCN|CHPN)\b',
+        r'(RN|LPN|LVN|CNA|NP|PA-C|RT|PT|OT|MT|PharmD)\b'
+    ]
+    
+    for pattern in cert_patterns:
+        matches = re.findall(pattern, text.upper())
+        for match in matches:
+            if match not in [c.get("name") for c in result["certifications"]]:
+                result["certifications"].append({
+                    "name": match,
+                    "expiration": ""
+                })
+    
+    return result
+
 @api_router.get("/profile/poster")
 async def get_poster_profile(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "poster":
