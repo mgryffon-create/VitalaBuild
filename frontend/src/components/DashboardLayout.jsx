@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-// Seeker navigation - flat list
+// Seeker navigation - with Employer Matches category
 const seekerNavItems = [
   { label: "Dashboard", icon: Home, path: "/seeker" },
   { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
@@ -36,9 +36,16 @@ const seekerNavItems = [
   { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
   { label: "Documents", icon: FileText, path: "/seeker/documents" },
   { label: "My Offers", icon: Gift, path: "/seeker/offers" },
-  { label: "Matches", icon: MessageCircle, path: "/matches" },
-  { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
-  { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
+  { 
+    label: "Employer Matches", 
+    icon: UserCheck, 
+    isCategory: true,
+    children: [
+      { label: "Matches", icon: MessageCircle, path: "/matches" },
+      { label: "Passed", icon: RotateCcw, path: "/bins/passed" },
+      { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
+    ]
+  },
   { label: "Interviews", icon: Calendar, path: "/interviews" },
   { label: "Feed", icon: Rss, path: "/feed" },
   { label: "References", icon: Users, path: "/references" },
