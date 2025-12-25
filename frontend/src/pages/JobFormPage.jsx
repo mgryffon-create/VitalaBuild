@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,27 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Briefcase, MapPin, DollarSign, Clock, Plus, X, Save, ArrowLeft, Award, Gift, FileText, Calendar } from "lucide-react";
+import { Briefcase, MapPin, DollarSign, Clock, Plus, X, Save, ArrowLeft, Award, Gift, FileText, Calendar, Cloud, CloudOff, Loader2 } from "lucide-react";
+
+// Auto-save status indicator component
+const AutoSaveIndicator = ({ status }) => {
+  const statusConfig = {
+    saved: { icon: Cloud, text: 'Saved', className: 'text-green-500' },
+    saving: { icon: Loader2, text: 'Saving...', className: 'text-blue-500' },
+    unsaved: { icon: CloudOff, text: 'Unsaved changes', className: 'text-amber-500' },
+    error: { icon: CloudOff, text: 'Save failed', className: 'text-red-500' }
+  };
+
+  const config = statusConfig[status] || statusConfig.saved;
+  const Icon = config.icon;
+
+  return (
+    <div className={`flex items-center gap-2 text-sm ${config.className}`}>
+      <Icon className={`w-4 h-4 ${status === 'saving' ? 'animate-spin' : ''}`} />
+      <span>{config.text}</span>
+    </div>
+  );
+};
 
 const JobFormPage = () => {
   const navigate = useNavigate();
@@ -20,6 +40,10 @@ const JobFormPage = () => {
   const [loading, setLoading] = useState(!!jobId);
   const [saving, setSaving] = useState(false);
   const [specialties, setSpecialties] = useState({ nursing: [], allied_health: [], all: [] });
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved');
+  const [initialLoadComplete, setInitialLoadComplete] = useState(!jobId);
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedRef = useRef(null);
   const [job, setJob] = useState({
     title: "",
     description: "",
