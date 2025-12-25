@@ -112,11 +112,13 @@ const JobFormPage = () => {
     try {
       const response = await axios.get(`${API}/jobs/${jobId}`);
       setJob(response.data);
+      lastSavedRef.current = JSON.stringify(response.data);
     } catch (error) {
       toast.error("Failed to load job");
       navigate("/poster");
     } finally {
       setLoading(false);
+      setTimeout(() => setInitialLoadComplete(true), 500);
     }
   }, [jobId, navigate]);
 
@@ -126,6 +128,50 @@ const JobFormPage = () => {
       fetchJob();
     }
   }, [jobId, fetchJob, fetchSpecialties]);
+
+  // Auto-save effect (only for editing existing jobs)
+  useEffect(() => {
+    if (!isEdit || !initialLoadComplete) return;
+
+    const currentData = JSON.stringify(job);
+    if (currentData === lastSavedRef.current) return;
+
+    setAutoSaveStatus('unsaved');
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      // Validate minimum fields
+      if (!job.title || !job.description || !job.location || !job.specialty) {
+        return;
+      }
+
+      setAutoSaveStatus('saving');
+      try {
+        const payload = {
+          ...job,
+          pay_range: {
+            min: parseInt(job.pay_range.min) || 0,
+            max: parseInt(job.pay_range.max) || 0
+          },
+          experience_required: parseInt(job.experience_required) || 0
+        };
+        await axios.put(`${API}/jobs/${jobId}`, payload);
+        lastSavedRef.current = JSON.stringify(job);
+        setAutoSaveStatus('saved');
+      } catch (error) {
+        setAutoSaveStatus('error');
+      }
+    }, 1500);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [job, isEdit, jobId, initialLoadComplete]);
 
   const handleSave = async () => {
     if (!job.title || !job.description || !job.location || !job.specialty) {
