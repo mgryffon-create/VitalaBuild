@@ -65,7 +65,7 @@ const posterNavItems = [
     isCategory: true,
     children: [
       { label: "Matches", icon: MessageCircle, path: "/matches" },
-      { label: "Take Another Look", icon: RotateCcw, path: "/bins/passed" },
+      { label: "Passed", icon: RotateCcw, path: "/bins/passed" },
       { label: "Maybe", icon: HelpCircle, path: "/bins/maybe" },
     ]
   },
