@@ -258,6 +258,10 @@ const ProfileBuilder = () => {
                 : "Tell job seekers about your facility"}
             </p>
           </div>
+          {/* Auto-save indicator */}
+          {initialLoadComplete && (
+            <AutoSaveIndicator status={autoSaveStatus} />
+          )}
         </div>
 
         {/* Resume Upload Section (Seeker Only) */}
