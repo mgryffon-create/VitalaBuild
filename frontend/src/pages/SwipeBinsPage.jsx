@@ -152,7 +152,7 @@ const SwipeBinsPage = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="passed" className="flex items-center gap-2">
-              <RotateCcw className="w-4 h-4" /> Take Another Look
+              <RotateCcw className="w-4 h-4" /> Passed
             </TabsTrigger>
             <TabsTrigger value="maybe" className="flex items-center gap-2">
               <HelpCircle className="w-4 h-4" /> Maybe
