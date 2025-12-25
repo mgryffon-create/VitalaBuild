@@ -127,6 +127,25 @@ const ProfileBuilder = () => {
     fetchSpecialties();
   }, [fetchProfile, fetchSpecialties]);
 
+  // Auto-save function (silent, no toast)
+  const autoSave = useCallback(async () => {
+    if (!initialLoadComplete) return;
+    
+    const endpoint = isSeeker ? "/profile/seeker" : "/profile/poster";
+    await axios.put(`${API}${endpoint}`, profile);
+    
+    // Update user's profile_complete status
+    const meRes = await axios.get(`${API}/auth/me`);
+    updateUser(meRes.data);
+  }, [profile, isSeeker, updateUser, initialLoadComplete]);
+
+  // Use auto-save hook
+  const autoSaveStatus = useAutoSave(
+    initialLoadComplete ? profile : null, 
+    autoSave, 
+    1500
+  );
+
   const handleSave = async () => {
     setSaving(true);
     try {
