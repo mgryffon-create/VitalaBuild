@@ -166,16 +166,63 @@ const ProfileBuilder = () => {
                 : "Tell job seekers about your facility"}
             </p>
           </div>
-          <Button
-            data-testid="save-profile-btn"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : "Save Profile"}
-          </Button>
         </div>
+
+        {/* Resume Upload Section (Seeker Only) */}
+        {isSeeker && (
+          <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-primary" />
+                </div>
+                <div className="flex-1 text-center sm:text-left">
+                  <h3 className="font-semibold text-lg">Quick Start with Resume Upload</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upload your resume and we&apos;ll automatically fill in your profile details
+                  </p>
+                </div>
+                <div>
+                  <input
+                    ref={resumeInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={handleResumeUpload}
+                    className="hidden"
+                    id="resume-upload"
+                  />
+                  <Button
+                    data-testid="upload-resume-btn"
+                    onClick={() => resumeInputRef.current?.click()}
+                    disabled={parsingResume}
+                    variant="outline"
+                    className="border-primary text-primary hover:bg-primary hover:text-white"
+                  >
+                    {parsingResume ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Parsing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Resume
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {parsingResume && (
+                <Alert className="mt-4 bg-primary/10 border-primary/20">
+                  <Sparkles className="h-4 w-4" />
+                  <AlertDescription>
+                    Analyzing your resume with AI... This may take a moment.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {isSeeker ? (
           <SeekerProfileForm 
@@ -189,6 +236,20 @@ const ProfileBuilder = () => {
         ) : (
           <PosterProfileForm profile={profile} updateField={updateField} specialties={specialties} />
         )}
+
+        {/* Save Button at Bottom */}
+        <div className="sticky bottom-4 flex justify-end">
+          <Button
+            data-testid="save-profile-btn"
+            onClick={handleSave}
+            disabled={saving}
+            size="lg"
+            className="bg-primary hover:bg-primary/90 shadow-lg"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Saving..." : "Save Profile"}
+          </Button>
+        </div>
       </div>
     </DashboardLayout>
   );
