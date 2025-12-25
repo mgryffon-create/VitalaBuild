@@ -198,19 +198,32 @@ const SeekerDashboard = () => {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-4 text-muted-foreground mb-4">
-                  <p className="text-sm">No matches yet</p>
-                  <p className="text-xs">Start swiping to find jobs!</p>
+                <div className="text-center py-6 mb-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                    <VitalaIcon className="w-10 h-10 opacity-40" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No job matches yet. Start swiping to find your perfect career match.
+                  </p>
+                  <Button 
+                    data-testid="start-swiping-empty-btn"
+                    onClick={() => navigate("/seeker/swipe")}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    <Briefcase className="w-4 h-4 mr-2" /> Find Jobs
+                  </Button>
                 </div>
               )}
-              <Button 
-                data-testid="view-matches-btn"
-                onClick={() => navigate("/matches")} 
-                variant="outline"
-                className="w-full border-accent text-accent hover:bg-accent hover:text-white"
-              >
-                <MessageCircle className="w-4 h-4 mr-2" /> View All Matches
-              </Button>
+              {recentMatches.length > 0 && (
+                <Button 
+                  data-testid="view-matches-btn"
+                  onClick={() => navigate("/matches")} 
+                  variant="outline"
+                  className="w-full border-accent text-accent hover:bg-accent hover:text-white"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" /> View All Matches
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
