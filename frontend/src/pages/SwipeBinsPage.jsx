@@ -140,7 +140,7 @@ const SwipeBinsPage = () => {
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">
-            {activeTab === "passed" ? "Take Another Look" : "Maybe Later"}
+            {activeTab === "passed" ? "Passed" : "Maybe Later"}
           </h1>
           <p className="text-muted-foreground mt-1">
             {activeTab === "passed" 
