@@ -14,7 +14,77 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff } from "lucide-react";
+
+// Custom hook for debounced auto-save
+const useAutoSave = (data, saveFunction, delay = 2000) => {
+  const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved', 'saving', 'unsaved', 'error'
+  const timeoutRef = useRef(null);
+  const lastSavedRef = useRef(JSON.stringify(data));
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    // Skip first render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    const currentData = JSON.stringify(data);
+    
+    // If data hasn't changed from last save, don't trigger
+    if (currentData === lastSavedRef.current) {
+      return;
+    }
+
+    setAutoSaveStatus('unsaved');
+
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout for auto-save
+    timeoutRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        await saveFunction();
+        lastSavedRef.current = JSON.stringify(data);
+        setAutoSaveStatus('saved');
+      } catch (error) {
+        setAutoSaveStatus('error');
+      }
+    }, delay);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [data, saveFunction, delay]);
+
+  return autoSaveStatus;
+};
+
+// Auto-save status indicator component
+const AutoSaveIndicator = ({ status }) => {
+  const statusConfig = {
+    saved: { icon: Cloud, text: 'Saved', className: 'text-green-500' },
+    saving: { icon: Loader2, text: 'Saving...', className: 'text-blue-500 animate-spin' },
+    unsaved: { icon: CloudOff, text: 'Unsaved changes', className: 'text-amber-500' },
+    error: { icon: CloudOff, text: 'Save failed', className: 'text-red-500' }
+  };
+
+  const config = statusConfig[status] || statusConfig.saved;
+  const Icon = config.icon;
+
+  return (
+    <div className={`flex items-center gap-2 text-sm ${config.className}`}>
+      <Icon className="w-4 h-4" />
+      <span>{config.text}</span>
+    </div>
+  );
+};
 
 const ProfileBuilder = () => {
   const navigate = useNavigate();
@@ -25,6 +95,7 @@ const ProfileBuilder = () => {
   const [specialties, setSpecialties] = useState({ nursing: [], allied_health: [], all: [] });
   const [parsingResume, setParsingResume] = useState(false);
   const resumeInputRef = useRef(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   const isSeeker = user?.role === "seeker";
 
@@ -37,6 +108,8 @@ const ProfileBuilder = () => {
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
+      // Delay setting initial load to prevent auto-save on first load
+      setTimeout(() => setInitialLoadComplete(true), 500);
     }
   }, [isSeeker]);
 
