@@ -248,15 +248,21 @@ const JobFormPage = () => {
               </p>
             </div>
           </div>
-          <Button
-            data-testid="save-job-btn"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : isEdit ? "Update Job" : "Post Job"}
-          </Button>
+          <div className="flex items-center gap-4">
+            {/* Auto-save indicator (only for edit mode) */}
+            {isEdit && initialLoadComplete && (
+              <AutoSaveIndicator status={autoSaveStatus} />
+            )}
+            <Button
+              data-testid="save-job-btn"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? "Saving..." : isEdit ? "Update Job" : "Post Job"}
+            </Button>
+          </div>
         </div>
 
         {/* Basic Information */}
