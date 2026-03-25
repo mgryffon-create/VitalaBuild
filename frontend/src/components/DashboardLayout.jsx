@@ -41,10 +41,10 @@ const seekerNavItems = [
 const posterNavItems = [
   { label: "Dashboard", icon: Home, path: "/poster" },
   { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Company Profile", icon: User, path: "/poster/profile" },
-  { label: "Hiring Manager", icon: ClipboardList, path: "/poster/hiring" },
-  { label: "Verify Credentials", icon: CheckCircle, path: "/poster/verifications" },
+  { label: "Candidates", icon: Users, path: "/poster/candidates" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
+  { label: "Offers Sent", icon: ClipboardList, path: "/poster/offers-sent" },
+  { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 

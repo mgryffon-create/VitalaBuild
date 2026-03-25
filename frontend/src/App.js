@@ -22,6 +22,7 @@ import LicensesPage from "@/pages/LicensesPage";
 import VerificationAdminPage from "@/pages/VerificationAdminPage";
 import SwipeBinsPage from "@/pages/SwipeBinsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
+import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
 import MyOffersPage from "@/pages/MyOffersPage";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
@@ -267,6 +268,22 @@ function App() {
           />
           <Route
             path="/poster/hiring"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <HiringSuitePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/poster/candidates"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <EmployerCandidatesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/poster/offers-sent"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
                 <HiringSuitePage />

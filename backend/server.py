@@ -1507,6 +1507,130 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
     return applications
 
 
+# ==================== EMPLOYER CANDIDATES ====================
+
+@api_router.get("/employer/candidates")
+async def get_employer_candidates(current_user: dict = Depends(get_current_user)):
+    """Get all seekers who expressed interest in the employer's jobs, with status"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can view candidates")
+
+    # Get all employer's jobs
+    employer_jobs = await db.jobs.find(
+        {"poster_id": current_user["id"]},
+        {"_id": 0}
+    ).to_list(100)
+    job_ids = [j["id"] for j in employer_jobs]
+    job_map = {j["id"]: j for j in employer_jobs}
+
+    if not job_ids:
+        return []
+
+    # Get all 'like' swipes targeting these jobs
+    liked_swipes = await db.swipes.find(
+        {"target_id": {"$in": job_ids}, "action": "like"},
+        {"_id": 0}
+    ).to_list(500)
+
+    candidates = []
+    for sw in liked_swipes:
+        seeker = await db.users.find_one({"id": sw["user_id"]}, {"_id": 0, "password": 0})
+        if not seeker:
+            continue
+
+        seeker_profile = await db.seeker_profiles.find_one(
+            {"user_id": sw["user_id"]}, {"_id": 0}
+        )
+
+        job = job_map.get(sw["target_id"], {})
+
+        # Check for mutual match
+        match = await db.matches.find_one(
+            {"seeker_id": sw["user_id"], "job_id": sw["target_id"]},
+            {"_id": 0}
+        )
+
+        # Check for offer
+        offer = await db.employment_offers.find_one(
+            {"seeker_id": sw["user_id"], "job_id": sw["target_id"]},
+            {"_id": 0}
+        )
+
+        status = "pending"
+        match_id = None
+        offer_id = None
+        if offer:
+            status = "offer_sent"
+            offer_id = offer.get("id")
+            match_id = match["id"] if match else None
+        elif match:
+            status = "matched"
+            match_id = match["id"]
+
+        candidates.append({
+            "id": sw["id"],
+            "seeker_id": sw["user_id"],
+            "job_id": sw["target_id"],
+            "match_id": match_id,
+            "offer_id": offer_id,
+            "status": status,
+            "applied_at": sw.get("created_at"),
+            "seeker": {
+                "full_name": seeker.get("full_name"),
+                "email": seeker.get("email"),
+                "specialty": seeker_profile.get("specialty") if seeker_profile else None,
+                "years_experience": seeker_profile.get("years_experience") if seeker_profile else None,
+                "bio": seeker_profile.get("bio") if seeker_profile else None,
+            },
+            "job": {
+                "id": job.get("id"),
+                "title": job.get("title"),
+                "location": job.get("location"),
+            }
+        })
+
+    # Sort: pending first, then matched, then offer_sent
+    order = {"pending": 0, "matched": 1, "offer_sent": 2}
+    candidates.sort(key=lambda c: order.get(c["status"], 3))
+    return candidates
+
+
+@api_router.post("/employer/candidates/{seeker_id}/accept")
+async def accept_candidate(seeker_id: str, job_id: str, current_user: dict = Depends(get_current_user)):
+    """Employer accepts a candidate — creates a mutual match"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can accept candidates")
+
+    # Verify job belongs to employer
+    job = await db.jobs.find_one({"id": job_id, "poster_id": current_user["id"]})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Verify seeker expressed interest
+    swipe = await db.swipes.find_one({"user_id": seeker_id, "target_id": job_id, "action": "like"})
+    if not swipe:
+        raise HTTPException(status_code=404, detail="Candidate has not expressed interest in this job")
+
+    # Check if match already exists
+    existing = await db.matches.find_one({"seeker_id": seeker_id, "job_id": job_id})
+    if existing:
+        return {"message": "Already matched", "match_id": existing["id"]}
+
+    # Create the match
+    match_id = str(uuid.uuid4())
+    match_data = {
+        "id": match_id,
+        "seeker_id": seeker_id,
+        "poster_id": current_user["id"],
+        "job_id": job_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.matches.insert_one(match_data)
+
+    return {"message": "Candidate accepted", "match_id": match_id}
+
+
+
 # ==================== SWIPE BINS ROUTES ====================
 
 @api_router.get("/swipe/bins/passed")
@@ -2841,7 +2965,14 @@ async def get_employment_offers(current_user: dict = Depends(get_current_user)):
     for offer in offers:
         if offer["status"] == "pending":
             try:
-                exp_date = datetime.fromisoformat(offer["expiration_date"].replace('Z', '+00:00'))
+                exp_date_str = offer["expiration_date"]
+                # Handle both date-only strings (YYYY-MM-DD) and ISO datetime strings
+                if 'T' in exp_date_str or '+' in exp_date_str or 'Z' in exp_date_str:
+                    exp_date = datetime.fromisoformat(exp_date_str.replace('Z', '+00:00'))
+                else:
+                    # Date-only string - parse and add timezone
+                    exp_date = datetime.strptime(exp_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                
                 if exp_date < datetime.now(timezone.utc):
                     await db.employment_offers.update_one(
                         {"id": offer["id"]},
