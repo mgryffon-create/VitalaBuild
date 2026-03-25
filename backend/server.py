@@ -1439,6 +1439,74 @@ async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user:
     
     return {"message": "Swipe recorded", **match_result}
 
+
+# ==================== SEEKER APPLICATIONS ====================
+
+@api_router.get("/seeker/applications")
+async def get_seeker_applications(current_user: dict = Depends(get_current_user)):
+    """Get all jobs the seeker expressed interest in, with status"""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Only seekers can view applications")
+
+    # Get all 'like' swipes by this seeker
+    liked_swipes = await db.swipes.find(
+        {"user_id": current_user["id"], "action": "like"},
+        {"_id": 0}
+    ).to_list(200)
+
+    applications = []
+    for sw in liked_swipes:
+        job = await db.jobs.find_one({"id": sw["target_id"]}, {"_id": 0})
+        if not job:
+            continue
+
+        # Check for a mutual match
+        match = await db.matches.find_one(
+            {"seeker_id": current_user["id"], "job_id": sw["target_id"]},
+            {"_id": 0}
+        )
+
+        # Check for an offer
+        offer = await db.offers.find_one(
+            {"seeker_id": current_user["id"], "job_id": sw["target_id"]},
+            {"_id": 0}
+        )
+
+        status = "pending"
+        match_id = None
+        if offer:
+            status = "offer"
+            match_id = match["id"] if match else None
+        elif match:
+            status = "matched"
+            match_id = match["id"]
+
+        poster_profile = await db.poster_profiles.find_one(
+            {"user_id": job.get("poster_id")}, {"_id": 0}
+        )
+
+        applications.append({
+            "id": sw["id"],
+            "job_id": job["id"],
+            "match_id": match_id,
+            "status": status,
+            "applied_at": sw.get("created_at"),
+            "job": {
+                "title": job.get("title"),
+                "company_name": poster_profile.get("company_name") if poster_profile else job.get("company_name"),
+                "location": job.get("location"),
+                "specialty": job.get("specialty"),
+                "pay_range": job.get("pay_range"),
+                "duration": job.get("duration"),
+            }
+        })
+
+    # Sort: offers first, then matched, then pending
+    order = {"offer": 0, "matched": 1, "pending": 2}
+    applications.sort(key=lambda a: order.get(a["status"], 3))
+    return applications
+
+
 # ==================== SWIPE BINS ROUTES ====================
 
 @api_router.get("/swipe/bins/passed")
