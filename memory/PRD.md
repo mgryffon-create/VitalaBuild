@@ -13,6 +13,12 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Phase 1 MVP — Job Browsing & Matching Flow (March 2025)
+- **Find Jobs page**: Tinder/Nursa-style card UI — title, facility, location, pay, specialty, description. Two buttons: Pass + Interested. Swipe gestures supported.
+- **Backend**: New `GET /api/seeker/applications` endpoint returns all jobs seeker liked with status (pending / matched / offer)
+- **Matches page**: Seeker sees application tracker with status badges; pending shows "Waiting for a match" instead of chat; matched enables messaging. Employer sees legacy match view.
+- **Employer nav simplified**: flat list (Dashboard, Post Job, Company Profile, Hiring Manager, Verify Credentials, Matches, Settings). References/Connections/Bins removed.
+
 ### Phase 1 MVP — Seeker Dashboard v2 (March 2025)
 - **Section-based layout**: Profile Status (with per-field checklist), Credentials & Documents (licenses/docs/verification), Matches & Offers (clickable cards), Quick Actions (2-col grid)
 - **Profile completion**: Dynamically checks 5 fields (specialty, experience, phone, bio, preferred locations) with green/amber indicators

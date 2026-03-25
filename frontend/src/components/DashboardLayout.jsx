@@ -44,17 +44,7 @@ const posterNavItems = [
   { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Hiring Manager", icon: ClipboardList, path: "/poster/hiring" },
   { label: "Verify Credentials", icon: CheckCircle, path: "/poster/verifications" },
-  { 
-    label: "Applicants", 
-    icon: UserCheck, 
-    isCategory: true,
-    children: [
-      { label: "Connections", icon: MessageCircle, path: "/matches" },
-      { label: "Passed", icon: RotateCcw, path: "/bins/passed" },
-      { label: "Saved", icon: HelpCircle, path: "/bins/maybe" },
-    ]
-  },
-  { label: "References", icon: Users, path: "/references" },
+  { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
