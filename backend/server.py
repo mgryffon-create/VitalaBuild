@@ -1467,7 +1467,7 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
         )
 
         # Check for an offer
-        offer = await db.offers.find_one(
+        offer = await db.employment_offers.find_one(
             {"seeker_id": current_user["id"], "job_id": sw["target_id"]},
             {"_id": 0}
         )
@@ -1475,7 +1475,14 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
         status = "pending"
         match_id = None
         if offer:
-            status = "offer"
+            # Use the actual offer status (pending, accepted, rejected, expired)
+            offer_status = offer.get("status", "pending")
+            if offer_status == "accepted":
+                status = "accepted"
+            elif offer_status == "rejected":
+                status = "declined"
+            else:
+                status = "offer_sent"
             match_id = match["id"] if match else None
         elif match:
             status = "matched"
@@ -1501,9 +1508,9 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
             }
         })
 
-    # Sort: offers first, then matched, then pending
-    order = {"offer": 0, "matched": 1, "pending": 2}
-    applications.sort(key=lambda a: order.get(a["status"], 3))
+    # Sort: offer_sent first, then matched, then pending, then accepted/declined
+    order = {"offer_sent": 0, "matched": 1, "pending": 2, "accepted": 3, "declined": 4}
+    applications.sort(key=lambda a: order.get(a["status"], 5))
     return applications
 
 
@@ -3034,14 +3041,21 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
     
     # Check if expired
     try:
-        exp_date = datetime.fromisoformat(offer["expiration_date"].replace('Z', '+00:00'))
+        exp_date_str = offer["expiration_date"]
+        # Handle both date-only strings (YYYY-MM-DD) and ISO datetime strings
+        if 'T' in exp_date_str or '+' in exp_date_str or 'Z' in exp_date_str:
+            exp_date = datetime.fromisoformat(exp_date_str.replace('Z', '+00:00'))
+        else:
+            # Date-only string - parse and add timezone
+            exp_date = datetime.strptime(exp_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        
         if exp_date < datetime.now(timezone.utc):
             await db.employment_offers.update_one(
                 {"id": offer_id},
                 {"$set": {"status": "expired", "updated_at": datetime.now(timezone.utc).isoformat()}}
             )
             raise HTTPException(status_code=400, detail="This offer has expired")
-    except ValueError:
+    except (ValueError, KeyError):
         pass
     
     new_status = "accepted" if response.accepted else "rejected"
