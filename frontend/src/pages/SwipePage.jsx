@@ -102,12 +102,12 @@ const SwipePage = () => {
       <div data-testid="swipe-page" className="max-w-2xl mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">
-            {isSeeker ? "Find Your Perfect Job" : "Review Candidates"}
+            {isSeeker ? "Find Jobs" : "Review Candidates"}
           </h1>
           <p className="text-muted-foreground mt-1">
             {isSeeker
-              ? "Swipe right on jobs you're interested in"
-              : "Swipe right on candidates you'd like to match with"}
+              ? "Browse jobs and express interest in positions that fit you"
+              : "Review candidates and connect with those you'd like to hire"}
           </p>
         </div>
 
@@ -188,7 +188,7 @@ const SwipePage = () => {
                 className="w-14 h-14 rounded-full border-2 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white"
                 onClick={() => handleSwipe("down")}
                 disabled={expandedCard}
-                title="Maybe - Review Later"
+                title="Save for Later"
               >
                 <HelpCircle className="w-7 h-7" />
               </Button>
@@ -226,11 +226,11 @@ const SwipePage = () => {
                 <Sparkles className="w-10 h-10 text-secondary" />
               </div>
               <DialogHeader>
-                <DialogTitle className="text-2xl text-center">It&apos;s a Match!</DialogTitle>
+                <DialogTitle className="text-2xl text-center">It&apos;s a Connection!</DialogTitle>
                 <DialogDescription className="text-center">
                   {isSeeker
                     ? `${matchData?.card?.company_name || "The employer"} is interested in you!`
-                    : `You matched with ${matchData?.seeker?.full_name}!`}
+                    : `You connected with ${matchData?.seeker?.full_name}!`}
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-6 flex flex-col gap-3">
@@ -249,7 +249,7 @@ const SwipePage = () => {
                   variant="outline"
                   onClick={() => setShowMatchDialog(false)}
                 >
-                  Keep Swiping
+                  Keep Reviewing
                 </Button>
               </div>
             </div>
@@ -327,19 +327,19 @@ const SwipeCard = ({ card, isSeeker, isTop, onSwipe, style, expanded, onExpandTo
               className="absolute top-8 right-8 z-10 px-4 py-2 rounded-lg border-4 border-secondary text-secondary font-bold text-2xl rotate-12"
               style={{ opacity: likeOpacity }}
             >
-              LIKE
+              INTERESTED
             </motion.div>
             <motion.div
               className="absolute top-8 left-8 z-10 px-4 py-2 rounded-lg border-4 border-destructive text-destructive font-bold text-2xl -rotate-12"
               style={{ opacity: nopeOpacity }}
             >
-              NOPE
+              PASS
             </motion.div>
             <motion.div
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-4 py-2 rounded-lg border-4 border-amber-500 text-amber-500 font-bold text-2xl"
               style={{ opacity: maybeOpacity }}
             >
-              MAYBE
+              SAVE
             </motion.div>
           </>
         )}

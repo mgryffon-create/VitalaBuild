@@ -138,7 +138,7 @@ const ReferencesPage = () => {
                 <Users className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-foreground">Blind Reference System</p>
+                <p className="font-medium text-foreground">Confidential Reference System</p>
                 <p className="text-sm text-muted-foreground">
                   {isSeeker
                     ? "Your references will only be visible to employers after you match with a job. You won't see the content of the references."

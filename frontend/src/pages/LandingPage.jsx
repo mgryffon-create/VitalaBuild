@@ -1,8 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
-import { Briefcase, Shield, Users, ArrowRight, CheckCircle, Stethoscope } from "lucide-react";
-import VitalaIcon from "@/components/VitalaIcon";
+import { FileText, Shield, Users, ArrowRight, CheckCircle, Briefcase, Lock } from "lucide-react";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -10,9 +9,14 @@ const LandingPage = () => {
 
   const features = [
     {
-      icon: <VitalaIcon className="w-6 h-6" />,
-      title: "Swipe to Match",
-      description: "Find your perfect job or candidate with our intuitive matching system"
+      icon: <FileText className="w-6 h-6" />,
+      title: "Universal Application",
+      description: "Apply once and let your profile work across all positions and facilities"
+    },
+    {
+      icon: <Lock className="w-6 h-6" />,
+      title: "Secure Document Vault",
+      description: "Safely store and manage your licenses, certifications, and compliance documents"
     },
     {
       icon: <Shield className="w-6 h-6" />,
@@ -21,23 +25,18 @@ const LandingPage = () => {
     },
     {
       icon: <Users className="w-6 h-6" />,
-      title: "Blind References",
-      description: "Confidential reference system that protects both seekers and facilities"
-    },
-    {
-      icon: <Briefcase className="w-6 h-6" />,
-      title: "Smart Compatibility",
-      description: "AI-powered matching based on skills, preferences, and requirements"
+      title: "Portable References",
+      description: "Confidential reference system that follows you across applications"
     }
   ];
 
   const benefits = [
-    "Universal application for all positions",
-    "Document expiration tracking",
-    "Flexible notification preferences",
-    "Direct messaging after matching",
+    "One profile for every application",
+    "Document expiration tracking & alerts",
+    "Verified credential management",
+    "Direct messaging with employers",
     "Comprehensive profile builder",
-    "Location-based job matching"
+    "Secure document storage"
   ];
 
   return (
@@ -92,12 +91,12 @@ const LandingPage = () => {
                 <span className="text-sm font-medium">For Healthcare Professionals</span>
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight tracking-tight">
-                Find Your Perfect
-                <span className="text-primary"> Medical Career </span>
-                Match
+                Your Healthcare
+                <span className="text-primary"> Career </span>
+                Starts Here
               </h1>
               <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-                Swipe through opportunities, connect with top healthcare facilities, and land your dream position with our innovative matching platform.
+                A secure, professional platform to manage your credentials, connect with top healthcare facilities, and find your next opportunity.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Button
@@ -106,7 +105,7 @@ const LandingPage = () => {
                   onClick={() => navigate("/auth")}
                   className="bg-primary hover:bg-primary/90 text-lg px-8 py-6"
                 >
-                  Start Matching <ArrowRight className="ml-2 w-5 h-5" />
+                  Get Started <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button
                   data-testid="hero-learn-more-btn"
@@ -142,7 +141,7 @@ const LandingPage = () => {
               Why Choose VitalaMatch?
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              We&apos;ve reimagined healthcare recruiting with modern technology and a user-first approach
+              Built for healthcare professionals who value security, efficiency, and professionalism
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -205,10 +204,10 @@ const LandingPage = () => {
       <section className="py-20 px-6 bg-primary">
         <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Ready to Find Your Match?
+            Ready to Take the Next Step?
           </h2>
           <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of healthcare professionals and facilities already connecting on VitalaMatch
+            Join thousands of healthcare professionals and facilities already using VitalaMatch
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button
@@ -226,7 +225,7 @@ const LandingPage = () => {
               onClick={() => navigate("/auth")}
               className="border-white text-white hover:bg-white/10"
             >
-              I&apos;m Hiring
+              I&apos;m an Employer
             </Button>
           </div>
         </div>
@@ -244,7 +243,7 @@ const LandingPage = () => {
               />
             </div>
             <p className="text-muted-foreground text-sm">
-              © 2024 VitalaMatch. All rights reserved.
+              © 2025 VitalaMatch. All rights reserved.
             </p>
           </div>
         </div>

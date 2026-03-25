@@ -44,21 +44,6 @@ const MatchesPage = () => {
 
   const isSeeker = user?.role === "seeker";
 
-  useEffect(() => {
-    fetchMatches();
-  }, [fetchMatches]);
-
-  useEffect(() => {
-    if (selectedMatch) {
-      fetchMessages(selectedMatch.id);
-      fetchReplyProbability(selectedMatch.id);
-    }
-  }, [selectedMatch, fetchMessages, fetchReplyProbability]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -94,6 +79,21 @@ const MatchesPage = () => {
       setReplyProbability(null);
     }
   }, []);
+
+  useEffect(() => {
+    fetchMatches();
+  }, [fetchMatches]);
+
+  useEffect(() => {
+    if (selectedMatch) {
+      fetchMessages(selectedMatch.id);
+      fetchReplyProbability(selectedMatch.id);
+    }
+  }, [selectedMatch, fetchMessages, fetchReplyProbability]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -221,7 +221,7 @@ const MatchesPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="matches-page" className="h-[calc(100vh-8rem)]">
-        <h1 className="text-2xl font-bold text-foreground mb-6">Your Matches</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-6">Matches</h1>
 
         {matches.length === 0 ? (
           <Card>
@@ -229,7 +229,7 @@ const MatchesPage = () => {
               <MessageCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h2 className="text-xl font-semibold text-foreground mb-2">No matches yet</h2>
               <p className="text-muted-foreground mb-6">
-                Start swiping to find your perfect match
+                Start finding jobs to get matched with employers
               </p>
               <Button
                 data-testid="start-swiping-matches-btn"
@@ -329,26 +329,6 @@ const MatchesPage = () => {
                       
                       {/* View References Button */}
                       <div className="flex items-center gap-2">
-                        {!isSeeker && (
-                          <>
-                            <Button
-                              data-testid="request-interview-btn"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowInterviewDialog(true)}
-                            >
-                              <Calendar className="w-4 h-4 mr-1" /> Interview
-                            </Button>
-                            <Button
-                              data-testid="verify-license-btn"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowVerifyDialog(true)}
-                            >
-                              <Shield className="w-4 h-4 mr-1" /> Verify
-                            </Button>
-                          </>
-                        )}
                         {(isSeeker ? selectedMatch.poster_references_available : selectedMatch.seeker_references_available) && (
                           <Button
                             data-testid="view-references-btn"

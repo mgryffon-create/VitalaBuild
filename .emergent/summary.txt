@@ -1,221 +1,195 @@
 <analysis>**original_problem_statement:**
-The user initially requested a Tinder for job matching app for medical professionals called MedJobMatch.
+The user initially requested a Tinder for job matching app. This evolved into a feature-rich application called VitalaMatch with a social feed, advanced swipe bins, PWA capabilities, and a comprehensive hiring suite.
 
-Throughout the session, the user added a significant number of new features and changes:
-1.  **Rebranding:** Rename the site to VitalaMatch, add a new logo, and update the color scheme to teal/light blue with a professional font (Montserrat).
-2.  **Enhanced Swiping:**
-    *   Add a Maybe feature (swipe down) for uncertain profiles.
-    *   Create a Take Another Look bin to review profiles previously swiped left on.
-    *   Allow swiping right from all bins.
-3.  **Social Feed:**
-    *   Implement a feed for users to post photos and statuses (max 140 chars).
-    *   Add privacy controls for feed visibility (all vs. matches) and commenting.
-    *   Include a like feature.
-4.  **Communication & Scheduling:**
-    *   Add a direct messaging feature available only after a match.
-    *   Implement an interview request feature, integrating with third-party platforms like Calendly and Zoom.
-    *   Add a feature that calculates and displays the average user reply time to manage response expectations.
-5.  **User & Job Verification:**
-    *   Implement a system requiring employers to verify a business domain email before they can post jobs.
-6.  **Progressive Web App (PWA):**
-    *   Make the application installable on mobile devices (Add to Home Screen).
-    *   Add a service worker for offline support.
-    *   Enable push notifications.
-7.  **Hiring Suite (New Major Feature):**
-    *   Allow employers to send conditional job offers with expiration dates.
-    *   Create a Hiring Suite for employers to manage credentialing and onboarding post-offer acceptance.
-    *   This suite should handle documents (I-9, payroll, taxes) and include a folder for company policy handbooks.
-    *   After employment is confirmed, prompt both parties to leave a review of the other, to be displayed on their profiles.
+However, the user's latest and most critical request is to **refactor the existing platform into a simplified Phase 1 MVP**. The goal is to make the platform feel like a secure, professional healthcare hiring tool, removing all social and non-essential features.
+
+**PRODUCT REQUIREMENTS (MVP Refactor):**
+
+1.  **Landing Page Simplification:**
+    *   Update headline and subtext to be more professional and direct.
+    *   Change button labels to Get Started, Im a Job Seeker," "Im an Employer.
+    *   Remove all dating app terminology (e.g., swipe, match, dream job) and social/AI-related wording.
+    *   Replace feature cards with: Universal Application, Secure Document Vault, Verified Credentials, Portable References.
+    *   Update feature list to focus on core hiring functions.
+
+2.  **Remove / Disable Features:**
+    *   Hide pages and menu items for: Feed, Push/SMS notifications, Twilio integration, Social features, Review system, advanced Hiring Suite tools (offers, policy management), resume parsing automation, interview scheduling, and PWA install prompts.
+    *   **Crucially, do not delete the code, only hide it from the UI.**
+
+3.  **Rename Features & Terminology:**
+    *   Update menu items for both Job Seeker and Employer to reflect a more professional tone (e.g., Matches → Active Connections, Hiring Suite → Hiring Manager, Licenses → Credentials).
+    *   Globally replace swipe/match language with terms like Review Jobs, Recommended Roles, Active Connections, and Applicants.
+
+4.  **Enforce User Flow:**
+    *   **Job Seekers:** Must complete their profile, upload credentials/documents, and set preferences before they can review jobs.
+    *   **Employers:** Must verify their business email, complete a company profile, and post a job before they can view applicants.
+
+5.  **Core Features to Keep:**
+    *   The core review UI (formerly swipe).
+    *   Universal profile, document vault, and references.
+    *   Direct messaging, job posting, and candidate review.
+    *   Business domain email verification.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack web application (FastAPI backend, React frontend) rebranded as VitalaMatch. The application has been significantly enhanced beyond the initial MVP.
+A feature-rich full-stack application named VitalaMatch with a FastAPI backend and React frontend. It includes a social feed, advanced swipe options (Maybe, Passed), a complete PWA implementation, and a multi-step Hiring Suite (offers, onboarding, documents, reviews). Twilio has been integrated for SMS. Auto-saving has been implemented on key forms. The UI has been recently refactored to improve code quality.
 
-**Backend:**
-- All initial MVP features (auth, profiles, basic swipe/match).
-- New models and API endpoints for the social feed (posts, likes, comments), Maybe and left-swipe bins, and interview requests.
-- Endpoints for business email verification for employer accounts.
-- An endpoint to handle push notification subscriptions.
-- New Pydantic models for the upcoming hiring suite feature have been added to .
-
-**Frontend:**
-- Complete rebranding with the VitalaMatch logo, a teal/light blue color scheme, and the Montserrat font.
-- The UI now includes new pages for a social Feed, Interviews, and Swipe Bins (Take Another Look/Maybe).
-- The swipe interface is updated with a Maybe action (swipe down).
-- The  is enhanced with buttons to request interviews and displays the user's average reply time.
-- The employer dashboard () now includes a mandatory business email verification flow, disabling job posting until verification is complete.
-- The application is a fully functional Progressive Web App (PWA) with a manifest file, service worker for offline access, and a settings page for managing push notifications.
+However, the latest user request is to strip down this functionality significantly to a core MVP.
 
 **Last working item**:
--   **Last item agent was working:** The agent was in the initial phase of building the comprehensive **Hiring Suite**. It had successfully added the required Pydantic models to  and was about to add the corresponding API routes when it was interrupted by a failed tool call.
--   **Status:** IN PROGRESS
+-   **Last item agent was working:** The agent just received the major refactoring request to pivot the application to a Phase 1 MVP. It acknowledged the request and began by viewing  to start implementing the first set of changes.
+-   **Status:** NOT STARTED (The large refactoring task has just begun).
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?**: both
+-   **Which testing method agent to use?** both
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Complete and Test the License Verification Feature (P0)**
-    -   **Description:** This was the active task from the previous fork but was superseded by new user requests. The backend is complete, but the frontend interaction on  (allowing an employer to trigger a Nursys verification for a matched candidate) is still missing.
-    -   **Status:** NOT STARTED (in this session)
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** both
-    -   **Next debug checklist:**
-        1.  Modify  to add a Verify License button for employers on matched candidates.
-        2.  Implement the frontend API call to the  endpoint.
-        3.  Ensure the UI updates to reflect verification status changes.
-        4.  Test the full flow.
+The primary task is the MVP refactor, broken down into the following issues, all derived from the user's last request.
 
--   **Issue 2: Frontend Linting Errors and Refactoring (P2)**
-    -   **Description:** The frontend has numerous linting warnings and errors, primarily related to nested component definitions (e.g.,  inside ) and missing  dependencies. These can cause performance issues and bugs.
+-   **Issue 1: Refactor Landing Page (P0)**
+    -   **Description:** The content of the landing page needs to be completely replaced with a professional tone, new text, and new feature cards. All dating app and social media language must be removed.
     -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Next debug checklist:** Modify  to implement the new text and feature descriptions provided by the user.
+-   **Issue 2: Enforce Strict User Onboarding Flow (P0)**
+    -   **Description:** Logic needs to be added to prevent users from accessing core features (reviewing jobs/candidates) until their profiles are fully complete and verified.
+    -   **Status:** NOT STARTED
     -   **Next debug checklist:**
-        1.  Run yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. in the  directory.
-        2.  Refactor components like  and  to move nested component definitions outside the parent component.
-        3.  Fix all reported  dependency array warnings.
+        1.  In  or relevant dashboard pages, add logic to check for user profile completeness.
+        2.  If the profile is incomplete, redirect the user to the  page or show a modal forcing them to complete it.
+-   **Issue 3: Update Terminology Across the Platform (P1)**
+    -   **Description:** Perform a find-and-replace across the frontend codebase to change all instances of Swipe, Match, Take Another Look, Maybe, etc., to their new professional equivalents (Review Jobs, Active Connections, Passed, Saved Jobs).
+    -   **Status:** NOT STARTED
+    -   **Next debug checklist:** Use  to find all occurrences of the old terms and  to update them in all relevant files (e.g., , , ).
+-   **Issue 4: Frontend Linting Errors in UI Library (P3)**
+    -   **Description:** There are 3 remaining linting errors in third-party  components (, ).
+    -   **Status:** NOT STARTED
+    -   **Attempted fixes:** All other application-level linting errors were fixed. These are in library files and can likely be ignored.
+    -   **Next debug checklist:** Confirm these errors do not affect the build or functionality. If not, they can be ignored as per standard practice for third-party UI libraries.
 
 **In progress Task List**:
--   **Task 1: Implement Hiring Suite Backend (P0)**
-    -   **Where to resume:** Add the new API routes for the hiring suite (offers, onboarding, documents, reviews) to . The models are already defined.
-    -   **What will be achieved with this?** This will create the backend foundation for the entire hiring management system requested by the user.
+-   **Task 1: Refactor VitalaMatch to Phase 1 MVP (P0)**
+    -   **Description:** This is the overarching task that includes all the issues listed above. The goal is to simplify the entire application by hiding non-essential features and renaming existing ones to align with a professional healthcare hiring tool.
+    -   **Where to resume:** Start by editing  to apply the changes requested in step 1 of the user's prompt.
+    -   **What will be achieved with this?** The application will be transformed from a feature-heavy social matching app into a streamlined, professional MVP focused on core hiring functionality.
     -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** backend
-    -   **Blocked on something:** No.
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on something:** No
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **(P0) Implement Hiring Suite Frontend:** Create the necessary frontend pages and components for employers to send offers, manage onboarding, and for both users to accept/reject offers and leave reviews.
-    -   **(P1) Finalize 3rd Party Integrations:** Guide the user to add their actual API keys for SendGrid, Twilio, Nursys, Calendly, and Zoom into the  files to enable real-world functionality.
-    -   **(P2) Test Background Job:** Thoroughly test the weekly document expiration reminder job.
+    -   **(P0) Hide Non-Core Features:** Go through  and  to comment out or hide the routes and navigation links for Feed, Interview Scheduling, Offers, Policy Management, and PWA prompts.
+    -   **(P0) Rename Menu Items:** Modify  to implement the new menu structure and naming for both Job Seekers and Employers.
+    -   **(P2) Disable Backend Integrations:** In , comment out the logic related to Twilio SMS, Push Notifications, and the Nursys API calls to fully disable them.
 
--   **Future Tasks:**
-    -   **(P3) Refactor Backend:** The top priority for refactoring remains breaking down the monolithic  into smaller, feature-specific FastAPI routers (e.g., , , , ) to improve maintainability.
+-   **Future Tasks (On Hold):**
+    -   **(ON HOLD)** Refactor Backend: The task to break down the monolithic  into smaller FastAPI routers is now on hold due to the pivot to a simplified MVP.
+    -   **(ON HOLD)** Finalize 3rd Party Integrations: The plan to integrate user API keys for SendGrid, Calendly, and Zoom is on hold as these features are being hidden.
 
 **Completed work in this session**
--   **Bug Fix:** Resolved a React error (Cannot update a component while rendering) on the  by moving navigation logic into a  hook.
--   **Full Rebranding:** Renamed the app to VitalaMatch and implemented a new brand identity with a custom logo, teal/light-blue color scheme, and the Montserrat font across the entire application.
--   **Enhanced Swiping:** Implemented Maybe (swipe down) and Take Another Look (review passed profiles) features.
--   **Social Feed:** Added a fully functional social feed with posting, liking, commenting, and privacy controls.
--   **Interview Scheduling:** Integrated an interview request feature on the , ready for Calendly/Zoom API key integration.
--   **Employer Verification:** Implemented a mandatory business email verification system for employers.
--   **Progressive Web App (PWA):** Converted the React app into a PWA, making it installable on mobile devices with offline support.
--   **Icon Replacement:** Replaced the generic Heart icon with a custom stethoscope-based icon for key branding actions.
-
-**Earlier issues found/mentioned but not fixed**
--   **Issue 1: Frontend Linting and Code Quality**
-    -   **Debug checklist:** The agent identified multiple linting errors (e.g., nested components in , missing  dependencies) but postponed fixing them to prioritize feature implementation.
-    -   **Why to solve this issue and what will be achieved with this?** Fixing these issues will improve React performance, prevent potential re-rendering bugs, and enhance code maintainability.
-    -   **Should Test frontend/backend/both after fix:** frontend
-    -   **Is recurring issue?** N
-
-**Known issue recurrence from previous fork**
-N/A
+-   **Hiring Suite Implemented:** Built the complete backend (API routes) and frontend (UI pages for employer and seeker) for the Hiring Suite.
+-   **Resume Upload & Parsing:** Added a feature for seekers to upload a resume on the profile page, with a backend endpoint to parse it using an LLM.
+-   **Auto-Save Feature:** Implemented a debounced auto-save function with a visual status indicator on the Profile Builder and Job Form pages.
+-   **UI/UX Improvements:**
+    -   Renamed Take Another Look to Passed across the platform.
+    -   Created a collapsible Candidates category in the employer menu and an Employer Matches category in the seeker menu.
+    -   Moved the Save Profile button to be sticky at the bottom of the page.
+    -   Added an empty state message and Find Jobs button to the seeker's matches dashboard.
+    -   Reorganized the seeker dashboard to prioritize key information.
+-   **Code Quality & Bug Fixes:**
+    -   Fixed ~30 frontend linting errors, including moving all nested components to the top level and fixing  dependency arrays.
+    -   Fixed a login redirect loop caused by a JWT secret change.
+    -   Fixed a non-functional Learn More button on the landing page.
+    -   Suppressed the benign  error from appearing in the console.
+-   **Deployment & Configuration:**
+    -   Fixed hardcoded fallback values in  that were blocking deployment.
+    -   Successfully configured the Twilio integration with user-provided credentials.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
 -   **Backend:** FastAPI, Pydantic, MongoDB (), JWT, .
--   **Frontend:** React, React Router, Tailwind CSS, Shadcn UI, .
--   **Architecture:** RESTful API, SPA, RBAC.
--   **PWA:** Service Workers for offline caching, Web App Manifest for installability.
+-   **Frontend:** React, React Router, Tailwind CSS, Shadcn UI, , custom hooks.
+-   **Architecture:** RESTful API, SPA.
+-   **Key Features:** PWA (Service Workers, Manifest), Debounced Auto-saving.
 
 **key DB schema**
--   **users:**  (new field)
--   **business_emails:**  (new collection)
--   **swipes:**  (action now includes 'maybe')
--   **feed_posts:**  (new collection)
--   **likes:**  (new collection)
--   **comments:**  (new collection)
--   **interview_requests:**  (new collection)
--   **push_subscriptions:**  (new collection)
--   **offers:**  (new collection - defined, not yet used)
--   **onboarding_documents:**  (new collection - defined, not yet used)
--   **reviews:**  (new collection - defined, not yet used)
+-   **users:** 
+-   **profiles:** 
+-   **swipes:** 
+-   **offers:** 
+-   **onboarding_documents:** 
+-   **reviews:** 
+-   **(Other collections for feed, interviews, etc. exist but will become inactive)**
 
 **changes in tech stack**
--    was added to the frontend dependencies via yarn install v1.22.22
-[1/4] Resolving packages...
-[2/4] Fetching packages...
-[3/4] Linking dependencies...
-[4/4] Building fresh packages...
-success Saved lockfile.
-Done in 0.10s..
+-   None in this session.
 
 **All files of reference**
--   : The monolithic backend file, heavily modified with new models and routes for all new features.
--   : Updated with new routes for Feed, Interviews, Swipe Bins, and Settings.
--   : Updated with new navigation links and the VitalaMatch logo.
--   : Heavily modified to include interview requests and reply probability indicators.
--   : Updated to handle swipe down for the Maybe action.
--   : Updated to enforce business email verification.
--   , : New files for PWA functionality.
--   , : Updated with the new brand color scheme and font.
+-   : The starting point for the MVP refactor.
+-   : Needs significant changes to rename menu items and hide non-MVP features.
+-   : Needs updates to hide routes and enforce the new user flow.
+-   : Recently updated with auto-save and resume upload; will be central to the new onboarding flow.
+-   : Also updated with auto-save.
+-   : The monolithic backend. Needs logic for disabled features to be commented out.
 
 **Areas that need refactoring**:
--   The  file is now over 2,500 lines long and urgently needs to be broken down into modular FastAPI routers.
--   Several frontend components (, ) contain nested component definitions and other linting issues that should be fixed to improve performance and maintainability.
+-   The entire frontend is undergoing a user-directed refactoring to simplify it into an MVP.
+-   The  file remains a large monolith and is a candidate for future refactoring once the MVP is stable.
 
 **key api endpoints**
--    (action can now be 'left', 'right', 'maybe')
--   
--   
--   
--   
--   
--   
--   
--   
+-   : **NEW** endpoint to upload and parse a resume.
+-   : **NEW** endpoint for sending job offers.
+-   : **NEW** endpoint for uploading policy documents.
+-   : **NEW** endpoint for submitting reviews.
+-   (Many of these will be kept in the code but become inaccessible from the UI).
 
 **Critical Info for New Agent**
--   You are resuming work on the **Hiring Suite**. The immediate next step is to implement the backend API routes in . The Pydantic models have already been added.
--   The original task from the previous job—completing the **License Verification** UI—is still pending and is a high-priority item to address after or alongside the hiring suite.
--   Numerous third-party integrations (SendGrid, Twilio, Nursys, Calendly, Zoom) are coded but use placeholder/mocked services. The user needs to provide API keys to make them functional.
--   The frontend has known linting issues (nested components, useEffect dependencies) that should be resolved to improve code quality and prevent potential bugs.
+-   **PIVOT TO MVP:** Your primary and only goal is to execute the user's latest request to refactor the application into a Phase 1 MVP. All other features and plans are now on hold.
+-   **DO NOT ADD, ONLY REMOVE/RENAME:** Strictly follow the user's instructions. Do not add any new features, APIs, or integrations. Your job is to simplify by hiding UI elements, renaming features, and enforcing a stricter user flow.
+-   **HIDE, DON'T DELETE:** The user specifically requested not to delete the code for the disabled features. You should comment out routes in , remove links from , and disable backend logic as needed.
+-   **USER FLOW IS KEY:** A major part of the task is to block users (both seekers and employers) from core activities until their profiles are complete. This will require adding conditional logic, likely in  or the main dashboard components.
+-   **START WITH LANDING PAGE:** The first step is to refactor  as per the user's detailed instructions.
 
-**documents and test_reports created in this job**
--   
+**documents and test reports created in this job**
+-   /app/test_reports/iteration_4.json
+-   /app/test_reports/iteration_5.json
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  : Remove the white background from VitalaIcon
-2.  : Replace logo with this image
-3.  : Call Deployer Agent and Run Health Check to Check for Readiness for Deployment
-4.  : How should I verify users to reduce the amount of spam and scam accounts?
-5.  : How do I authenticate job listings/employer profiles?
-6.  : Require employers connect and verify domain email during profile setup. Allow personal email for sign up and notification delivery.
-7.  : Is this ready to be made into a mobile application?
-8.  : Add service worker for offline support Add manifest.json for Add to Home Screen Enable push notifications
-9.  : 1. Yes, include all of the above. Let the employer set the expiration date for the offer 2. All of the above. 3. All of the above 4. Yes and yes. 5. B & C
-10. : Add a feature that allows employers to send conditional offers of employment to matched job seekers. After the job seeker accepts the conditional offer, allow employers to handle credentialing and onboarding on the site. Add a hiring suite on the employer side that allows them to process documents, I-9, payroll and taxes. Add a folder in the hiring suite for employers to upload their policy handbooks, arbitration agreements, etc. After an employment offer is made and accepted, send out a message to both employer and employee asking them to review the other. Add this review to the appropriate place on either profile.
+1.  : Refactor the existing VitalaMatch platform to a Phase 1 MVP... - This is the critical, detailed request that defines the current work.
+2.  : Show menu/pages list - Responded with a full sitemap.
+3.  : Send me a link to review the site - Responded with the preview link.
+4.  : Allow auto-saving when filling out blank field across platform - **COMPLETED**.
+5.  : On job seeker dashboard, if no matches, add a button to find jobs - **COMPLETED**.
+6.  : Request for multiple UI changes: resume upload, move save button, rename Take Another Look to Passed, and create Employer Matches category - **COMPLETED**.
+7.  : On job seeker dashboard, feature Profile, Documentation, and Matches first - **COMPLETED**.
+8.  : Reporting a  error on the profile page - **COMPLETED** (suppressed the error).
+9.  : When I try to login, it takes me back to the login page - **COMPLETED** (investigated and confirmed the login flow works; was likely a stale token issue).
+10. : Nothing happens when I click learn more on homepage - **COMPLETED**.
 
 **Project Health Check:**
--   **Broken:** No core features are broken. The Hiring Suite and License Verification features are incomplete.
--   **Mocked:**
-    -   : Sends notifications to the backend log.
-    -   : Sends SMS notifications to the backend log.
-    -   : Simulates an API call.
-    -   : UI exists, but backend logic to connect to these services is a placeholder.
+-   **Broken:** Login flow might appear broken to users with old tokens due to a recent JWT secret change, but is functionally correct.
+-   **Mocked:** SendGrid, Nursys, Calendly, Zoom.
+-   **To be Hidden/Disabled:** Twilio integration, Social Feed, Push Notifications, Interview Scheduling, Hiring Suite (Offers, Reviews, Policies).
 
 **3rd Party Integrations**
--   **SendGrid:** Setup for email notifications. Requires user API key.
--   **Twilio:** Setup for SMS notifications. Requires user credentials.
--   **Nursys:** Backend service exists for license verification. Requires user API key.
--   **Calendly:** Planned for interview scheduling. Playbook obtained. Requires user integration.
--   **Zoom:** Planned for interview scheduling. Playbook obtained. Requires user integration.
+-   **Twilio (SMS):** Configured and working, but **to be disabled** from the UI per MVP requirements.
+-   **SendGrid (Email):** Mocked. To be kept for core emails (like verification) but disabled for notifications.
+-   **Nursys (License Verification):** Mocked. To be disabled from the UI.
+-   **Calendly/Zoom (Scheduling):** UI exists but not integrated. To be hidden.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. The agent ran a test which found a 5xx error on the new feed creation endpoint. The agent successfully debugged and fixed the issue (a MongoDB ObjectId serialization error).
+-   **Testing agent used after significant changes:** YES. Used successfully after both backend and frontend implementation of the Hiring Suite, passing with 91% and 100% respectively.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** []
+-   **Test files created:** [, ]
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
-The agent created test users for both 'seeker' and 'poster' roles. These can be recreated via the UI or API for testing purposes. Example credentials used during testing were  and .
+| Role | Email | Password |
+|---|---|---|
+| Job Seeker |  |  |
+| Employer |  |  |
 
 **What agent forgot to execute**
--   The agent was about to add the API routes for the new **Hiring Suite** feature to  but failed on a tool call and did not retry. This is the immediate next step.
--   The agent identified but did not fix multiple frontend **linting issues**, particularly the use of nested components which can affect performance.
--   The agent did not complete the original pending task of implementing the frontend for the **License Verification** feature.</analysis>
+The agent has not forgotten anything. It is at the very beginning of the large MVP refactoring task requested by the user.</analysis>

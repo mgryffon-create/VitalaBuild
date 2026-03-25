@@ -421,7 +421,7 @@ const SettingsPage = () => {
               <div>
                 <p className="font-medium text-foreground">Match Notifications</p>
                 <p className="text-sm text-muted-foreground">
-                  Get notified when you match with a {user?.role === "seeker" ? "job" : "candidate"}
+                  Get notified when you connect with a {user?.role === "seeker" ? "job" : "candidate"}
                 </p>
               </div>
               <Switch

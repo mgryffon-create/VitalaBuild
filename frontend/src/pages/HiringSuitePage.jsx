@@ -24,7 +24,7 @@ import {
 const HiringSuitePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("offers");
+  const [activeTab, setActiveTab] = useState("onboarding");
   const [offers, setOffers] = useState([]);
   const [employments, setEmployments] = useState([]);
   const [policies, setPolicies] = useState([]);
@@ -225,20 +225,18 @@ const HiringSuitePage = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Hiring Suite</h1>
-            <p className="text-muted-foreground">Manage offers, onboarding, and employee relations</p>
+            <h1 className="text-2xl font-bold text-foreground">Hiring Manager</h1>
+            <p className="text-muted-foreground">Manage onboarding and employee documents</p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="offers">Offers ({offers.length})</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="onboarding">Onboarding ({employments.filter(e => e.status === 'onboarding').length})</TabsTrigger>
-            <TabsTrigger value="policies">Policies ({policies.length})</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({pendingReviews.length})</TabsTrigger>
           </TabsList>
 
-          {/* OFFERS TAB */}
+          {/* MVP Phase 1: Offers tab hidden */}
+          {false && (
           <TabsContent value="offers" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={() => setShowOfferDialog(true)}>
@@ -296,6 +294,7 @@ const HiringSuitePage = () => {
               </div>
             )}
           </TabsContent>
+          )}
 
           {/* ONBOARDING TAB */}
           <TabsContent value="onboarding" className="space-y-4">
@@ -341,7 +340,8 @@ const HiringSuitePage = () => {
             )}
           </TabsContent>
 
-          {/* POLICIES TAB */}
+          {/* MVP Phase 1: Policies and Reviews tabs hidden */}
+          {false && (<>
           <TabsContent value="policies" className="space-y-4">
             <div className="flex justify-end">
               <Button onClick={() => setShowPolicyDialog(true)}>
@@ -420,6 +420,7 @@ const HiringSuitePage = () => {
               </div>
             )}
           </TabsContent>
+          </>)}
         </Tabs>
 
         {/* Send Offer Dialog */}

@@ -21,10 +21,11 @@ import ReferenceSubmitPage from "@/pages/ReferenceSubmitPage";
 import LicensesPage from "@/pages/LicensesPage";
 import VerificationAdminPage from "@/pages/VerificationAdminPage";
 import SwipeBinsPage from "@/pages/SwipeBinsPage";
-import FeedPage from "@/pages/FeedPage";
-import InterviewsPage from "@/pages/InterviewsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
 import MyOffersPage from "@/pages/MyOffersPage";
+// MVP Phase 1: Hidden features (code preserved)
+// import FeedPage from "@/pages/FeedPage";
+// import InterviewsPage from "@/pages/InterviewsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -306,6 +307,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* MVP Phase 1: Feed and Interviews hidden
           <Route
             path="/feed"
             element={
@@ -322,6 +324,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          */}
           
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />

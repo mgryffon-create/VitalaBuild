@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/App";
 import { toast } from "sonner";
-import { Heart, Briefcase, User, Mail, Lock, ArrowLeft } from "lucide-react";
+import { Briefcase, User, Mail, Lock, ArrowLeft } from "lucide-react";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -94,10 +94,10 @@ const AuthPage = () => {
             />
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight font-['Montserrat']">
-            Where Healthcare Careers Find Their Perfect Match
+            The Secure Platform for Healthcare Hiring
           </h1>
           <p className="text-white/80 text-lg max-w-md">
-            Join thousands of medical professionals connecting with top healthcare facilities every day.
+            Manage your credentials, connect with top facilities, and take the next step in your healthcare career.
           </p>
         </div>
         
@@ -112,7 +112,7 @@ const AuthPage = () => {
             alt="Nurse"
             className="w-12 h-12 rounded-full object-cover border-2 border-white -ml-4"
           />
-          <span className="text-white/80 text-sm">+5,000 professionals matched</span>
+          <span className="text-white/80 text-sm">+5,000 professionals connected</span>
         </div>
       </div>
 

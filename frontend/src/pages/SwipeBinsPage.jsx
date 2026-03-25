@@ -124,10 +124,10 @@ const SwipeBinsPage = () => {
       const response = await axios.put(`${API}/swipe/bins/${swipeId}/reconsider?new_action=${newAction}`);
       
       if (response.data.matched) {
-        toast.success("It's a match!");
+        toast.success("It's a connection!");
         navigate("/matches");
       } else {
-        toast.success(newAction === "like" ? "Added to likes!" : newAction === "maybe" ? "Moved to Maybe" : "Passed");
+        toast.success(newAction === "like" ? "Added to interested!" : newAction === "maybe" ? "Moved to Saved" : "Passed");
         fetchProfiles(activeTab);
       }
     } catch (error) {
@@ -140,12 +140,12 @@ const SwipeBinsPage = () => {
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground">
-            {activeTab === "passed" ? "Passed" : "Maybe Later"}
+            {activeTab === "passed" ? "Passed" : "Saved for Later"}
           </h1>
           <p className="text-muted-foreground mt-1">
             {activeTab === "passed" 
               ? "Review profiles you passed on - you might change your mind!" 
-              : "Profiles you weren't sure about - make a decision when ready"}
+              : "Profiles you saved for later - make a decision when ready"}
           </p>
         </div>
 
@@ -155,7 +155,7 @@ const SwipeBinsPage = () => {
               <RotateCcw className="w-4 h-4" /> Passed
             </TabsTrigger>
             <TabsTrigger value="maybe" className="flex items-center gap-2">
-              <HelpCircle className="w-4 h-4" /> Maybe
+              <HelpCircle className="w-4 h-4" /> Saved
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -174,7 +174,7 @@ const SwipeBinsPage = () => {
               )}
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              No {activeTab === "passed" ? "passed" : "maybe"} profiles
+              No {activeTab === "passed" ? "passed" : "saved"} profiles
             </h2>
             <p className="text-muted-foreground mb-6">
               {activeTab === "passed" 
@@ -182,7 +182,7 @@ const SwipeBinsPage = () => {
                 : "You haven't saved any profiles for later"}
             </p>
             <Button onClick={() => navigate(isSeeker ? "/seeker/swipe" : "/poster")} variant="outline">
-              Start Swiping <ChevronRight className="w-4 h-4 ml-1" />
+              Review Jobs <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
         ) : (

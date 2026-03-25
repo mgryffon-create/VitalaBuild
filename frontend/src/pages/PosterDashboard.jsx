@@ -220,7 +220,7 @@ const PosterDashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Matches</p>
+                  <p className="text-sm text-muted-foreground">Total Connections</p>
                   <p className="text-3xl font-bold text-foreground">{stats?.matches || 0}</p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
@@ -339,8 +339,8 @@ const PosterDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Recent Matches</CardTitle>
-              <CardDescription>Candidates who matched with your jobs</CardDescription>
+              <CardTitle className="text-lg">Recent Connections</CardTitle>
+              <CardDescription>Candidates who connected with your jobs</CardDescription>
             </div>
             <Button
               data-testid="view-all-matches-btn"
@@ -355,7 +355,7 @@ const PosterDashboard = () => {
             {recentMatches.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <VitalaIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No matches yet</p>
+                <p>No connections yet</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -378,7 +378,7 @@ const PosterDashboard = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <Badge className="bg-primary/10 text-primary">Matched</Badge>
+                        <Badge className="bg-primary/10 text-primary">Connected</Badge>
                         <p className="text-xs text-muted-foreground mt-1">for {match.job?.title}</p>
                       </div>
                     </div>
