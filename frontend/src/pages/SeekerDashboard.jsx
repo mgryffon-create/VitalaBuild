@@ -8,7 +8,10 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FileText, AlertTriangle, ArrowRight, Briefcase, User, CheckCircle, Upload, MessageCircle, Shield, Stethoscope } from "lucide-react";
+import {
+  FileText, AlertTriangle, ArrowRight, Briefcase, User,
+  CheckCircle, Upload, MessageCircle, Shield, Stethoscope, XCircle
+} from "lucide-react";
 
 const SeekerDashboard = () => {
   const navigate = useNavigate();
@@ -27,7 +30,6 @@ const SeekerDashboard = () => {
         axios.get(`${API}/matches`),
         axios.get(`${API}/profile/seeker`).catch(() => ({ data: null }))
       ]);
-
       setStats(statsRes.data);
       setExpiringDocs(docsRes.data);
       setRecentMatches(matchesRes.data.slice(0, 3));
@@ -43,20 +45,35 @@ const SeekerDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const getProfileCompletion = () => {
-    if (!profile) return 0;
-    const fields = ['specialty', 'years_experience', 'desired_locations', 'phone', 'bio'];
-    const completed = fields.filter(f => profile[f] && (Array.isArray(profile[f]) ? profile[f].length > 0 : true)).length;
-    return Math.round((completed / fields.length) * 100);
+  const profileFields = [
+    { key: "specialty", label: "Specialty" },
+    { key: "years_experience", label: "Experience" },
+    { key: "phone", label: "Phone", nested: "contact_info" },
+    { key: "bio", label: "Bio" },
+    { key: "desired_locations", label: "Preferred Locations", isArray: true },
+  ];
+
+  const getFieldValue = (field) => {
+    if (field.nested) return profile?.[field.nested]?.[field.key];
+    return profile?.[field.key];
   };
 
-  const profileCompletion = getProfileCompletion();
+  const isFieldComplete = (field) => {
+    const val = getFieldValue(field);
+    if (field.isArray) return Array.isArray(val) && val.length > 0;
+    return !!val;
+  };
+
+  const completedCount = profileFields.filter(isFieldComplete).length;
+  const profileCompletion = profile
+    ? Math.round((completedCount / profileFields.length) * 100)
+    : 0;
 
   if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
         </div>
       </DashboardLayout>
     );
@@ -64,365 +81,281 @@ const SeekerDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="seeker-dashboard" className="space-y-8">
-        {/* Welcome */}
+      <div data-testid="seeker-dashboard" className="space-y-8 max-w-4xl">
+
+        {/* ── Header ─────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Welcome back, {user?.full_name?.split(" ")[0]}!
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
+              Welcome back, {user?.full_name?.split(" ")[0] || "there"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Find your next healthcare opportunity
+              Here&apos;s what needs your attention today.
             </p>
           </div>
           <Button
             data-testid="find-jobs-btn"
             onClick={() => navigate("/seeker/swipe")}
-            className="bg-primary hover:bg-primary/90"
+            size="lg"
+            className="bg-primary hover:bg-primary/90 shadow-sm"
           >
             Find Jobs <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </div>
 
-        {/* Profile Completion Alert */}
-        {profileCompletion < 100 && (
-          <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-900/10">
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Complete your profile to get more matches</p>
-                  <p className="text-sm text-muted-foreground">
-                    Employers prefer candidates with complete profiles
-                  </p>
-                </div>
+        {/* ── Section: Profile Status ────────────────────── */}
+        <section data-testid="section-profile-status">
+          <h2 className="text-base font-semibold text-foreground mb-3">Profile Status</h2>
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm text-muted-foreground">
+                  {completedCount} of {profileFields.length} fields complete
+                </span>
+                <Badge
+                  className={
+                    profileCompletion === 100
+                      ? "bg-green-500/10 text-green-600 border-green-200"
+                      : "bg-amber-500/10 text-amber-600 border-amber-200"
+                  }
+                  variant="outline"
+                >
+                  {profileCompletion}%
+                </Badge>
               </div>
-              <Button
-                data-testid="complete-profile-alert-btn"
-                onClick={() => navigate("/seeker/profile")}
-                className="bg-amber-500 hover:bg-amber-600 text-white"
-              >
-                Complete Now
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Stats Row */}
-        <div className="grid sm:grid-cols-4 gap-4">
-          <Card className="hover-lift">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Profile</p>
-                  <p className="text-2xl font-bold text-foreground">{profileCompletion}%</p>
-                </div>
-                <User className="w-6 h-6 text-primary opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Documents</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.total_documents || 0}</p>
-                </div>
-                <FileText className="w-6 h-6 text-secondary opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Matches</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.matches || 0}</p>
-                </div>
-                <MessageCircle className="w-6 h-6 text-accent opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover-lift">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Offers</p>
-                  <p className="text-2xl font-bold text-foreground">{stats?.offers || 0}</p>
-                </div>
-                <Briefcase className="w-6 h-6 text-green-600 opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Primary Cards: Profile + Documents + Matches */}
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Profile Card */}
-          <Card className="border border-border hover:border-primary/40 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <User className="w-5 h-5 text-primary" />
-                </div>
-                {profileCompletion === 100 ? (
-                  <Badge className="bg-green-500 text-white">Complete</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-500 border-amber-500">{profileCompletion}%</Badge>
-                )}
-              </div>
-              <CardTitle className="text-base mt-3">My Profile</CardTitle>
-              <CardDescription>Stand out to employers</CardDescription>
-            </CardHeader>
-            <CardContent>
               <Progress value={profileCompletion} className="h-2 mb-4" />
-              <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center gap-2">
-                  {profile?.specialty ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                  <span>Specialty: {profile?.specialty || "Not set"}</span>
+
+              {profileCompletion < 100 && (
+                <div className="grid sm:grid-cols-2 gap-2 mb-4">
+                  {profileFields.map((f) => {
+                    const done = isFieldComplete(f);
+                    return (
+                      <div
+                        key={f.key}
+                        className={`flex items-center gap-2 text-sm rounded-md px-3 py-2 ${
+                          done ? "text-muted-foreground" : "bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400"
+                        }`}
+                      >
+                        {done ? (
+                          <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        )}
+                        {f.label}
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2">
-                  {profile?.years_experience ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                  <span>Experience: {profile?.years_experience ? `${profile.years_experience} years` : "Not set"}</span>
-                </div>
-              </div>
+              )}
+
               <Button
                 data-testid="edit-profile-btn"
+                variant={profileCompletion === 100 ? "outline" : "default"}
                 onClick={() => navigate("/seeker/profile")}
-                className="w-full"
+                className="w-full sm:w-auto"
               >
                 {profileCompletion === 100 ? "Edit Profile" : "Complete Profile"}
               </Button>
             </CardContent>
           </Card>
+        </section>
 
-          {/* Documents Card */}
-          <Card className="border border-border hover:border-secondary/40 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-secondary" />
-                </div>
-                {stats?.expiring_documents > 0 ? (
-                  <Badge variant="destructive">{stats.expiring_documents} Expiring</Badge>
-                ) : (
-                  <Badge className="bg-green-500 text-white">Up to Date</Badge>
-                )}
-              </div>
-              <CardTitle className="text-base mt-3">Documents</CardTitle>
-              <CardDescription>Licenses & certifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Shield className="w-4 h-4" /> Licenses</span>
-                  <span className="font-medium text-foreground">{stats?.total_documents || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Verified</span>
-                  <span className="font-medium text-foreground">{stats?.certifications || 0}</span>
-                </div>
-                {expiringDocs.length > 0 && (
-                  <div className="p-2 bg-destructive/10 rounded-lg mt-1">
-                    <p className="text-destructive text-xs font-medium">
-                      {expiringDocs[0]?.document_type} expires in {expiringDocs[0]?.days_until_expiry} days
-                    </p>
-                  </div>
-                )}
-              </div>
-              <Button
-                data-testid="manage-docs-btn"
-                onClick={() => navigate("/seeker/documents")}
-                variant="secondary"
-                className="w-full"
-              >
-                <Upload className="w-4 h-4 mr-2" /> Manage Documents
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Matches Card */}
-          <Card className="border border-border hover:border-accent/40 transition-colors">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <MessageCircle className="w-5 h-5 text-accent" />
-                </div>
-                <Badge className="bg-primary text-white">{stats?.matches || 0}</Badge>
-              </div>
-              <CardTitle className="text-base mt-3">Matches</CardTitle>
-              <CardDescription>Employers interested in you</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentMatches.length > 0 ? (
-                <>
-                  <div className="space-y-2 mb-4">
-                    {recentMatches.slice(0, 2).map((match) => (
-                      <div key={match.id} className="p-2 bg-muted rounded-lg">
-                        <p className="font-medium text-sm truncate">{match.job?.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{match.job?.company_name || "Healthcare Facility"}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    data-testid="view-matches-btn"
-                    onClick={() => navigate("/matches")}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" /> View All Matches
-                  </Button>
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    No matches yet. Start finding jobs to get matched.
-                  </p>
-                  <Button
-                    data-testid="find-jobs-empty-btn"
-                    onClick={() => navigate("/seeker/swipe")}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    <Stethoscope className="w-4 h-4 mr-2" /> Find Jobs
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Bottom Row: Document Renewals + Quick Actions */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Expiring Documents */}
+        {/* ── Section: Credentials & Documents ───────────── */}
+        <section data-testid="section-credentials">
+          <h2 className="text-base font-semibold text-foreground mb-3">Credentials &amp; Documents</h2>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Document Renewals</CardTitle>
-                <CardDescription>Expiring within 30 days</CardDescription>
-              </div>
-              <Button
-                data-testid="view-all-docs-btn"
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/seeker/documents")}
-              >
-                View All <ArrowRight className="ml-1 w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {expiringDocs.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No documents expiring soon</p>
+            <CardContent className="p-5">
+              <div className="grid sm:grid-cols-3 gap-4 mb-4">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <Shield className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{stats?.total_documents || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Licenses uploaded</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {expiringDocs.map((doc) => (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <FileText className="w-5 h-5 text-secondary shrink-0" />
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">{stats?.certifications || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Documents uploaded</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                  <div>
+                    <p className="text-2xl font-bold text-foreground leading-none">
+                      {stats?.expiring_documents > 0 ? (
+                        <span className="text-destructive">{stats.expiring_documents} expiring</span>
+                      ) : (
+                        "All valid"
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Verification status</p>
+                  </div>
+                </div>
+              </div>
+
+              {expiringDocs.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {expiringDocs.slice(0, 2).map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg bg-destructive/5 border border-destructive/10"
                     >
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium text-sm">{doc.document_type}</p>
-                          <p className="text-xs text-muted-foreground">{doc.file_name}</p>
-                        </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                        <span className="text-foreground font-medium">{doc.document_type}</span>
                       </div>
                       <Badge
-                        className={`${
-                          doc.days_until_expiry <= 7
-                            ? "badge-expiring"
-                            : doc.days_until_expiry <= 14
-                            ? "badge-warning"
-                            : "badge-valid"
-                        }`}
+                        variant="outline"
+                        className="text-destructive border-destructive/30"
                       >
-                        {doc.days_until_expiry} days
+                        {doc.days_until_expiry} days left
                       </Badge>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-              <CardDescription>Get things done faster</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div
-                data-testid="qa-find-jobs"
-                className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                onClick={() => navigate("/seeker/swipe")}
-              >
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Stethoscope className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">Find Jobs</p>
-                  <p className="text-xs text-muted-foreground">Browse available positions</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-
-              <div
-                data-testid="qa-upload-license"
-                className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                onClick={() => navigate("/seeker/licenses")}
-              >
-                <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-secondary" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">Upload License</p>
-                  <p className="text-xs text-muted-foreground">Add professional licenses</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-
-              <div
-                data-testid="qa-upload-docs"
-                className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                onClick={() => navigate("/seeker/documents")}
-              >
-                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <Upload className="w-5 h-5 text-accent" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">Upload Documents</p>
-                  <p className="text-xs text-muted-foreground">Certifications & compliance docs</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-              </div>
-
-              {profileCompletion < 100 && (
-                <div
-                  data-testid="qa-complete-profile"
-                  className="flex items-center gap-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20 cursor-pointer transition-colors"
-                  onClick={() => navigate("/seeker/profile")}
+              <div className="flex gap-3">
+                <Button
+                  data-testid="manage-licenses-btn"
+                  variant="outline"
+                  onClick={() => navigate("/seeker/licenses")}
+                  className="flex-1 sm:flex-none"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <User className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">Complete Profile</p>
-                    <p className="text-xs text-muted-foreground">{profileCompletion}% done — finish to unlock more matches</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              )}
+                  <Shield className="w-4 h-4 mr-2" /> Manage Licenses
+                </Button>
+                <Button
+                  data-testid="manage-docs-btn"
+                  variant="outline"
+                  onClick={() => navigate("/seeker/documents")}
+                  className="flex-1 sm:flex-none"
+                >
+                  <Upload className="w-4 h-4 mr-2" /> Upload Documents
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        </div>
+        </section>
+
+        {/* ── Section: Matches & Offers ──────────────────── */}
+        <section data-testid="section-matches-offers">
+          <h2 className="text-base font-semibold text-foreground mb-3">Matches &amp; Offers</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* Matches */}
+            <Card
+              className="cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={() => navigate("/matches")}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground">{stats?.matches || 0}</p>
+                </div>
+                <p className="font-medium text-sm text-foreground">Matches</p>
+                <p className="text-xs text-muted-foreground">Employers interested in you</p>
+
+                {recentMatches.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {recentMatches.slice(0, 2).map((m) => (
+                      <div key={m.id} className="text-xs px-2.5 py-1.5 bg-muted rounded-md truncate">
+                        {m.job?.title || "Healthcare Position"} &mdash; {m.job?.company_name || "Facility"}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Offers */}
+            <Card
+              className="cursor-pointer hover:border-green-500/40 transition-colors"
+              onClick={() => navigate("/seeker/offers")}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <Briefcase className="w-5 h-5 text-green-600" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground">{stats?.offers || 0}</p>
+                </div>
+                <p className="font-medium text-sm text-foreground">Offers</p>
+                <p className="text-xs text-muted-foreground">Pending job offers to review</p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* ── Section: Quick Actions ─────────────────────── */}
+        <section data-testid="section-quick-actions">
+          <h2 className="text-base font-semibold text-foreground mb-3">Quick Actions</h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              data-testid="qa-find-jobs"
+              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
+              onClick={() => navigate("/seeker/swipe")}
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Stethoscope className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-foreground">Find Jobs</p>
+                <p className="text-xs text-muted-foreground">Browse available positions</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </button>
+
+            <button
+              data-testid="qa-upload-license"
+              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
+              onClick={() => navigate("/seeker/licenses")}
+            >
+              <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-secondary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-foreground">Upload License</p>
+                <p className="text-xs text-muted-foreground">Add professional licenses</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </button>
+
+            <button
+              data-testid="qa-upload-docs"
+              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-accent/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
+              onClick={() => navigate("/seeker/documents")}
+            >
+              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <Upload className="w-5 h-5 text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm text-foreground">Upload Documents</p>
+                <p className="text-xs text-muted-foreground">Certifications &amp; compliance docs</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </button>
+
+            {profileCompletion < 100 && (
+              <button
+                data-testid="qa-complete-profile"
+                className="flex items-center gap-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 hover:border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 cursor-pointer transition-all text-left"
+                onClick={() => navigate("/seeker/profile")}
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <User className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground">Complete Profile</p>
+                  <p className="text-xs text-muted-foreground">{profileCompletion}% done</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              </button>
+            )}
+          </div>
+        </section>
       </div>
     </DashboardLayout>
   );
