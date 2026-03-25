@@ -13,6 +13,14 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Phase 1 MVP — Employer Workflow (March 2025)
+- **Employer Dashboard**: Section-based — stats (Jobs Posted, Candidates, Offers Sent), job postings list with Candidates/Edit/Delete, business email verification
+- **Candidates Page** (`/poster/candidates`): Shows all seekers who expressed interest, filterable by job. Employer can Accept (creates match) or Send Offer (opens dialog).
+- **Offer Flow**: Dialog with pay rate, pay type, start date, expiration, benefits, conditions. Creates offer record in DB.
+- **Backend**: `GET /api/employer/candidates` returns interested seekers with status. `POST /api/employer/candidates/{id}/accept` creates mutual match.
+- **Employer Nav**: Dashboard, Post Job, Candidates, Matches, Offers Sent, Company Profile, Settings
+- **Bug fix**: datetime comparison error in `/api/hiring/offers` endpoint (fixed by testing agent)
+
 ### Phase 1 MVP — Job Browsing & Matching Flow (March 2025)
 - **Find Jobs page**: Tinder/Nursa-style card UI — title, facility, location, pay, specialty, description. Two buttons: Pass + Interested. Swipe gestures supported.
 - **Backend**: New `GET /api/seeker/applications` endpoint returns all jobs seeker liked with status (pending / matched / offer)
