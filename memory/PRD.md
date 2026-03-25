@@ -13,14 +13,11 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
-### Phase 1 MVP (March 2025)
-- **Landing Page:** Professional tone — "Your Healthcare Career Starts Here", feature cards (Universal Application, Secure Document Vault, Verified Credentials, Portable References)
-- **Seeker Navigation:** Dashboard, Find Jobs, My Profile, Licenses, Documents, Matches, Offers, Settings
-- **Seeker Dashboard:** Stats (Profile %, Documents, Matches, Offers), cards (Profile, Docs, Matches), quick actions (Find Jobs, Upload License, Upload Documents, Complete Profile)
-- **Employer Navigation:** Dashboard, Post Job, Company Profile, Hiring Manager, Verify Credentials, Applicants (Connections, Passed, Saved), References, Settings
-- **Terminology:** "Swipe" → job review gesture labels (INTERESTED/PASS/SAVE), "Match" → Matches (kept professional), social/dating language removed
-- **Hidden Features (code preserved):** Feed, Interviews, social features, advanced Hiring Suite tools (Offers tab, Policies tab, Reviews tab)
-- **Bug Fix:** MatchesPage fetchMatches TDZ error resolved
+### Phase 1 MVP — Seeker Dashboard v2 (March 2025)
+- **Section-based layout**: Profile Status (with per-field checklist), Credentials & Documents (licenses/docs/verification), Matches & Offers (clickable cards), Quick Actions (2-col grid)
+- **Profile completion**: Dynamically checks 5 fields (specialty, experience, phone, bio, preferred locations) with green/amber indicators
+- All references, connections, and social features removed from dashboard
+- Sidebar: Dashboard, Find Jobs, My Profile, Licenses, Documents, Matches, Offers, Settings
 
 ### Pre-existing Features (carried forward)
 - Full auth (JWT), profile builder with auto-save, job posting, swipe/review UI
