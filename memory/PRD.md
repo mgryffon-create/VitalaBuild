@@ -13,6 +13,15 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Security Hardening, Training & Compliance Architecture (April 2025)
+- **Audit Logging**: `audit_log.py` service logs login, login_failed, register, vault_upload, vault_access, file_access, unauthorized_access to MongoDB `audit_logs` collection
+- **Secure Vault Files**: `GET /api/vault/files/{filename}` now requires auth, checks file ownership (candidate/admin/employer-with-onboarding-case), blocks path traversal
+- **HIPAA Architecture Prep**: RBAC (seeker/poster/admin roles), audit trail started, vault files restricted, minimum necessary access principle documented in code comments — does NOT claim HIPAA compliance
+- **Training & Compliance API**: `training_service.py` with courses, assignments, compliance requirements, transcript/certificates endpoints. Integration-ready for Relias LMS (external_lms_user_id, external_course_id, launch_url fields)
+- **Clinician Training Page** (`/seeker/training`): Tabs for Assigned Training, Transcript, Certificates with summary cards (assigned count, completed, overdue, CE credits)
+- **Employer Compliance Dashboard** (`/poster/compliance`): Summary cards (total assigned, completed, overdue, compliance rate), assignments table, Create Course + Assign Training dialogs
+- Data models: `training_courses`, `training_assignments`, `compliance_requirements`, `audit_logs` MongoDB collections
+
 ### Document Preview & Legal Pages (April 2025)
 - **Document Preview**: Clickable vault cards open full preview dialog with image rendering (jpg/png/webp), PDF iframe rendering, metadata strip (status, issuing authority, expiration, state), download + external link buttons, fallback for unsupported types
 - **Terms of Service** (`/terms`): 12 sections covering acceptance, user responsibilities, job posting rules, no employment guarantee, limitation of liability, acceptable use, termination rights
