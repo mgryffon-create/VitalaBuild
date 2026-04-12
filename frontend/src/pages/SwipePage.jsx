@@ -8,7 +8,7 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { X, Heart, MapPin, Clock, DollarSign, Briefcase, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, Award, Star, User, FileText } from "lucide-react";
+import { X, Heart, MapPin, Clock, DollarSign, Briefcase, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, Award, Star, User, FileText, ExternalLink } from "lucide-react";
 
 const SwipePage = () => {
   const { jobId } = useParams();
@@ -394,6 +394,23 @@ const SeekerViewContent = ({ card, expanded }) => (
           </div>
         )}
       </motion.div>
+    )}
+
+    {/* External application notice */}
+    {card.application_workflow_type && card.application_workflow_type !== "in_platform_only" && (
+      <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+          {card.application_workflow_type === "external_required_immediately" && "External application required"}
+          {card.application_workflow_type === "external_required_after_match" && "External application required after match"}
+          {card.application_workflow_type === "external_optional" && "External application may be requested"}
+        </p>
+        {card.application_workflow_type === "external_required_immediately" && card.external_application_url && (
+          <a href={card.external_application_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">
+            Apply externally
+          </a>
+        )}
+      </div>
     )}
   </>
 );

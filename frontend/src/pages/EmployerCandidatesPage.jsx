@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Users, Briefcase, MapPin, Star, CheckCircle, Clock,
-  DollarSign, Send, UserCheck, XCircle, ArrowLeft
+  DollarSign, Send, UserCheck, XCircle, ArrowLeft, ShieldCheck
 } from "lucide-react";
 
 const STATUS_CONFIG = {
@@ -248,6 +248,23 @@ const EmployerCandidatesPage = () => {
                             <Briefcase className="w-3 h-3 shrink-0" /> <span className="truncate">{c.job.title}</span>
                             {c.job.location && <><MapPin className="w-3 h-3 ml-1 shrink-0" /><span>{c.job.location}</span></>}
                           </p>
+                          {c.compliance_score?.overall !== null && c.compliance_score?.overall !== undefined && (
+                            <div data-testid={`compliance-score-${c.id}`} className="flex items-center gap-1.5 mt-1.5">
+                              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                c.compliance_score.overall >= 80 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                                c.compliance_score.overall >= 50 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                                "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                              }`}>
+                                <ShieldCheck className="w-3 h-3" /> {c.compliance_score.overall}% compliant
+                              </div>
+                              {c.compliance_score.training?.overdue > 0 && (
+                                <span className="text-[10px] text-red-600">{c.compliance_score.training.overdue} overdue</span>
+                              )}
+                              {c.compliance_score.vault_documents > 0 && (
+                                <span className="text-[10px] text-muted-foreground">{c.compliance_score.vault_documents} docs</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 

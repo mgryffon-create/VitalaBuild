@@ -505,6 +505,12 @@ class JobPosting(BaseModel):
     specialty: str
     shift_type: Optional[str] = None
     start_date: Optional[str] = None
+    # Hiring workflow configuration
+    application_workflow_type: Optional[str] = "in_platform_only"  # in_platform_only, external_required_immediately, external_required_after_match, external_optional
+    external_application_url: Optional[str] = None
+    external_application_stage: Optional[str] = None  # before_match, after_match, after_offer
+    profile_sufficient_for_initial_review: Optional[bool] = True
+    required_additional_fields: Optional[str] = None
 
 class JobPostingResponse(BaseModel):
     id: str
@@ -526,6 +532,12 @@ class JobPostingResponse(BaseModel):
     is_active: bool = True
     company_name: Optional[str] = None
     company_logo: Optional[str] = None
+    # Hiring workflow configuration
+    application_workflow_type: Optional[str] = "in_platform_only"
+    external_application_url: Optional[str] = None
+    external_application_stage: Optional[str] = None
+    profile_sufficient_for_initial_review: Optional[bool] = True
+    required_additional_fields: Optional[str] = None
 
 class SwipeAction(BaseModel):
     target_id: str  # job_id for seekers, seeker_id for posters
@@ -1407,6 +1419,57 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
 
 # ==================== EMPLOYER CANDIDATES ====================
 
+async def _calc_candidate_compliance(candidate_id: str, employer_id: str) -> dict:
+    """Calculate compliance score for a candidate relative to an employer"""
+    # Check training assignments
+    assignments = await db.training_assignments.find(
+        {"user_id": candidate_id, "employer_id": employer_id}, {"_id": 0}
+    ).to_list(100)
+    # Check onboarding cases
+    cases = await db.onboarding_cases.find(
+        {"candidate_id": candidate_id, "employer_id": employer_id}, {"_id": 0}
+    ).to_list(10)
+    # Check vault doc count
+    vault_count = await db.vault_documents.count_documents({"candidate_id": candidate_id})
+
+    training_total = len(assignments)
+    training_completed = sum(1 for a in assignments if a.get("completion_status") == "completed")
+    training_overdue = sum(1 for a in assignments if (
+        a.get("due_date") and a.get("completion_status") not in ("completed", "waived") and
+        a["due_date"] < datetime.now(timezone.utc).isoformat()
+    ))
+
+    onboarding_status = None
+    onboarding_pct = None
+    if cases:
+        latest = cases[0]
+        onboarding_status = latest.get("status", "active")
+        reqs = await db.onboarding_requirements.find(
+            {"onboarding_case_id": latest["id"]}, {"_id": 0}
+        ).to_list(50)
+        total = len(reqs)
+        resolved = sum(1 for r in reqs if r.get("status") in ("satisfied_from_vault", "completed"))
+        onboarding_pct = round((resolved / total) * 100) if total > 0 else 100
+
+    # Overall score: weighted average of training + onboarding + vault
+    scores = []
+    if training_total > 0:
+        scores.append(round((training_completed / training_total) * 100))
+    if onboarding_pct is not None:
+        scores.append(onboarding_pct)
+    if vault_count > 0:
+        scores.append(min(100, vault_count * 20))  # 5+ docs = 100
+
+    overall = round(sum(scores) / len(scores)) if scores else None
+
+    return {
+        "overall": overall,
+        "training": {"total": training_total, "completed": training_completed, "overdue": training_overdue},
+        "onboarding": {"status": onboarding_status, "percent": onboarding_pct},
+        "vault_documents": vault_count,
+    }
+
+
 @api_router.get("/employer/candidates")
 async def get_employer_candidates(current_user: dict = Depends(get_current_user)):
     """Get all seekers who expressed interest in the employer's jobs, with status"""
@@ -1484,7 +1547,8 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
                 "id": job.get("id"),
                 "title": job.get("title"),
                 "location": job.get("location"),
-            }
+            },
+            "compliance_score": await _calc_candidate_compliance(sw["user_id"], current_user["id"]),
         })
 
     # Sort: pending first, then matched, then offer_sent

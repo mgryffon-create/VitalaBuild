@@ -305,6 +305,12 @@ class JobPosting(BaseModel):
     specialty: str
     shift_type: Optional[str] = None
     start_date: Optional[str] = None
+    # Hiring workflow configuration
+    application_workflow_type: Optional[str] = "in_platform_only"  # in_platform_only, external_required_immediately, external_required_after_match, external_optional
+    external_application_url: Optional[str] = None
+    external_application_stage: Optional[str] = None  # before_match, after_match, after_offer
+    profile_sufficient_for_initial_review: Optional[bool] = True
+    required_additional_fields: Optional[str] = None
 
 class SwipeAction(BaseModel):
     target_id: str

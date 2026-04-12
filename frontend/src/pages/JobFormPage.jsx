@@ -14,7 +14,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import {
   Briefcase, MapPin, DollarSign, Clock, Plus, X, Save, ArrowLeft,
   Award, Gift, FileText, Calendar, Cloud, CloudOff, Loader2, Check,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, ExternalLink, Globe
 } from "lucide-react";
 
 const SECTIONS = [
@@ -22,6 +22,7 @@ const SECTIONS = [
   { id: "schedule", label: "Schedule", icon: Clock },
   { id: "compensation", label: "Compensation", icon: DollarSign },
   { id: "requirements", label: "Requirements", icon: FileText },
+  { id: "workflow", label: "Application", icon: Globe },
   { id: "review", label: "Review", icon: Check },
 ];
 
@@ -144,6 +145,11 @@ const JobFormPage = () => {
     specialty: "",
     shift_type: "",
     start_date: "",
+    application_workflow_type: "in_platform_only",
+    external_application_url: "",
+    external_application_stage: "",
+    profile_sufficient_for_initial_review: true,
+    required_additional_fields: "",
   });
 
   const [newBenefit, setNewBenefit] = useState("");
@@ -157,6 +163,7 @@ const JobFormPage = () => {
   if (job.duration || job.shift_type || job.start_date) completedSections.add("schedule");
   if (job.pay_range.min || job.pay_range.max || job.benefits.length > 0) completedSections.add("compensation");
   if (job.experience_required > 0 || job.requirements.length > 0 || job.certifications_required.length > 0) completedSections.add("requirements");
+  if (job.application_workflow_type) completedSections.add("workflow");
 
   const durations = ["13 weeks", "26 weeks", "52 weeks", "Permanent", "Per Diem", "PRN"];
   const shiftTypes = ["Day Shift (7a-7p)", "Night Shift (7p-7a)", "Day Shift (8 hr)", "Evening Shift", "Rotating", "Flexible"];
@@ -608,7 +615,98 @@ const JobFormPage = () => {
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 5: Review & Submit === */}
+          {/* === SECTION 5: Application Workflow === */}
+          <CollapsibleSection id="workflow" title="Application Workflow" icon={Globe} isActive={activeSection === "workflow"}>
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">How should candidates apply?</Label>
+                <Select
+                  value={job.application_workflow_type}
+                  onValueChange={(v) => setJob((prev) => ({
+                    ...prev,
+                    application_workflow_type: v,
+                    external_application_stage: v === "in_platform_only" ? "" : v === "external_required_immediately" ? "before_match" : "after_match",
+                  }))}
+                >
+                  <SelectTrigger data-testid="workflow-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in_platform_only">In-platform only (VitalaMatch profile)</SelectItem>
+                    <SelectItem value="external_required_immediately">External application required immediately</SelectItem>
+                    <SelectItem value="external_required_after_match">External application required after match (Recommended)</SelectItem>
+                    <SelectItem value="external_optional">External application optional</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {job.application_workflow_type === "in_platform_only" && "Candidates apply using their VitalaMatch profile. No external steps needed."}
+                  {job.application_workflow_type === "external_required_immediately" && "Candidates will be directed to your external application immediately when they express interest."}
+                  {job.application_workflow_type === "external_required_after_match" && "Candidates apply in VitalaMatch first. Once there's mutual interest, they'll complete your external application. This reduces drop-off."}
+                  {job.application_workflow_type === "external_optional" && "You can review profiles first and request external applications for specific candidates later."}
+                </p>
+              </div>
+
+              {job.application_workflow_type !== "in_platform_only" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>External Application URL *</Label>
+                    <div className="relative">
+                      <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        data-testid="external-url-input"
+                        value={job.external_application_url}
+                        onChange={(e) => setJob((prev) => ({ ...prev, external_application_url: e.target.value }))}
+                        className="pl-10"
+                        placeholder="https://careers.yourcompany.com/apply"
+                        type="url"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>When is the external application required?</Label>
+                    <Select value={job.external_application_stage} onValueChange={(v) => setJob((prev) => ({ ...prev, external_application_stage: v }))}>
+                      <SelectTrigger data-testid="workflow-stage-select">
+                        <SelectValue placeholder="Select stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="before_match">Before match (immediately)</SelectItem>
+                        <SelectItem value="after_match">After mutual match</SelectItem>
+                        <SelectItem value="after_offer">After offer is sent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="profile-sufficient"
+                  data-testid="profile-sufficient-checkbox"
+                  checked={job.profile_sufficient_for_initial_review}
+                  onChange={(e) => setJob((prev) => ({ ...prev, profile_sufficient_for_initial_review: e.target.checked }))}
+                  className="mt-1 h-4 w-4 rounded border-border text-primary"
+                />
+                <label htmlFor="profile-sufficient" className="text-sm text-foreground">
+                  Candidates can be reviewed using their VitalaMatch profile before completing your external application
+                </label>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Additional Requirements (optional)</Label>
+                <Input
+                  data-testid="additional-fields-input"
+                  value={job.required_additional_fields}
+                  onChange={(e) => setJob((prev) => ({ ...prev, required_additional_fields: e.target.value }))}
+                  placeholder="e.g., Background check, drug screen results, references"
+                />
+                <p className="text-xs text-muted-foreground">Anything required that may not already be in the candidate profile</p>
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* === SECTION 6: Review & Submit === */}
           <CollapsibleSection id="review" title="Review & Submit" icon={Check} isActive={activeSection === "review"}>
             <div className="space-y-4">
               {requiredFieldsMissing && (
@@ -646,6 +744,17 @@ const JobFormPage = () => {
                 <ReviewField label="Experience" value={job.experience_required > 0 ? `${job.experience_required}+ years` : null} />
                 <ReviewField label="Certifications" value={job.certifications_required.length > 0 ? job.certifications_required.join(", ") : null} />
                 <ReviewField label="Requirements" value={job.requirements.length > 0 ? `${job.requirements.length} listed` : null} />
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Application Workflow</h4>
+                <ReviewField label="Type" value={job.application_workflow_type?.replace(/_/g, " ")} />
+                {job.application_workflow_type !== "in_platform_only" && (
+                  <>
+                    <ReviewField label="External URL" value={job.external_application_url} missing={!job.external_application_url} />
+                    <ReviewField label="Stage" value={job.external_application_stage?.replace(/_/g, " ")} />
+                  </>
+                )}
               </div>
 
               {/* Desktop Submit */}
