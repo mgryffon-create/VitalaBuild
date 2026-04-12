@@ -10,24 +10,63 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Users, Briefcase, CheckCircle, Clock, MessageCircle, Send,
-  ArrowRight, ShieldCheck, MapPin, Star, ChevronRight, BarChart
+  ArrowRight, ShieldCheck, MapPin, Star, ChevronRight, BarChart,
+  AlertTriangle, Bell, Zap
 } from "lucide-react";
 
 const STAGES = [
-  { id: "interested", label: "Interested", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-900/10", badge: "bg-amber-100 text-amber-700" },
-  { id: "matched", label: "Matched", color: "border-green-400", bg: "bg-green-50 dark:bg-green-900/10", badge: "bg-green-100 text-green-700" },
-  { id: "interviewing", label: "Interviewing", color: "border-blue-400", bg: "bg-blue-50 dark:bg-blue-900/10", badge: "bg-blue-100 text-blue-700" },
-  { id: "offer_sent", label: "Offer Sent", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-900/10", badge: "bg-purple-100 text-purple-700" },
-  { id: "hired", label: "Hired", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/10", badge: "bg-emerald-100 text-emerald-700" },
+  { id: "interested", label: "Interested", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+  { id: "matched", label: "Matched", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  { id: "interviewing", label: "Interviewing", color: "border-blue-400", bg: "bg-blue-50 dark:bg-blue-950/20", badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+  { id: "offer_sent", label: "Offer Sent", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
+  { id: "hired", label: "Hired", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
 ];
 
 const NEXT_STAGE = { interested: "matched", matched: "interviewing", interviewing: "offer_sent", offer_sent: "hired" };
 const NEXT_LABEL = { interested: "Match", matched: "Interview", interviewing: "Send Offer", offer_sent: "Hire" };
 
-const PipelineCard = ({ candidate, onMove, onMessage }) => {
-  const c = candidate;
+const NudgeBanner = ({ nudges, onAction }) => {
+  if (!nudges?.length) return null;
+  const top = nudges.slice(0, 3);
   return (
-    <Card data-testid={`pipeline-card-${c.id}`} className="mb-2 hover:border-primary/30 transition-colors cursor-pointer">
+    <div data-testid="nudge-banner" className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+        <Bell className="w-4 h-4" />
+        <p className="text-xs font-semibold">Action Needed — {nudges.length} candidate{nudges.length > 1 ? "s" : ""} waiting</p>
+      </div>
+      {top.map((n) => (
+        <div key={`${n.candidate_id}_${n.job_id}`} className="flex items-center justify-between gap-2 pl-6">
+          <p className="text-[11px] text-foreground/80 flex-1 truncate">
+            <span className="font-medium">{n.candidate_name}</span>
+            <span className="text-muted-foreground"> — {n.message}</span>
+            <span className="ml-1 text-amber-600 dark:text-amber-400 text-[10px]">({n.days_idle}d idle)</span>
+          </p>
+          <Button
+            size="sm"
+            variant={n.priority === "high" ? "default" : "outline"}
+            className="h-6 text-[10px] px-2 shrink-0"
+            onClick={() => onAction(n)}
+            data-testid={`nudge-action-${n.candidate_id}`}
+          >
+            {n.action === "match" && "Review"}
+            {n.action === "message" && "Message"}
+            {n.action === "advance" && "Advance"}
+            {n.action === "follow_up" && "Follow Up"}
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds }) => {
+  const c = candidate;
+  const isNudged = nudgeIds.has(c.candidate_id);
+  return (
+    <Card
+      data-testid={`pipeline-card-${c.id}`}
+      className={`mb-2 transition-colors cursor-pointer ${isNudged ? "border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800" : "hover:border-primary/30"}`}
+    >
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-semibold text-primary">
@@ -37,6 +76,7 @@ const PipelineCard = ({ candidate, onMove, onMessage }) => {
             <div className="flex items-center gap-1.5">
               <p className="font-medium text-xs text-foreground truncate">{c.seeker?.full_name || "Candidate"}</p>
               {c.has_verified_refs && <ShieldCheck className="w-3 h-3 text-green-600 shrink-0" />}
+              {isNudged && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
             </div>
             <p className="text-[10px] text-muted-foreground truncate">{c.seeker?.specialty || c.job?.title}</p>
             {c.seeker?.skills?.length > 0 && (
@@ -72,12 +112,17 @@ const HiringPipelinePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [data, setData] = useState({ candidates: {}, stats: {} });
+  const [nudges, setNudges] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPipeline = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/pipeline/candidates`);
-      setData(res.data);
+      const [pipeRes, nudgeRes] = await Promise.all([
+        axios.get(`${API}/pipeline/candidates`),
+        axios.get(`${API}/pipeline/nudges`).catch(() => ({ data: { nudges: [] } })),
+      ]);
+      setData(pipeRes.data);
+      setNudges(nudgeRes.data.nudges || []);
     } catch {
       toast.error("Failed to load pipeline");
     } finally {
@@ -101,11 +146,21 @@ const HiringPipelinePage = () => {
     navigate(`/poster/messages?candidate=${candidate.candidate_id}`);
   };
 
+  const handleNudgeAction = (nudge) => {
+    if (nudge.action === "message" || nudge.action === "follow_up") {
+      navigate(`/poster/messages?candidate=${nudge.candidate_id}`);
+    } else {
+      // For match/advance, navigate to pipeline (already here) — highlight the card
+      toast.info(`Review ${nudge.candidate_name} in the ${nudge.stage} column`);
+    }
+  };
+
   if (loading) {
     return <DashboardLayout><div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" /></div></DashboardLayout>;
   }
 
   const stats = data.stats || {};
+  const nudgeIds = new Set(nudges.map((n) => n.candidate_id));
 
   return (
     <DashboardLayout>
@@ -121,6 +176,9 @@ const HiringPipelinePage = () => {
           </div>
         </div>
 
+        {/* Nudge Banner */}
+        <NudgeBanner nudges={nudges} onAction={handleNudgeAction} />
+
         {/* Stats bar */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STAGES.map((s) => (
@@ -130,8 +188,8 @@ const HiringPipelinePage = () => {
           ))}
         </div>
 
-        {/* Kanban Board — horizontal scroll on mobile, grid on desktop */}
-        <div className="flex gap-3 overflow-x-auto pb-4 snap-x" style={{ minHeight: "calc(100vh - 14rem)" }}>
+        {/* Kanban Board */}
+        <div className="flex gap-3 overflow-x-auto pb-4 snap-x" style={{ minHeight: "calc(100vh - 16rem)" }}>
           {STAGES.map((stage) => {
             const cards = data.candidates?.[stage.id] || [];
             return (
@@ -146,14 +204,14 @@ const HiringPipelinePage = () => {
                     <Badge variant="secondary" className="text-[9px] h-5 px-1.5">{cards.length}</Badge>
                   </div>
                 </div>
-                <ScrollArea className="p-2" style={{ maxHeight: "calc(100vh - 20rem)" }}>
+                <ScrollArea className="p-2" style={{ maxHeight: "calc(100vh - 22rem)" }}>
                   {cards.length === 0 ? (
                     <div className="py-8 text-center">
                       <p className="text-[10px] text-muted-foreground">No candidates</p>
                     </div>
                   ) : (
                     cards.map((c) => (
-                      <PipelineCard key={c.id} candidate={c} onMove={moveCandidate} onMessage={openMessage} />
+                      <PipelineCard key={c.id} candidate={c} onMove={moveCandidate} onMessage={openMessage} nudgeIds={nudgeIds} />
                     ))
                   )}
                 </ScrollArea>
