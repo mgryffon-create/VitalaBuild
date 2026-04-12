@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   UserPlus, Users, ArrowLeft, Plus, CheckCircle, Clock, Shield,
-  Mail, Phone, Building, Trash2, Edit, Send, Star, AlertCircle
+  Mail, Phone, Building, Trash2, Edit, Send, Star, AlertCircle, FileText
 } from "lucide-react";
 
 const VERIFICATION_META = {
@@ -34,6 +34,8 @@ const ReferencesPage = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [editRef, setEditRef] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [packet, setPacket] = useState(null);
+  const [showPacket, setShowPacket] = useState(false);
   const [form, setForm] = useState({
     full_name: "", title: "", facility_name: "", relationship: "", email: "", phone: "",
   });
@@ -125,6 +127,17 @@ const ReferencesPage = () => {
           <Button data-testid="add-reference-btn" onClick={() => { resetForm(); setEditRef(null); setShowAdd(true); }} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-1.5" /> Add Reference
           </Button>
+          {refs.length >= 2 && (
+            <Button variant="outline" data-testid="generate-packet-btn" onClick={async () => {
+              try {
+                const res = await axios.get(`${API}/references/packet/${user.id}`);
+                setPacket(res.data);
+                setShowPacket(true);
+              } catch { toast.error("Failed to generate packet"); }
+            }} className="w-full sm:w-auto">
+              <FileText className="w-4 h-4 mr-1.5" /> Reference Packet
+            </Button>
+          )}
         </div>
 
         {refs.length === 0 && (
@@ -247,6 +260,43 @@ const ReferencesPage = () => {
             <Button data-testid="ref-save-btn" onClick={handleSave} disabled={saving || !form.full_name || !form.relationship}>
               {saving ? "Saving..." : editRef ? "Update" : "Add Reference"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reference Packet Dialog */}
+      <Dialog open={showPacket} onOpenChange={setShowPacket}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Reference Packet</DialogTitle></DialogHeader>
+          {packet && (
+            <div className="space-y-3 py-2">
+              <div className="text-center pb-2 border-b">
+                <p className="font-semibold text-foreground">{packet.candidate_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {packet.total_references} reference{packet.total_references !== 1 ? "s" : ""} — {packet.verified_count} verified
+                </p>
+              </div>
+              {packet.references?.map((ref) => {
+                const vm = VERIFICATION_META[ref.verification_status] || VERIFICATION_META.unverified;
+                const VIcon = vm.icon;
+                return (
+                  <div key={ref.id} className="p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm text-foreground">{ref.full_name}</p>
+                      <Badge variant="outline" className={`text-[8px] ${vm.cls}`}>
+                        <VIcon className="w-2 h-2 mr-0.5" /> {vm.label}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{ref.title && `${ref.title} — `}{ref.relationship?.replace(/_/g, " ")}</p>
+                    {ref.facility_name && <p className="text-xs text-muted-foreground">{ref.facility_name}</p>}
+                    {ref.feedback && <p className="text-xs text-foreground/80 mt-1 italic">"{ref.feedback}"</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPacket(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

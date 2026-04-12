@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   FileText, AlertTriangle, ArrowRight, Briefcase, User,
-  CheckCircle, Upload, MessageCircle, Shield, Stethoscope, XCircle
+  CheckCircle, Upload, MessageCircle, Shield, Stethoscope, XCircle, Sparkles
 } from "lucide-react";
 
 const SeekerDashboard = () => {
@@ -101,6 +101,24 @@ const SeekerDashboard = () => {
             Find Jobs <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
+
+        {/* ── Resume Upload Prompt ─────────────────────── */}
+        {profileCompletion < 50 && (
+          <Card data-testid="resume-upload-prompt" className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-foreground">Build your profile in seconds</p>
+                <p className="text-xs text-muted-foreground">Upload your resume and we&apos;ll fill in your profile automatically.</p>
+              </div>
+              <Button size="sm" onClick={() => navigate("/seeker/resume-onboarding")} data-testid="resume-onboarding-cta">
+                <Upload className="w-3.5 h-3.5 mr-1" /> Upload Resume
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ── Quick Actions (compact, near top) ──────────── */}
         <section data-testid="section-quick-actions">
