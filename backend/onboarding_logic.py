@@ -50,6 +50,40 @@ DEFAULT_REQUIREMENTS = [
     {"type": "vaccination_records", "label": "Vaccination Records", "assigned_to": "candidate", "fulfillment_source": "vault", "vault_match": {"category": "health_record", "subtypes": None}},
 ]
 
+RESOLVED_STATUSES = ("satisfied_from_vault", "completed")
+
+
+def compute_case_status(requirements):
+    """Compute the OnboardingCase status from its requirements."""
+    if not requirements:
+        return "active"
+    if any(r.get("status") == "flagged_issue" for r in requirements):
+        return "flagged"
+    if all(r.get("status") in RESOLVED_STATUSES for r in requirements):
+        return "cleared"
+    return "active"
+
+
+def compute_progress(requirements):
+    """Compute progress stats for an onboarding case."""
+    total = len(requirements)
+    satisfied = sum(1 for r in requirements if r.get("status") == "satisfied_from_vault")
+    completed = sum(1 for r in requirements if r.get("status") in RESOLVED_STATUSES)
+    flagged = sum(1 for r in requirements if r.get("status") == "flagged_issue")
+    pending_review = sum(1 for r in requirements if r.get("status") == "pending_manual_review")
+    pending_external = sum(1 for r in requirements if r.get("status") == "pending_external_check")
+    return {
+        "total": total,
+        "satisfied_from_vault": satisfied,
+        "completed": completed,
+        "pending": total - completed,
+        "flagged": flagged,
+        "pending_review": pending_review,
+        "pending_external": pending_external,
+        "percent": round((completed / total) * 100) if total > 0 else 0,
+    }
+
+
 # ==================== VAULT MATCHING ====================
 
 def _parse_date(date_str):

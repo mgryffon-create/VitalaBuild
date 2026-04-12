@@ -26,6 +26,7 @@ import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
 import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
+import AdminOnboardingPage from "@/pages/AdminOnboardingPage";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -82,7 +83,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to={user.role === "seeker" ? "/seeker" : "/poster"} replace />;
+    const redirectMap = { seeker: "/seeker", poster: "/poster", admin: "/admin/onboarding" };
+    return <Navigate to={redirectMap[user.role] || "/"} replace />;
   }
   
   return children;
@@ -369,6 +371,16 @@ function App() {
           />
           */}
           
+          {/* Admin Routes */}
+          <Route
+            path="/admin/onboarding"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminOnboardingPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

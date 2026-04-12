@@ -18,7 +18,8 @@ const AuthPage = () => {
   // Redirect if already logged in - use useEffect to avoid setState during render
   useEffect(() => {
     if (user) {
-      navigate(user.role === "seeker" ? "/seeker" : "/poster", { replace: true });
+      const redirectMap = { seeker: "/seeker", poster: "/poster", admin: "/admin/onboarding" };
+      navigate(redirectMap[user.role] || "/", { replace: true });
     }
   }, [user, navigate]);
 
@@ -32,7 +33,8 @@ const AuthPage = () => {
         formData.get("email"),
         formData.get("password")
       );
-      navigate(userData.role === "seeker" ? "/seeker" : "/poster");
+      const redirectMap = { seeker: "/seeker", poster: "/poster", admin: "/admin/onboarding" };
+      navigate(redirectMap[userData.role] || "/");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Login failed");
     } finally {

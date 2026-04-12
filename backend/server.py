@@ -16,7 +16,7 @@ import base64
 import aiofiles
 import asyncio
 from contextlib import asynccontextmanager
-from onboarding_logic import create_onboarding_case
+from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES
 
 # SendGrid and Twilio imports
 from sendgrid import SendGridAPIClient
@@ -3143,6 +3143,22 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
             await create_onboarding_case(
                 db, offer, job, offer["seeker_id"], offer["poster_id"]
             )
+            # Notify candidate: onboarding case created + action required
+            await NotificationService.send_notification(
+                offer["seeker_id"],
+                "Onboarding Started",
+                f"<p>Your onboarding for <strong>{offer['position_title']}</strong> has begun. "
+                f"Please review your onboarding requirements and complete any pending tasks.</p>",
+                f"VitalaMatch: Onboarding started for {offer['position_title']}. Check your tasks."
+            )
+            # Notify employer: onboarding case created
+            await NotificationService.send_notification(
+                offer["poster_id"],
+                "Onboarding Case Created",
+                f"<p>An onboarding case has been created for <strong>{offer['position_title']}</strong>. "
+                f"Review the candidate's requirement statuses on your onboarding dashboard.</p>",
+                f"VitalaMatch: Onboarding case created for {offer['position_title']}."
+            )
     
     # Notify the employer
     seeker = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
@@ -3895,8 +3911,14 @@ async def get_onboarding_cases(current_user: dict = Depends(get_current_user)):
         tasks = await db.onboarding_tasks.find(
             {"onboarding_case_id": case["id"]}, {"_id": 0}
         ).to_list(50)
-        satisfied = sum(1 for r in reqs if r["status"] == "satisfied_from_vault")
-        completed = sum(1 for r in reqs if r["status"] in ("satisfied_from_vault", "completed"))
+        progress = compute_progress(reqs)
+        # Sync case status from requirements
+        computed_status = compute_case_status(reqs)
+        if computed_status != case.get("status"):
+            await db.onboarding_cases.update_one(
+                {"id": case["id"]}, {"$set": {"status": computed_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            case["status"] = computed_status
         enriched.append({
             **case,
             "job": job,
@@ -3904,12 +3926,7 @@ async def get_onboarding_cases(current_user: dict = Depends(get_current_user)):
             "employer": employer,
             "requirements": reqs,
             "tasks": tasks,
-            "progress": {
-                "total": len(reqs),
-                "satisfied_from_vault": satisfied,
-                "completed": completed,
-                "pending": len(reqs) - completed,
-            },
+            "progress": progress,
         })
     return enriched
 
@@ -3939,8 +3956,7 @@ async def get_onboarding_case(case_id: str, current_user: dict = Depends(get_cur
     for req in reqs:
         req["document_match"] = match_map.get(req["id"])
 
-    satisfied = sum(1 for r in reqs if r["status"] == "satisfied_from_vault")
-    completed = sum(1 for r in reqs if r["status"] in ("satisfied_from_vault", "completed"))
+    progress = compute_progress(reqs)
 
     return {
         **case,
@@ -3949,22 +3965,22 @@ async def get_onboarding_case(case_id: str, current_user: dict = Depends(get_cur
         "requirements": reqs,
         "tasks": tasks,
         "document_matches": doc_matches,
-        "progress": {
-            "total": len(reqs),
-            "satisfied_from_vault": satisfied,
-            "completed": completed,
-            "pending": len(reqs) - completed,
-        },
+        "progress": progress,
     }
 
 @api_router.put("/onboarding/requirements/{req_id}/status")
 async def update_requirement_status(req_id: str, current_user: dict = Depends(get_current_user)):
-    """Mark a requirement as completed (admin or system)"""
+    """Mark a requirement as completed (employer or admin)"""
     req = await db.onboarding_requirements.find_one({"id": req_id})
     if not req:
         raise HTTPException(status_code=404, detail="Requirement not found")
     case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
-    if not case or current_user["id"] not in (case["candidate_id"], case["employer_id"]):
+    if not case:
+        raise HTTPException(status_code=404, detail="Onboarding case not found")
+    # Allow candidate, employer, or admin
+    is_admin = current_user.get("role") == "admin"
+    is_party = current_user["id"] in (case["candidate_id"], case["employer_id"])
+    if not is_admin and not is_party:
         raise HTTPException(status_code=403, detail="Not authorized")
     await db.onboarding_requirements.update_one(
         {"id": req_id}, {"$set": {"status": "completed"}}
@@ -3973,15 +3989,27 @@ async def update_requirement_status(req_id: str, current_user: dict = Depends(ge
         {"onboarding_requirement_id": req_id},
         {"$set": {"status": "completed"}}
     )
-    # Check if all requirements completed
+    # Recompute case status
     all_reqs = await db.onboarding_requirements.find(
         {"onboarding_case_id": case["id"]}, {"_id": 0}
     ).to_list(50)
-    if all(r["status"] in ("satisfied_from_vault", "completed") or r["id"] == req_id for r in all_reqs):
-        await db.onboarding_cases.update_one(
-            {"id": case["id"]}, {"$set": {"status": "cleared", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    # Simulate the update we just made
+    for r in all_reqs:
+        if r["id"] == req_id:
+            r["status"] = "completed"
+    new_status = compute_case_status(all_reqs)
+    await db.onboarding_cases.update_one(
+        {"id": case["id"]}, {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    # Notify candidate if cleared
+    if new_status == "cleared":
+        await NotificationService.send_notification(
+            case["candidate_id"],
+            "Onboarding Cleared!",
+            "<p>Congratulations! All your onboarding requirements have been completed. You are cleared to start.</p>",
+            "VitalaMatch: Your onboarding is complete! You are cleared to start."
         )
-    return {"message": "Requirement marked as completed"}
+    return {"message": "Requirement marked as completed", "case_status": new_status}
 
 @api_router.post("/onboarding/requirements/{req_id}/upload")
 async def upload_for_requirement(req_id: str, doc: VaultDocumentCreate, current_user: dict = Depends(get_current_user)):
@@ -4066,6 +4094,180 @@ async def get_onboarding_tasks(current_user: dict = Depends(get_current_user)):
         )
         task["requirement"] = req
     return tasks
+
+# ==================== ADMIN ONBOARDING PANEL ====================
+
+class AdminRequirementUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    vault_document_id: Optional[str] = None  # manually attach a vault doc
+
+@api_router.get("/admin/onboarding/cases")
+async def admin_get_all_cases(current_user: dict = Depends(get_current_user)):
+    """Admin: view all onboarding cases across all employers/candidates"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    cases = await db.onboarding_cases.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    enriched = []
+    for case in cases:
+        job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
+        candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
+        employer = await db.users.find_one({"id": case["employer_id"]}, {"_id": 0, "password": 0})
+        reqs = await db.onboarding_requirements.find(
+            {"onboarding_case_id": case["id"]}, {"_id": 0}
+        ).to_list(50)
+        progress = compute_progress(reqs)
+        computed_status = compute_case_status(reqs)
+        if computed_status != case.get("status"):
+            await db.onboarding_cases.update_one(
+                {"id": case["id"]}, {"$set": {"status": computed_status}}
+            )
+            case["status"] = computed_status
+        enriched.append({
+            **case, "job": job, "candidate": candidate, "employer": employer,
+            "requirements": reqs, "progress": progress,
+        })
+    return enriched
+
+@api_router.get("/admin/onboarding/cases/{case_id}")
+async def admin_get_case_detail(case_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin: get full onboarding case detail including vault matches"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    case = await db.onboarding_cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
+    candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
+    employer = await db.users.find_one({"id": case["employer_id"]}, {"_id": 0, "password": 0})
+    reqs = await db.onboarding_requirements.find(
+        {"onboarding_case_id": case_id}, {"_id": 0}
+    ).to_list(50)
+    tasks = await db.onboarding_tasks.find(
+        {"onboarding_case_id": case_id}, {"_id": 0}
+    ).to_list(50)
+    doc_matches = await db.requirement_document_matches.find(
+        {"onboarding_requirement_id": {"$in": [r["id"] for r in reqs]}}, {"_id": 0}
+    ).to_list(200)
+    # Enrich with vault doc details
+    match_map = {}
+    for m in doc_matches:
+        vault_doc = await db.vault_documents.find_one(
+            {"id": m["vault_document_id"]}, {"_id": 0, "file_data": 0}
+        )
+        m["vault_document"] = vault_doc
+        match_map[m["onboarding_requirement_id"]] = m
+    for req in reqs:
+        req["document_match"] = match_map.get(req["id"])
+    progress = compute_progress(reqs)
+    return {
+        **case, "job": job, "candidate": candidate, "employer": employer,
+        "requirements": reqs, "tasks": tasks, "document_matches": doc_matches,
+        "progress": progress,
+    }
+
+@api_router.put("/admin/onboarding/requirements/{req_id}")
+async def admin_update_requirement(req_id: str, update: AdminRequirementUpdate, current_user: dict = Depends(get_current_user)):
+    """Admin: update requirement status, notes, or manually attach a vault document"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    req = await db.onboarding_requirements.find_one({"id": req_id})
+    if not req:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+
+    update_fields = {}
+    if update.status:
+        valid_statuses = [
+            "satisfied_from_vault", "missing_document", "document_expired",
+            "pending_manual_review", "pending_external_check",
+            "action_required_candidate", "in_progress", "completed", "flagged_issue"
+        ]
+        if update.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        update_fields["status"] = update.status
+    if update.notes is not None:
+        update_fields["notes"] = update.notes
+
+    if update_fields:
+        await db.onboarding_requirements.update_one({"id": req_id}, {"$set": update_fields})
+
+    # Manually attach vault document
+    if update.vault_document_id:
+        vault_doc = await db.vault_documents.find_one({"id": update.vault_document_id}, {"_id": 0})
+        if not vault_doc:
+            raise HTTPException(status_code=404, detail="Vault document not found")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        # Remove old match if exists
+        await db.requirement_document_matches.delete_many({"onboarding_requirement_id": req_id})
+        match_link = {
+            "id": str(uuid.uuid4()),
+            "onboarding_requirement_id": req_id,
+            "vault_document_id": update.vault_document_id,
+            "match_status": update.status or "pending_manual_review",
+            "matched_by": "admin",
+            "matched_at": now_iso,
+            "notes": update.notes or "Manually attached by admin",
+        }
+        await db.requirement_document_matches.insert_one(match_link)
+
+    # Update task statuses if requirement completed
+    if update.status in ("completed", "satisfied_from_vault"):
+        await db.onboarding_tasks.update_many(
+            {"onboarding_requirement_id": req_id}, {"$set": {"status": "completed"}}
+        )
+
+    # Recompute case status
+    case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
+    if case:
+        all_reqs = await db.onboarding_requirements.find(
+            {"onboarding_case_id": case["id"]}, {"_id": 0}
+        ).to_list(50)
+        for r in all_reqs:
+            if r["id"] == req_id and update.status:
+                r["status"] = update.status
+        new_status = compute_case_status(all_reqs)
+        await db.onboarding_cases.update_one(
+            {"id": case["id"]}, {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        if new_status == "cleared":
+            await NotificationService.send_notification(
+                case["candidate_id"], "Onboarding Cleared!",
+                "<p>All onboarding requirements have been completed. You are cleared to start.</p>",
+                "VitalaMatch: Onboarding complete! You are cleared to start."
+            )
+
+    return {"message": "Requirement updated"}
+
+@api_router.get("/admin/vault/documents/{candidate_id}")
+async def admin_get_candidate_vault(candidate_id: str, current_user: dict = Depends(get_current_user)):
+    """Admin: view a candidate's vault documents for manual matching"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    docs = await db.vault_documents.find(
+        {"candidate_id": candidate_id}, {"_id": 0, "file_data": 0}
+    ).sort("uploaded_at", -1).to_list(200)
+    return docs
+
+# ==================== ADMIN SEED ====================
+
+@api_router.post("/admin/seed")
+async def seed_admin_user():
+    """Seed an admin user for testing (idempotent)"""
+    existing = await db.users.find_one({"email": "admin@vitalamatch.com"})
+    if existing:
+        return {"message": "Admin user already exists", "id": existing["id"]}
+    admin_id = str(uuid.uuid4())
+    hashed = bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode()
+    admin_user = {
+        "id": admin_id,
+        "email": "admin@vitalamatch.com",
+        "password": hashed,
+        "full_name": "System Admin",
+        "role": "admin",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(admin_user)
+    return {"message": "Admin user created", "id": admin_id}
 
 # Include the router
 app.include_router(api_router)

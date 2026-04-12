@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2,
-  ArrowRight, Mail, CheckCircle, AlertTriangle, Shield, Users, Send, MessageCircle
+  ArrowRight, Mail, CheckCircle, AlertTriangle, Shield, Users, Send, MessageCircle,
+  ClipboardCheck, Flag
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -28,6 +29,7 @@ const PosterDashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [candidateCount, setCandidateCount] = useState(0);
   const [offerCount, setOfferCount] = useState(0);
+  const [onboardingCases, setOnboardingCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteJobId, setDeleteJobId] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState(null);
@@ -39,18 +41,20 @@ const PosterDashboard = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, jobsRes, candidatesRes, offersRes, verifyRes] = await Promise.all([
+      const [statsRes, jobsRes, candidatesRes, offersRes, verifyRes, onbRes] = await Promise.all([
         axios.get(`${API}/stats`),
         axios.get(`${API}/jobs`),
         axios.get(`${API}/employer/candidates`).catch(() => ({ data: [] })),
         axios.get(`${API}/hiring/offers`).catch(() => ({ data: [] })),
         axios.get(`${API}/employer/verification-status`).catch(() => ({ data: null })),
+        axios.get(`${API}/onboarding/cases`).catch(() => ({ data: [] })),
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
       setCandidateCount(candidatesRes.data.length);
       setOfferCount(offersRes.data.length);
       setVerificationStatus(verifyRes.data);
+      setOnboardingCases(onbRes.data);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -270,6 +274,62 @@ const PosterDashboard = () => {
             </Card>
           </div>
         </section>
+
+        {/* Onboarding Progress */}
+        {onboardingCases.length > 0 && (
+          <section data-testid="section-onboarding">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-foreground">Onboarding Progress</h2>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/poster/onboarding")} className="text-xs">
+                View All <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {onboardingCases.slice(0, 3).map((c) => {
+                const p = c.progress || {};
+                const isFlagged = c.status === "flagged";
+                const isCleared = c.status === "cleared";
+                return (
+                  <Card
+                    key={c.id}
+                    data-testid={`onb-card-${c.id}`}
+                    className={`cursor-pointer transition-colors ${isFlagged ? "border-red-300 dark:border-red-700" : isCleared ? "border-green-300 dark:border-green-700" : "hover:border-primary/30"}`}
+                    onClick={() => navigate("/poster/onboarding")}
+                  >
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm text-foreground truncate">{c.candidate?.full_name || "Candidate"}</p>
+                            {isCleared && <Badge className="bg-green-100 text-green-700 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" /> Cleared</Badge>}
+                            {isFlagged && <Badge className="bg-red-100 text-red-700 text-[9px]"><Flag className="w-2.5 h-2.5 mr-0.5" /> Flagged</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{c.job?.title} — {c.role_type}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-base font-bold text-foreground">{p.percent || 0}%</p>
+                          <p className="text-[9px] text-muted-foreground">{p.completed || 0}/{p.total || 0} done</p>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full transition-all ${isCleared ? "bg-green-500" : isFlagged ? "bg-red-500" : "bg-primary"}`}
+                          style={{ width: `${p.percent || 0}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                        {(p.satisfied_from_vault || 0) > 0 && <span className="text-green-600"><Shield className="w-2.5 h-2.5 inline mr-0.5" />{p.satisfied_from_vault} vault</span>}
+                        {(p.pending_review || 0) > 0 && <span className="text-blue-600"><Eye className="w-2.5 h-2.5 inline mr-0.5" />{p.pending_review} review</span>}
+                        {(p.pending_external || 0) > 0 && <span className="text-purple-600">{p.pending_external} external</span>}
+                        {(p.flagged || 0) > 0 && <span className="text-red-600"><Flag className="w-2.5 h-2.5 inline mr-0.5" />{p.flagged} flagged</span>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Jobs List */}
         <section data-testid="section-jobs">

@@ -186,6 +186,17 @@ const posterBottomNav = [
   { label: "Profile", icon: User, path: "/poster/profile" },
 ];
 
+// Admin navigation
+const adminNavItems = [
+  { label: "Onboarding", icon: ClipboardCheck, path: "/admin/onboarding" },
+  { label: "Settings", icon: Settings, path: "/settings" },
+];
+
+const adminBottomNav = [
+  { label: "Onboarding", icon: ClipboardCheck, path: "/admin/onboarding" },
+  { label: "Settings", icon: Settings, path: "/settings" },
+];
+
 const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,8 +205,9 @@ const DashboardLayout = ({ children }) => {
   const [candidatesExpanded, setCandidatesExpanded] = useState(true);
 
   const isSeeker = user?.role === "seeker";
-  const navigationItems = isSeeker ? seekerNavItems : posterNavItems;
-  const bottomNavItems = isSeeker ? seekerBottomNav : posterBottomNav;
+  const isAdmin = user?.role === "admin";
+  const navigationItems = isAdmin ? adminNavItems : isSeeker ? seekerNavItems : posterNavItems;
+  const bottomNavItems = isAdmin ? adminBottomNav : isSeeker ? seekerBottomNav : posterBottomNav;
 
   const isActive = useCallback((path) => {
     if (path === "/seeker" || path === "/poster") {
