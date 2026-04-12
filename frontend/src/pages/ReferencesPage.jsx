@@ -1,358 +1,255 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Users, Plus, Mail, Clock, CheckCircle, Copy, ExternalLink } from "lucide-react";
+import {
+  UserPlus, Users, ArrowLeft, Plus, CheckCircle, Clock, Shield,
+  Mail, Phone, Building, Trash2, Edit, Send, Star, AlertCircle
+} from "lucide-react";
+
+const VERIFICATION_META = {
+  unverified: { label: "Unverified", cls: "bg-muted text-muted-foreground", icon: AlertCircle },
+  pending: { label: "Pending", cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: Clock },
+  verified: { label: "Verified", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle },
+};
+
+const RELATIONSHIPS = [
+  "supervisor", "charge_nurse", "manager", "director", "coworker", "physician", "educator", "mentor", "other",
+];
 
 const ReferencesPage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [references, setReferences] = useState([]);
+  const [refs, setRefs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showRequestDialog, setShowRequestDialog] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [requestForm, setRequestForm] = useState({
-    referee_email: "",
-    referee_name: "",
-    relationship: "",
-    message: ""
+  const [showAdd, setShowAdd] = useState(false);
+  const [editRef, setEditRef] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "", title: "", facility_name: "", relationship: "", email: "", phone: "",
   });
 
-  const isSeeker = user?.role === "seeker";
-
-  const relationships = isSeeker
-    ? [
-        "Direct Supervisor",
-        "Colleague",
-        "Charge Nurse",
-        "Department Manager",
-        "Clinical Director",
-        "Physician",
-        "Other"
-      ]
-    : [
-        "Current Employee",
-        "Former Employee",
-        "Department Staff",
-        "Nursing Staff",
-        "Administrative Staff",
-        "Other"
-      ];
-
-  useEffect(() => {
-    fetchReferences();
-  }, []);
-
-  const fetchReferences = async () => {
+  const fetchRefs = useCallback(async () => {
     try {
-      const response = await axios.get(`${API}/references/pending`);
-      setReferences(response.data);
-    } catch (error) {
+      const res = await axios.get(`${API}/references`);
+      setRefs(res.data);
+    } catch {
       toast.error("Failed to load references");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleRequestReference = async () => {
-    if (!requestForm.referee_email || !requestForm.referee_name || !requestForm.relationship) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+  useEffect(() => { fetchRefs(); }, [fetchRefs]);
 
-    setSubmitting(true);
+  const resetForm = () => setForm({ full_name: "", title: "", facility_name: "", relationship: "", email: "", phone: "" });
+
+  const handleSave = async () => {
+    if (!form.full_name || !form.relationship) { toast.error("Name and relationship are required"); return; }
+    setSaving(true);
     try {
-      const response = await axios.post(`${API}/references/request`, requestForm);
-      toast.success("Reference request sent!");
-      setShowRequestDialog(false);
-      setRequestForm({ referee_email: "", referee_name: "", relationship: "", message: "" });
-      fetchReferences();
-      
-      // Show the submission link for testing
-      if (response.data.submission_link) {
-        toast.info(`Submission link: ${window.location.origin}${response.data.submission_link}`, {
-          duration: 10000
-        });
+      if (editRef) {
+        await axios.put(`${API}/references/${editRef.id}`, form);
+        toast.success("Reference updated");
+      } else {
+        await axios.post(`${API}/references`, form);
+        toast.success("Reference added");
       }
-    } catch (error) {
-      toast.error("Failed to send reference request");
-    } finally {
-      setSubmitting(false);
+      setShowAdd(false);
+      setEditRef(null);
+      resetForm();
+      fetchRefs();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to save");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`${API}/references/${id}`);
+      setRefs((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Reference removed");
+    } catch { toast.error("Failed to delete"); }
+  };
+
+  const handleRequestVerification = async (ref) => {
+    if (!ref.email) { toast.error("Reference needs an email address for verification"); return; }
+    try {
+      await axios.post(`${API}/references/${ref.id}/request-verification`);
+      toast.success("Verification request sent");
+      fetchRefs();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to send");
     }
   };
 
-  const copySubmissionLink = (ref) => {
-    const link = `${window.location.origin}/references/submit/${ref.token}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Link copied to clipboard");
+  const openEdit = (ref) => {
+    setEditRef(ref);
+    setForm({
+      full_name: ref.full_name, title: ref.title || "", facility_name: ref.facility_name || "",
+      relationship: ref.relationship, email: ref.email || "", phone: ref.phone || "",
+    });
+    setShowAdd(true);
   };
+
+  const verified = refs.filter((r) => r.verification_status === "verified").length;
 
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </DashboardLayout>
-    );
+    return <DashboardLayout><div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" /></div></DashboardLayout>;
   }
-
-  const pendingRefs = references.filter(r => r.status === "pending");
-  const completedRefs = references.filter(r => r.status === "completed");
 
   return (
     <DashboardLayout>
-      <div data-testid="references-page" className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">References</h1>
-            <p className="text-muted-foreground mt-1">
-              {isSeeker
-                ? "Request references from colleagues and supervisors"
-                : "Request facility reviews from current employees"}
-            </p>
+      <div data-testid="references-page" className="space-y-5 max-w-4xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/seeker")} className="shrink-0 -ml-1">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Professional References</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {refs.length} reference{refs.length !== 1 ? "s" : ""}{verified > 0 ? ` (${verified} verified)` : ""}
+              </p>
+            </div>
           </div>
-          <Button
-            data-testid="request-reference-btn"
-            onClick={() => setShowRequestDialog(true)}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Request Reference
+          <Button data-testid="add-reference-btn" onClick={() => { resetForm(); setEditRef(null); setShowAdd(true); }} className="w-full sm:w-auto">
+            <Plus className="w-4 h-4 mr-1.5" /> Add Reference
           </Button>
         </div>
 
-        {/* Info Card */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Confidential Reference System</p>
-                <p className="text-sm text-muted-foreground">
-                  {isSeeker
-                    ? "Your references will only be visible to employers after you match with a job. You won't see the content of the references."
-                    : "Facility reviews will only be visible to job seekers after they match with your job. You won't see the content of the reviews."}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* References Stats */}
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-3xl font-bold text-foreground">{pendingRefs.length}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-3xl font-bold text-foreground">{completedRefs.length}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-secondary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* References List */}
-        {references.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">No reference requests yet</h2>
-              <p className="text-muted-foreground mb-6">
-                {isSeeker
-                  ? "Request references from colleagues to strengthen your profile"
-                  : "Request facility reviews from current employees"}
+        {refs.length === 0 && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-5 text-center">
+              <Users className="w-10 h-10 mx-auto mb-3 text-primary/60" />
+              <h3 className="font-semibold text-foreground mb-1">Add references once. Use them everywhere.</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                References are optional but can improve your chances. Add them here and they'll be included in all your applications.
               </p>
-              <Button
-                data-testid="request-first-ref-btn"
-                onClick={() => setShowRequestDialog(true)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                Request Your First Reference
+              <Button onClick={() => setShowAdd(true)} data-testid="first-reference-btn">
+                <UserPlus className="w-4 h-4 mr-1.5" /> Add Your First Reference
               </Button>
             </CardContent>
           </Card>
-        ) : (
-          <div className="space-y-4">
-            {/* Pending References */}
-            {pendingRefs.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-3">Pending Requests</h2>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {pendingRefs.map((ref) => (
-                    <Card key={ref.id} className="hover-lift">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <p className="font-semibold text-foreground">{ref.referee_name}</p>
-                            <p className="text-sm text-muted-foreground">{ref.relationship}</p>
-                          </div>
-                          <Badge variant="outline" className="text-accent border-accent">
-                            <Clock className="w-3 h-3 mr-1" /> Pending
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mb-3">
-                          <Mail className="w-3 h-3" /> {ref.referee_email}
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            data-testid={`copy-link-${ref.id}`}
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => copySubmissionLink(ref)}
-                          >
-                            <Copy className="w-3 h-3 mr-1" /> Copy Link
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Completed References */}
-            {completedRefs.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-3">Completed References</h2>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {completedRefs.map((ref) => (
-                    <Card key={ref.id} className="hover-lift">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <p className="font-semibold text-foreground">{ref.referee_name}</p>
-                            <p className="text-sm text-muted-foreground">{ref.relationship}</p>
-                          </div>
-                          <Badge className="bg-secondary/10 text-secondary">
-                            <CheckCircle className="w-3 h-3 mr-1" /> Completed
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Mail className="w-3 h-3" /> {ref.referee_email}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Reference content hidden (visible to matches only)
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
 
-        {/* Request Dialog */}
-        <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Request Reference</DialogTitle>
-              <DialogDescription>
-                {isSeeker
-                  ? "Request a professional reference from a colleague or supervisor"
-                  : "Request a facility review from a current employee"}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="referee_name">Referee Name *</Label>
-                <Input
-                  data-testid="referee-name-input"
-                  id="referee_name"
-                  value={requestForm.referee_name}
-                  onChange={(e) => setRequestForm(prev => ({ ...prev, referee_name: e.target.value }))}
-                  placeholder="John Smith"
-                />
-              </div>
+        {refs.length > 0 && (
+          <div className="space-y-3">
+            {refs.map((ref) => {
+              const vm = VERIFICATION_META[ref.verification_status] || VERIFICATION_META.unverified;
+              const VIcon = vm.icon;
+              return (
+                <Card key={ref.id} data-testid={`reference-card-${ref.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-semibold text-primary">
+                        {ref.full_name?.charAt(0) || "?"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-foreground text-sm">{ref.full_name}</p>
+                          <Badge variant="outline" className={`text-[9px] ${vm.cls}`}>
+                            <VIcon className="w-2.5 h-2.5 mr-0.5" /> {vm.label}
+                          </Badge>
+                          {ref.rating && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-amber-600">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {ref.rating}/5
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {ref.title && `${ref.title} — `}{ref.relationship?.replace(/_/g, " ")}
+                        </p>
+                        {ref.facility_name && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Building className="w-3 h-3" /> {ref.facility_name}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground flex-wrap">
+                          {ref.email && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3" /> {ref.email}</span>}
+                          {ref.phone && <span className="flex items-center gap-0.5"><Phone className="w-3 h-3" /> {ref.phone}</span>}
+                        </div>
+                        {ref.feedback && (
+                          <p className="text-xs text-foreground/80 mt-2 italic border-l-2 border-primary/30 pl-2">"{ref.feedback}"</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 shrink-0">
+                        {ref.verification_status === "unverified" && ref.email && (
+                          <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => handleRequestVerification(ref)} data-testid={`verify-${ref.id}`}>
+                            <Send className="w-3 h-3 mr-0.5" /> Verify
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(ref)}>
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(ref.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="referee_email">Referee Email *</Label>
-                <Input
-                  data-testid="referee-email-input"
-                  id="referee_email"
-                  type="email"
-                  value={requestForm.referee_email}
-                  onChange={(e) => setRequestForm(prev => ({ ...prev, referee_email: e.target.value }))}
-                  placeholder="john.smith@hospital.com"
-                />
+      <Dialog open={showAdd} onOpenChange={(o) => { if (!o) { setShowAdd(false); setEditRef(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>{editRef ? "Edit Reference" : "Add Reference"}</DialogTitle></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label>Full Name *</Label>
+              <Input data-testid="ref-name-input" value={form.full_name} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} placeholder="e.g., Sarah Johnson, RN" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Title/Role</Label>
+                <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} placeholder="e.g., Charge Nurse" />
               </div>
-
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Relationship *</Label>
-                <Select
-                  value={requestForm.relationship}
-                  onValueChange={(value) => setRequestForm(prev => ({ ...prev, relationship: value }))}
-                >
-                  <SelectTrigger data-testid="relationship-select">
-                    <SelectValue placeholder="Select relationship" />
-                  </SelectTrigger>
+                <Select value={form.relationship} onValueChange={(v) => setForm((p) => ({ ...p, relationship: v }))}>
+                  <SelectTrigger data-testid="ref-relationship-select"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    {relationships.map((rel) => (
-                      <SelectItem key={rel} value={rel}>{rel}</SelectItem>
-                    ))}
+                    {RELATIONSHIPS.map((r) => (<SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="message">Personal Message (Optional)</Label>
-                <Textarea
-                  data-testid="referee-message-input"
-                  id="message"
-                  value={requestForm.message}
-                  onChange={(e) => setRequestForm(prev => ({ ...prev, message: e.target.value }))}
-                  placeholder="Add a personal note to your request..."
-                  rows={3}
-                />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Facility Name</Label>
+              <Input value={form.facility_name} onChange={(e) => setForm((p) => ({ ...p, facility_name: e.target.value }))} placeholder="e.g., Memorial Hospital" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input type="email" data-testid="ref-email-input" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" />
               </div>
             </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                data-testid="send-request-btn"
-                onClick={handleRequestReference}
-                disabled={submitting}
-                className="bg-primary hover:bg-primary/90"
-              >
-                {submitting ? "Sending..." : "Send Request"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowAdd(false); setEditRef(null); }}>Cancel</Button>
+            <Button data-testid="ref-save-btn" onClick={handleSave} disabled={saving || !form.full_name || !form.relationship}>
+              {saving ? "Saving..." : editRef ? "Update" : "Add Reference"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

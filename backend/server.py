@@ -4160,9 +4160,13 @@ async def get_audit_logs(current_user: dict = Depends(get_current_user)):
 from routes.auth import router as auth_router
 from routes.vault import router as vault_router
 from routes.training import router as training_router
+from routes.references import router as references_router
+from routes.resume import router as resume_router
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
 api_router.include_router(training_router)
+api_router.include_router(references_router)
+api_router.include_router(resume_router)
 
 # Include the main api_router
 app.include_router(api_router)

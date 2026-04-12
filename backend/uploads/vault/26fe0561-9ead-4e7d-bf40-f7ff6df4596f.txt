@@ -1,0 +1,12 @@
+
+        JOHN DOE, RN
+        Phone: (555) 123-4567
+        Email: john.doe@email.com
+        
+        LICENSES
+        - RN License #789012, California, Compact
+        
+        EXPERIENCE
+        Staff Nurse - General Hospital
+        2020 - Present
+        

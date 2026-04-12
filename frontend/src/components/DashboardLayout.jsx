@@ -37,6 +37,7 @@ const seekerNavItems = [
   { label: "Licenses", icon: FileText, path: "/seeker/licenses" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
+  { label: "References", icon: UserCheck, path: "/references" },
   { label: "Onboarding", icon: ClipboardCheck, path: "/seeker/onboarding" },
   { label: "Training", icon: BookOpen, path: "/seeker/training" },
   { label: "Settings", icon: Settings, path: "/settings" },
