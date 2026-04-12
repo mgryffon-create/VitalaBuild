@@ -13,6 +13,14 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Inline Onboarding Upload & Backend Integration Cleanup (April 2025)
+- **Inline Upload**: Candidates can now upload documents directly from the onboarding requirement list via an inline dialog (file picker + category/subtype pre-filled from requirement type + progress bar). No more navigating away to the vault page.
+- **REQ_CATEGORY_HINTS**: Auto-maps requirement types to vault categories (e.g., government_id -> identity, bls_certification -> certification/BLS, tb_screening -> health_screen/TB_test)
+- **Backend endpoint**: `POST /api/onboarding/requirements/{req_id}/upload` now accepts multipart file upload, creates vault doc, links to requirement, updates status to pending_manual_review
+- **Twilio SMS**: DISABLED — `send_sms()` short-circuited with log message, import commented out
+- **Nursys API**: DISABLED — `verify_via_nursys()` returns `api_disabled` status immediately
+- Push notification endpoints preserved (subscription management only, no actual push sending)
+
 ### Terminology Cleanup & File Upload Support (April 2025)
 - **Terminology**: SwipeBinsPage — "It's a match!" (not "connection"), "Marked as interested!" (not "Added to interested")
 - **Terminology**: SettingsPage — "match with a job/candidate" (not "connect with"), "matches, messages, and offers" (not "interview requests"), responsive heading
