@@ -118,12 +118,14 @@ const PosterDashboard = () => {
     );
   }
 
+  const canPost = verificationStatus?.business_email_verified || verificationStatus?.dev_bypass_active;
+
   return (
     <DashboardLayout>
       <div data-testid="poster-dashboard" className="space-y-8 max-w-5xl">
 
         {/* Verification Alerts */}
-        {verificationStatus && !verificationStatus.business_email_verified && (
+        {verificationStatus && !verificationStatus.business_email_verified && !verificationStatus.dev_bypass_active && (
           <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             <AlertTitle className="text-amber-700 dark:text-amber-400 font-semibold">
@@ -158,14 +160,22 @@ const PosterDashboard = () => {
             </h1>
             <p className="text-muted-foreground mt-1">Manage your job postings and find the best candidates.</p>
           </div>
-          <Button
-            data-testid="post-job-btn"
-            onClick={() => navigate("/poster/jobs/new")}
-            className="bg-primary hover:bg-primary/90"
-            disabled={!verificationStatus?.business_email_verified}
-          >
-            <Plus className="mr-2 w-4 h-4" /> Post New Job
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              data-testid="post-job-btn"
+              onClick={() => navigate("/poster/jobs/new")}
+              className={canPost ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"}
+              disabled={!canPost}
+            >
+              {canPost ? <Plus className="mr-2 w-4 h-4" /> : <Shield className="mr-2 w-4 h-4" />}
+              Post New Job
+            </Button>
+            {!canPost && (
+              <p data-testid="post-job-locked-msg" className="text-xs text-amber-600 dark:text-amber-400">
+                Verify your business email to post jobs
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Quick Actions */}

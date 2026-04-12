@@ -1145,8 +1145,9 @@ async def send_business_email_verification(
     
     business_email = data.business_email.lower().strip()
     
-    # Validate it's a business email domain
-    if not is_business_email(business_email):
+    # Validate it's a business email domain (bypass in dev mode)
+    dev_bypass = os.environ.get("ALLOW_DEV_BYPASS", "").lower() == "true"
+    if not dev_bypass and not is_business_email(business_email):
         raise HTTPException(
             status_code=400, 
             detail="Please use a business email address. Personal email domains (gmail, yahoo, etc.) are not accepted for business verification."
@@ -1270,11 +1271,14 @@ async def get_employer_verification_status(current_user: dict = Depends(get_curr
     profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0})
     verification = await db.business_email_verifications.find_one({"user_id": current_user["id"]}, {"_id": 0})
     
+    dev_bypass = os.environ.get("ALLOW_DEV_BYPASS", "").lower() == "true"
+    
     return {
         "business_email": profile.get("business_email") if profile else None,
         "business_email_verified": profile.get("business_email_verified", False) if profile else False,
         "business_email_verified_at": profile.get("business_email_verified_at") if profile else None,
-        "pending_verification": verification.get("business_email") if verification and not verification.get("verified") else None
+        "pending_verification": verification.get("business_email") if verification and not verification.get("verified") else None,
+        "dev_bypass_active": dev_bypass
     }
 
 # ==================== JOB ROUTES ====================
@@ -1284,10 +1288,11 @@ async def create_job(job: JobPosting, current_user: dict = Depends(get_current_u
     if current_user["role"] != "poster":
         raise HTTPException(status_code=403, detail="Only job posters can create jobs")
     
-    # Check business email verification
+    # Check business email verification (bypass in dev mode)
     poster_profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    dev_bypass = os.environ.get("ALLOW_DEV_BYPASS", "").lower() == "true"
     
-    if not poster_profile or not poster_profile.get("business_email_verified"):
+    if not dev_bypass and (not poster_profile or not poster_profile.get("business_email_verified")):
         raise HTTPException(
             status_code=403, 
             detail="You must verify a business email address before posting jobs. Please complete your employer profile verification."
