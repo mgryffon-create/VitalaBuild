@@ -17,6 +17,8 @@ import aiofiles
 import asyncio
 from contextlib import asynccontextmanager
 from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES
+from audit_log import log_audit
+from training_service import create_training_course, assign_training, get_compliance_summary
 
 # SendGrid and Twilio imports (Phase 1: Twilio disabled, SendGrid mocked)
 from sendgrid import SendGridAPIClient
@@ -844,6 +846,7 @@ async def register(user_data: UserRegister):
     })
     
     token = create_token(user_id, user_data.role)
+    await log_audit(db, user_id, "register", "user", user_id, details={"role": user_data.role})
     
     return TokenResponse(
         access_token=token,
@@ -861,9 +864,11 @@ async def register(user_data: UserRegister):
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user or not verify_password(credentials.password, user["password"]):
+        await log_audit(db, credentials.email, "login_failed", "auth", details={"email": credentials.email})
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_token(user["id"], user["role"])
+    await log_audit(db, user["id"], "login", "auth", details={"role": user["role"]})
     
     return TokenResponse(
         access_token=token,
@@ -3771,11 +3776,33 @@ VAULT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 @api_router.get("/vault/files/{filename}")
-async def serve_vault_file(filename: str):
-    """Serve uploaded vault files"""
+async def serve_vault_file(filename: str, current_user: dict = Depends(get_current_user)):
+    """Serve uploaded vault files — requires auth, validates ownership or admin/employer access"""
+    # Prevent path traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
     file_path = VAULT_UPLOAD_DIR / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
+    # Check ownership: extract doc_id from filename (uuid.ext format)
+    doc_id = filename.rsplit(".", 1)[0] if "." in filename else filename
+    vault_doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0, "candidate_id": 1})
+    if vault_doc:
+        is_owner = vault_doc.get("candidate_id") == current_user["id"]
+        is_admin = current_user.get("role") == "admin"
+        # Employers can access files linked to their onboarding cases
+        is_employer_with_access = False
+        if current_user.get("role") == "poster":
+            case = await db.onboarding_cases.find_one(
+                {"employer_id": current_user["id"], "candidate_id": vault_doc.get("candidate_id")},
+                {"_id": 0, "id": 1}
+            )
+            if case:
+                is_employer_with_access = True
+        if not (is_owner or is_admin or is_employer_with_access):
+            await log_audit(db, current_user["id"], "unauthorized_access", "vault_file", filename)
+            raise HTTPException(status_code=403, detail="Not authorized to access this file")
+    await log_audit(db, current_user["id"], "file_access", "vault_file", filename)
     from starlette.responses import FileResponse
     return FileResponse(str(file_path))
 
@@ -3837,6 +3864,8 @@ async def upload_vault_file(
         "last_reviewed_at": None,
     }
     await db.vault_documents.insert_one(doc_data)
+    await log_audit(db, current_user["id"], "vault_upload", "vault_document", doc_id,
+                    details={"category": category, "file_name": file.filename})
     return {"id": doc_id, "file_url": file_url, "message": "File uploaded to vault"}
 
 @api_router.get("/vault/documents")
@@ -4305,6 +4334,189 @@ async def seed_admin_user():
     }
     await db.users.insert_one(admin_user)
     return {"message": "Admin user created", "id": admin_id}
+
+# ==================== TRAINING & COMPLIANCE ====================
+
+class TrainingCourseCreate(BaseModel):
+    title: str
+    description: Optional[str] = ""
+    category: Optional[str] = "general"
+    provider: Optional[str] = "internal"
+    external_course_id: Optional[str] = None
+    credit_hours: Optional[float] = 0
+    credit_type: Optional[str] = "CEU"
+    duration_minutes: Optional[int] = 0
+    launch_url: Optional[str] = None
+
+class TrainingAssignmentCreate(BaseModel):
+    user_id: str
+    course_id: str
+    due_date: Optional[str] = None
+    job_id: Optional[str] = None
+
+class TrainingAssignmentUpdate(BaseModel):
+    completion_status: Optional[str] = None
+    score: Optional[float] = None
+    certificate_url: Optional[str] = None
+    notes: Optional[str] = None
+
+class ComplianceRequirementCreate(BaseModel):
+    role_type: str
+    course_id: str
+    is_mandatory: bool = True
+    job_id: Optional[str] = None
+
+@api_router.get("/training/courses")
+async def get_training_courses(current_user: dict = Depends(get_current_user)):
+    """Get all training courses"""
+    courses = await db.training_courses.find(
+        {"is_active": True}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return courses
+
+@api_router.post("/training/courses")
+async def create_course(course: TrainingCourseCreate, current_user: dict = Depends(get_current_user)):
+    """Create a training course (admin/employer)"""
+    if current_user["role"] not in ("admin", "poster"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    course_id = await create_training_course(db, course.model_dump())
+    return {"id": course_id, "message": "Course created"}
+
+@api_router.get("/training/assignments")
+async def get_training_assignments(current_user: dict = Depends(get_current_user)):
+    """Get training assignments for current user"""
+    if current_user["role"] == "seeker":
+        assignments = await db.training_assignments.find(
+            {"user_id": current_user["id"]}, {"_id": 0}
+        ).sort("due_date", 1).to_list(200)
+    else:
+        assignments = await db.training_assignments.find(
+            {"employer_id": current_user["id"]}, {"_id": 0}
+        ).sort("due_date", 1).to_list(500)
+    # Enrich with course info
+    for a in assignments:
+        course = await db.training_courses.find_one({"id": a["course_id"]}, {"_id": 0})
+        a["course"] = course
+        if current_user["role"] != "seeker":
+            user = await db.users.find_one({"id": a["user_id"]}, {"_id": 0, "password": 0})
+            a["user"] = user
+    return assignments
+
+@api_router.post("/training/assignments")
+async def create_assignment(data: TrainingAssignmentCreate, current_user: dict = Depends(get_current_user)):
+    """Assign training to a user (admin/employer)"""
+    if current_user["role"] not in ("admin", "poster"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    assignment_data = data.model_dump()
+    assignment_data["assigned_by"] = current_user["id"]
+    assignment_data["employer_id"] = current_user["id"]
+    assignment_id = await assign_training(db, assignment_data)
+    return {"id": assignment_id, "message": "Training assigned"}
+
+@api_router.put("/training/assignments/{assignment_id}")
+async def update_assignment(assignment_id: str, update: TrainingAssignmentUpdate, current_user: dict = Depends(get_current_user)):
+    """Update training assignment status"""
+    assignment = await db.training_assignments.find_one({"id": assignment_id})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    is_owner = assignment["user_id"] == current_user["id"]
+    is_admin = current_user.get("role") == "admin"
+    is_employer = assignment.get("employer_id") == current_user["id"]
+    if not (is_owner or is_admin or is_employer):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    update_fields = {k: v for k, v in update.model_dump().items() if v is not None}
+    if "completion_status" in update_fields and update_fields["completion_status"] == "completed":
+        update_fields["completion_date"] = datetime.now(timezone.utc).isoformat()
+    if update_fields:
+        update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.training_assignments.update_one({"id": assignment_id}, {"$set": update_fields})
+    return {"message": "Assignment updated"}
+
+@api_router.get("/training/compliance-summary")
+async def get_compliance_summary_endpoint(current_user: dict = Depends(get_current_user)):
+    """Get compliance summary for employer"""
+    if current_user["role"] not in ("admin", "poster"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    summary = await get_compliance_summary(db, current_user["id"])
+    return summary
+
+@api_router.get("/training/compliance-requirements")
+async def get_compliance_requirements(current_user: dict = Depends(get_current_user)):
+    """Get compliance requirements (role->training mappings)"""
+    if current_user["role"] not in ("admin", "poster"):
+        reqs = []
+    else:
+        reqs = await db.compliance_requirements.find(
+            {"employer_id": current_user["id"]}, {"_id": 0}
+        ).to_list(100)
+        for r in reqs:
+            course = await db.training_courses.find_one({"id": r["course_id"]}, {"_id": 0})
+            r["course"] = course
+    return reqs
+
+@api_router.post("/training/compliance-requirements")
+async def create_compliance_requirement(data: ComplianceRequirementCreate, current_user: dict = Depends(get_current_user)):
+    """Create a compliance requirement (employer)"""
+    if current_user["role"] not in ("admin", "poster"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    req_id = str(uuid.uuid4())
+    req = {
+        "id": req_id,
+        "employer_id": current_user["id"],
+        "role_type": data.role_type,
+        "course_id": data.course_id,
+        "is_mandatory": data.is_mandatory,
+        "job_id": data.job_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.compliance_requirements.insert_one(req)
+    return {"id": req_id, "message": "Compliance requirement created"}
+
+@api_router.get("/training/transcript")
+async def get_transcript(current_user: dict = Depends(get_current_user)):
+    """Get training transcript for current user (completed assignments)"""
+    assignments = await db.training_assignments.find(
+        {"user_id": current_user["id"], "completion_status": "completed"}, {"_id": 0}
+    ).sort("completion_date", -1).to_list(200)
+    for a in assignments:
+        course = await db.training_courses.find_one({"id": a["course_id"]}, {"_id": 0})
+        a["course"] = course
+    return assignments
+
+@api_router.get("/training/certificates")
+async def get_certificates(current_user: dict = Depends(get_current_user)):
+    """Get certificates for current user"""
+    assignments = await db.training_assignments.find(
+        {"user_id": current_user["id"], "certificate_url": {"$ne": None}}, {"_id": 0}
+    ).sort("completion_date", -1).to_list(200)
+    for a in assignments:
+        course = await db.training_courses.find_one({"id": a["course_id"]}, {"_id": 0})
+        a["course"] = course
+    return assignments
+
+@api_router.get("/audit/logs")
+async def get_audit_logs(current_user: dict = Depends(get_current_user)):
+    """Get audit logs (admin only)"""
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    logs = await db.audit_logs.find(
+        {}, {"_id": 0}
+    ).sort("timestamp", -1).to_list(200)
+    return logs
+
+# ==================== HIPAA PREP NOTES ====================
+# This section documents what would be needed for future HIPAA compliance:
+# 1. PHI (Protected Health Information) encryption at rest (MongoDB field-level encryption)
+# 2. Full audit trail for all PHI access (audit_logs collection started)
+# 3. BAA (Business Associate Agreement) with cloud providers
+# 4. Role-based access control (RBAC) - currently: seeker/poster/admin roles
+# 5. Automatic session timeout (JWT expiration set to 24h, should be reduced)
+# 6. Data breach notification procedures
+# 7. Employee training on HIPAA requirements
+# 8. Annual risk assessments
+# 9. Minimum necessary access principle (vault files restricted to owner/admin/employer-with-case)
+# 10. Secure data disposal procedures
+# NOTE: VitalaMatch does NOT claim HIPAA compliance at this time.
 
 # Include the router
 app.include_router(api_router)

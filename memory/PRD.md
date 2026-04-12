@@ -13,6 +13,14 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Document Preview & Legal Pages (April 2025)
+- **Document Preview**: Clickable vault cards open full preview dialog with image rendering (jpg/png/webp), PDF iframe rendering, metadata strip (status, issuing authority, expiration, state), download + external link buttons, fallback for unsupported types
+- **Terms of Service** (`/terms`): 12 sections covering acceptance, user responsibilities, job posting rules, no employment guarantee, limitation of liability, acceptable use, termination rights
+- **Privacy Policy** (`/privacy`): 11 sections covering data collection, usage, sharing (employers see onboarding status not full vault), retention, user rights (access/correction/deletion/portability), cookies, children's privacy
+- No HIPAA compliance claims; no false legal guarantees; appropriate disclaimers throughout
+- **Signup checkbox**: Registration form requires accepting Terms + Privacy before account creation (button disabled until checked)
+- **Footer links**: Landing page footer shows Terms and Privacy links
+
 ### Inline Onboarding Upload & Backend Integration Cleanup (April 2025)
 - **Inline Upload**: Candidates can now upload documents directly from the onboarding requirement list via an inline dialog (file picker + category/subtype pre-filled from requirement type + progress bar). No more navigating away to the vault page.
 - **REQ_CATEGORY_HINTS**: Auto-maps requirement types to vault categories (e.g., government_id -> identity, bls_certification -> certification/BLS, tb_screening -> health_screen/TB_test)

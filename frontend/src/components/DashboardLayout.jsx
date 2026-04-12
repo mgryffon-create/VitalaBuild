@@ -22,7 +22,9 @@ import {
   ChevronDown,
   ChevronRight,
   UserCheck,
-  ClipboardCheck
+  ClipboardCheck,
+  BookOpen,
+  ShieldCheck
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -36,6 +38,7 @@ const seekerNavItems = [
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
   { label: "Onboarding", icon: ClipboardCheck, path: "/seeker/onboarding" },
+  { label: "Training", icon: BookOpen, path: "/seeker/training" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
@@ -47,6 +50,7 @@ const posterNavItems = [
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers Sent", icon: ClipboardList, path: "/poster/offers-sent" },
   { label: "Onboarding", icon: ClipboardCheck, path: "/poster/onboarding" },
+  { label: "Compliance", icon: ShieldCheck, path: "/poster/compliance" },
   { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];

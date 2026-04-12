@@ -29,6 +29,8 @@ import OnboardingPage from "@/pages/OnboardingPage";
 import AdminOnboardingPage from "@/pages/AdminOnboardingPage";
 import TermsPage from "@/pages/TermsPage";
 import PrivacyPage from "@/pages/PrivacyPage";
+import TrainingPage from "@/pages/TrainingPage";
+import ComplianceDashboardPage from "@/pages/ComplianceDashboardPage";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -240,6 +242,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/seeker/training"
+            element={
+              <ProtectedRoute allowedRoles={["seeker"]}>
+                <TrainingPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Poster Routes */}
           <Route
@@ -311,6 +321,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
                 <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/poster/compliance"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <ComplianceDashboardPage />
               </ProtectedRoute>
             }
           />
