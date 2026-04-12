@@ -16,6 +16,7 @@ import base64
 import aiofiles
 import asyncio
 from contextlib import asynccontextmanager
+from onboarding_logic import create_onboarding_case
 
 # SendGrid and Twilio imports
 from sendgrid import SendGridAPIClient
@@ -648,13 +649,41 @@ class EmploymentOffer(BaseModel):
     salary_type: str = "annual"  # annual, hourly
     start_date: str
     expiration_date: str
-    conditions: List[str] = []  # e.g., ["Background check", "Drug screening", "License verification"]
+    conditions: List[str] = []
     benefits_summary: Optional[str] = None
     additional_terms: Optional[str] = None
 
 class OfferResponse(BaseModel):
     accepted: bool
     notes: Optional[str] = None
+
+# ==================== VAULT & ONBOARDING MODELS ====================
+
+class VaultDocumentCreate(BaseModel):
+    category: str  # identity, certification, license, health_record, health_screen, resume, miscellaneous
+    subtype: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    document_number: Optional[str] = None
+    issue_date: Optional[str] = None
+    expiration_date: Optional[str] = None
+    document_date: Optional[str] = None
+    state: Optional[str] = None
+    file_url: Optional[str] = None
+    file_data: Optional[str] = None  # Base64 encoded
+    file_name: Optional[str] = None
+    extracted_fields: Optional[Dict[str, Any]] = None
+
+class VaultDocumentUpdate(BaseModel):
+    category: Optional[str] = None
+    subtype: Optional[str] = None
+    issuing_authority: Optional[str] = None
+    document_number: Optional[str] = None
+    issue_date: Optional[str] = None
+    expiration_date: Optional[str] = None
+    document_date: Optional[str] = None
+    state: Optional[str] = None
+    file_url: Optional[str] = None
+    extracted_fields: Optional[Dict[str, Any]] = None
 
 class OnboardingChecklistItem(BaseModel):
     name: str
@@ -3090,7 +3119,7 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
         }
         await db.employments.insert_one(employment)
         
-        # Create default onboarding checklist
+        # Create default onboarding checklist (legacy)
         default_items = [
             {"id": str(uuid.uuid4()), "name": "I-9 Employment Eligibility", "description": "Verify identity and employment authorization", "required": True, "due_days": 3, "status": "pending"},
             {"id": str(uuid.uuid4()), "name": "W-4 Tax Withholding", "description": "Federal tax withholding form", "required": True, "due_days": 7, "status": "pending"},
@@ -3107,6 +3136,13 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.onboarding_checklists.insert_one(onboarding)
+        
+        # Create new OnboardingCase with vault-aware requirements
+        job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0})
+        if job:
+            await create_onboarding_case(
+                db, offer, job, offer["seeker_id"], offer["poster_id"]
+            )
     
     # Notify the employer
     seeker = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
@@ -3743,6 +3779,293 @@ async def get_specialties():
         "allied_health": ALLIED_HEALTH_SPECIALTIES,
         "all": NURSING_SPECIALTIES + ALLIED_HEALTH_SPECIALTIES
     }
+
+# ==================== SECURE DOCUMENT VAULT ====================
+
+VAULT_CATEGORIES = ["identity", "certification", "license", "health_record", "health_screen", "resume", "miscellaneous"]
+
+@api_router.post("/vault/documents")
+async def create_vault_document(doc: VaultDocumentCreate, current_user: dict = Depends(get_current_user)):
+    """Upload a document to the secure vault"""
+    if doc.category not in VAULT_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {VAULT_CATEGORIES}")
+    doc_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc_data = {
+        "id": doc_id,
+        "candidate_id": current_user["id"],
+        "category": doc.category,
+        "subtype": doc.subtype,
+        "issuing_authority": doc.issuing_authority,
+        "document_number": doc.document_number,
+        "issue_date": doc.issue_date,
+        "expiration_date": doc.expiration_date,
+        "document_date": doc.document_date or now_iso[:10],
+        "state": doc.state,
+        "verification_status": "pending",
+        "file_url": doc.file_url,
+        "file_name": doc.file_name,
+        "extracted_fields": doc.extracted_fields or {},
+        "uploaded_at": now_iso,
+        "last_reviewed_at": None,
+    }
+    if doc.file_data:
+        doc_data["file_data"] = doc.file_data
+    await db.vault_documents.insert_one(doc_data)
+    return {"id": doc_id, "message": "Document added to vault"}
+
+@api_router.get("/vault/documents")
+async def get_vault_documents(current_user: dict = Depends(get_current_user)):
+    """Get all vault documents for current user"""
+    docs = await db.vault_documents.find(
+        {"candidate_id": current_user["id"]},
+        {"_id": 0, "file_data": 0}
+    ).sort("uploaded_at", -1).to_list(200)
+    return docs
+
+@api_router.get("/vault/documents/{doc_id}")
+async def get_vault_document(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific vault document"""
+    doc = await db.vault_documents.find_one(
+        {"id": doc_id, "candidate_id": current_user["id"]},
+        {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+@api_router.put("/vault/documents/{doc_id}")
+async def update_vault_document(doc_id: str, update: VaultDocumentUpdate, current_user: dict = Depends(get_current_user)):
+    """Update vault document metadata"""
+    doc = await db.vault_documents.find_one({"id": doc_id, "candidate_id": current_user["id"]})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    update_fields = {k: v for k, v in update.model_dump().items() if v is not None}
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update_fields["last_reviewed_at"] = datetime.now(timezone.utc).isoformat()
+    await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
+    return {"message": "Document updated"}
+
+@api_router.delete("/vault/documents/{doc_id}")
+async def delete_vault_document(doc_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a vault document"""
+    result = await db.vault_documents.delete_one({"id": doc_id, "candidate_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document deleted"}
+
+@api_router.get("/vault/categories")
+async def get_vault_categories():
+    """Get available vault document categories and subtypes"""
+    return {
+        "categories": {
+            "identity": ["drivers_license", "passport", "state_id"],
+            "certification": ["BLS", "ACLS", "CPR", "CPR_BLS", "CNA_certificate", "PALS"],
+            "license": ["CNA_license", "RN_license", "LPN_license", "LVN_license"],
+            "health_record": ["MMR", "HepB", "Varicella", "Flu", "COVID", "Tdap"],
+            "health_screen": ["TB_test", "QuantiFERON", "PPD", "physical", "drug_screen"],
+            "resume": ["resume", "cv"],
+            "miscellaneous": ["other"],
+        }
+    }
+
+# ==================== ONBOARDING CASES ====================
+
+@api_router.get("/onboarding/cases")
+async def get_onboarding_cases(current_user: dict = Depends(get_current_user)):
+    """Get onboarding cases for the current user (candidate sees their own, employer sees their candidates')"""
+    if current_user["role"] == "seeker":
+        cases = await db.onboarding_cases.find(
+            {"candidate_id": current_user["id"]}, {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+    else:
+        cases = await db.onboarding_cases.find(
+            {"employer_id": current_user["id"]}, {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+
+    enriched = []
+    for case in cases:
+        job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
+        candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
+        employer = await db.users.find_one({"id": case["employer_id"]}, {"_id": 0, "password": 0})
+        reqs = await db.onboarding_requirements.find(
+            {"onboarding_case_id": case["id"]}, {"_id": 0}
+        ).to_list(50)
+        tasks = await db.onboarding_tasks.find(
+            {"onboarding_case_id": case["id"]}, {"_id": 0}
+        ).to_list(50)
+        satisfied = sum(1 for r in reqs if r["status"] == "satisfied_from_vault")
+        completed = sum(1 for r in reqs if r["status"] in ("satisfied_from_vault", "completed"))
+        enriched.append({
+            **case,
+            "job": job,
+            "candidate": candidate,
+            "employer": employer,
+            "requirements": reqs,
+            "tasks": tasks,
+            "progress": {
+                "total": len(reqs),
+                "satisfied_from_vault": satisfied,
+                "completed": completed,
+                "pending": len(reqs) - completed,
+            },
+        })
+    return enriched
+
+@api_router.get("/onboarding/cases/{case_id}")
+async def get_onboarding_case(case_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific onboarding case with full details"""
+    case = await db.onboarding_cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Onboarding case not found")
+    if current_user["id"] not in (case["candidate_id"], case["employer_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
+    candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
+    reqs = await db.onboarding_requirements.find(
+        {"onboarding_case_id": case_id}, {"_id": 0}
+    ).to_list(50)
+    tasks = await db.onboarding_tasks.find(
+        {"onboarding_case_id": case_id}, {"_id": 0}
+    ).to_list(50)
+    doc_matches = await db.requirement_document_matches.find(
+        {"onboarding_requirement_id": {"$in": [r["id"] for r in reqs]}}, {"_id": 0}
+    ).to_list(200)
+
+    # Enrich requirements with matched vault docs
+    match_map = {m["onboarding_requirement_id"]: m for m in doc_matches}
+    for req in reqs:
+        req["document_match"] = match_map.get(req["id"])
+
+    satisfied = sum(1 for r in reqs if r["status"] == "satisfied_from_vault")
+    completed = sum(1 for r in reqs if r["status"] in ("satisfied_from_vault", "completed"))
+
+    return {
+        **case,
+        "job": job,
+        "candidate": candidate,
+        "requirements": reqs,
+        "tasks": tasks,
+        "document_matches": doc_matches,
+        "progress": {
+            "total": len(reqs),
+            "satisfied_from_vault": satisfied,
+            "completed": completed,
+            "pending": len(reqs) - completed,
+        },
+    }
+
+@api_router.put("/onboarding/requirements/{req_id}/status")
+async def update_requirement_status(req_id: str, current_user: dict = Depends(get_current_user)):
+    """Mark a requirement as completed (admin or system)"""
+    req = await db.onboarding_requirements.find_one({"id": req_id})
+    if not req:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
+    if not case or current_user["id"] not in (case["candidate_id"], case["employer_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await db.onboarding_requirements.update_one(
+        {"id": req_id}, {"$set": {"status": "completed"}}
+    )
+    await db.onboarding_tasks.update_many(
+        {"onboarding_requirement_id": req_id},
+        {"$set": {"status": "completed"}}
+    )
+    # Check if all requirements completed
+    all_reqs = await db.onboarding_requirements.find(
+        {"onboarding_case_id": case["id"]}, {"_id": 0}
+    ).to_list(50)
+    if all(r["status"] in ("satisfied_from_vault", "completed") or r["id"] == req_id for r in all_reqs):
+        await db.onboarding_cases.update_one(
+            {"id": case["id"]}, {"$set": {"status": "cleared", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    return {"message": "Requirement marked as completed"}
+
+@api_router.post("/onboarding/requirements/{req_id}/upload")
+async def upload_for_requirement(req_id: str, doc: VaultDocumentCreate, current_user: dict = Depends(get_current_user)):
+    """Upload a vault document to fulfill an onboarding requirement"""
+    req = await db.onboarding_requirements.find_one({"id": req_id})
+    if not req:
+        raise HTTPException(status_code=404, detail="Requirement not found")
+    case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
+    if not case or case["candidate_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    # Create vault document
+    doc_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc_data = {
+        "id": doc_id,
+        "candidate_id": current_user["id"],
+        "category": doc.category,
+        "subtype": doc.subtype,
+        "issuing_authority": doc.issuing_authority,
+        "document_number": doc.document_number,
+        "issue_date": doc.issue_date,
+        "expiration_date": doc.expiration_date,
+        "document_date": doc.document_date or now_iso[:10],
+        "state": doc.state,
+        "verification_status": "pending",
+        "file_url": doc.file_url,
+        "file_name": doc.file_name,
+        "extracted_fields": doc.extracted_fields or {},
+        "uploaded_at": now_iso,
+        "last_reviewed_at": None,
+    }
+    if doc.file_data:
+        doc_data["file_data"] = doc.file_data
+    await db.vault_documents.insert_one(doc_data)
+    # Link to requirement
+    match_link = {
+        "id": str(uuid.uuid4()),
+        "onboarding_requirement_id": req_id,
+        "vault_document_id": doc_id,
+        "match_status": "pending_manual_review",
+        "matched_by": "candidate",
+        "matched_at": now_iso,
+        "notes": "Uploaded by candidate for requirement fulfillment",
+    }
+    await db.requirement_document_matches.insert_one(match_link)
+    # Update requirement status
+    await db.onboarding_requirements.update_one(
+        {"id": req_id},
+        {"$set": {"status": "pending_manual_review", "fulfillment_source": "candidate_upload"}}
+    )
+    await db.onboarding_tasks.update_many(
+        {"onboarding_requirement_id": req_id},
+        {"$set": {"status": "in_progress"}}
+    )
+    return {"id": doc_id, "message": "Document uploaded and linked to requirement"}
+
+@api_router.get("/onboarding/tasks")
+async def get_onboarding_tasks(current_user: dict = Depends(get_current_user)):
+    """Get all tasks for the current user"""
+    if current_user["role"] == "seeker":
+        tasks = await db.onboarding_tasks.find(
+            {"assigned_to": "candidate"}, {"_id": 0}
+        ).to_list(200)
+        # Filter to tasks belonging to this candidate's cases
+        case_ids = [c["id"] for c in await db.onboarding_cases.find(
+            {"candidate_id": current_user["id"]}, {"id": 1, "_id": 0}
+        ).to_list(50)]
+        tasks = [t for t in tasks if t.get("onboarding_case_id") in case_ids]
+    else:
+        tasks = await db.onboarding_tasks.find(
+            {"assigned_to": {"$in": ["admin", "system"]}}, {"_id": 0}
+        ).to_list(200)
+        case_ids = [c["id"] for c in await db.onboarding_cases.find(
+            {"employer_id": current_user["id"]}, {"id": 1, "_id": 0}
+        ).to_list(50)]
+        tasks = [t for t in tasks if t.get("onboarding_case_id") in case_ids]
+
+    # Enrich with requirement info
+    for task in tasks:
+        req = await db.onboarding_requirements.find_one(
+            {"id": task.get("onboarding_requirement_id")}, {"_id": 0}
+        )
+        task["requirement"] = req
+    return tasks
 
 # Include the router
 app.include_router(api_router)

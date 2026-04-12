@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
-import { 
+import {
   Home, 
   User, 
   FileText, 
@@ -21,7 +21,8 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  ClipboardCheck
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -30,10 +31,11 @@ const seekerNavItems = [
   { label: "Dashboard", icon: Home, path: "/seeker" },
   { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
   { label: "My Profile", icon: User, path: "/seeker/profile" },
-  { label: "Licenses", icon: Shield, path: "/seeker/licenses" },
-  { label: "Documents", icon: FileText, path: "/seeker/documents" },
+  { label: "Document Vault", icon: Shield, path: "/seeker/vault" },
+  { label: "Licenses", icon: FileText, path: "/seeker/licenses" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
+  { label: "Onboarding", icon: ClipboardCheck, path: "/seeker/onboarding" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
@@ -44,6 +46,7 @@ const posterNavItems = [
   { label: "Candidates", icon: Users, path: "/poster/candidates" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers Sent", icon: ClipboardList, path: "/poster/offers-sent" },
+  { label: "Onboarding", icon: ClipboardCheck, path: "/poster/onboarding" },
   { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];

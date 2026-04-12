@@ -24,6 +24,8 @@ import SwipeBinsPage from "@/pages/SwipeBinsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
 import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
 import MyOffersPage from "@/pages/MyOffersPage";
+import VaultPage from "@/pages/VaultPage";
+import OnboardingPage from "@/pages/OnboardingPage";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -216,6 +218,22 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/seeker/vault"
+            element={
+              <ProtectedRoute allowedRoles={["seeker"]}>
+                <VaultPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seeker/onboarding"
+            element={
+              <ProtectedRoute allowedRoles={["seeker"]}>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Poster Routes */}
           <Route
@@ -279,6 +297,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
                 <EmployerCandidatesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/poster/onboarding"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <OnboardingPage />
               </ProtectedRoute>
             }
           />
