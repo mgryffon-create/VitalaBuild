@@ -275,7 +275,7 @@ const EmployerMessagingPage = () => {
     try {
       const res = await axios.post(`${API}/pipeline/templates/render`, { template_key: key });
       let text = res.data.text;
-      text = text.replace("{name}", selected?.name || "").replace("{job}", "the position");
+      text = text.replace("{name}", selected?.name || "").replace("{job}", selected?.specialty || "this");
       // If using application_request template and there's an external link, append it
       if (key === "application_request" && selected?.job_id && jobExtLinks[selected.job_id]) {
         text += `\n\nApplication link: ${jobExtLinks[selected.job_id].url}`;
