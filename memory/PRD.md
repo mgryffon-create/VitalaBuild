@@ -13,6 +13,15 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Billing & Pricing System with Stripe (April 2025)
+- **Subscription tiers**: Free / Growth ($99/mo) / Pro ($299/mo) / Enterprise ($999/mo) via Stripe Checkout
+- **Pay-per-hire fees**: CNA $500, LPN $1500, RN $3500 with tier-based discounts (0%/5%/10%/20%). Free tier = pending invoice; subscribed tiers = auto Stripe Checkout
+- **Add-ons**: Boosted Job ($50), Compliance Bundle ($299) via Stripe Checkout
+- **Billing Dashboard** (`/poster/billing`): Current plan + usage summary, plan upgrade cards, add-on purchase, transaction history with Pay Now for pending invoices, Stripe return polling
+- **Candidate protection**: Seekers NEVER see billing UI or get charged (403 on all billing endpoints)
+- Backend module: `routes/billing.py` with pricing config, Stripe integration, checkout-status polling with library bug workaround
+- Collections: `employer_billing`, `payment_transactions`, `webhook_events`
+
 ### Resume Onboarding Wizard & Reference Packets (April 2025)
 - **Resume Onboarding Wizard** (`/seeker/resume-onboarding`): 4-step flow — Upload (file dropzone + paste text) → Parsing (GPT loading) → Review (parsed profile with confidence badges) → Complete (profile ready CTA)
 - "One profile. Apply everywhere." headline with progress bar

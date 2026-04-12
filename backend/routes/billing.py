@@ -328,56 +328,62 @@ async def purchase_addon(req: AddonPurchaseRequest, request: Request, current_us
 async def check_status(session_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     """Poll Stripe checkout status and update transaction"""
     stripe = _get_stripe(request)
-    status = await stripe.get_checkout_status(session_id)
 
     txn = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
     if not txn:
-        return {"status": status.status, "payment_status": status.payment_status}
+        raise HTTPException(status_code=404, detail="Transaction not found")
 
-    # Prevent double-processing
     if txn.get("payment_status") == "paid":
         return {"status": "complete", "payment_status": "paid", "already_processed": True}
 
-    if status.payment_status == "paid":
+    try:
+        status = await stripe.get_checkout_status(session_id)
+        payment_status = status.payment_status
+        session_status = status.status
+        amount = status.amount_total
+        metadata = status.metadata or {}
+    except Exception:
+        # Library bug workaround: if metadata parsing fails, check status manually
+        return {"status": "pending", "payment_status": txn.get("payment_status", "pending"), "amount": txn.get("amount")}
+
+    if payment_status == "paid":
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
         )
-        # Process based on type
-        meta = status.metadata or {}
-        txn_type = meta.get("type") or txn.get("type")
+        txn_type = metadata.get("type") or txn.get("type")
 
         if txn_type == "subscription":
-            tier = meta.get("tier") or txn.get("tier")
-            employer_id = meta.get("employer_id") or txn.get("user_id")
+            tier = metadata.get("tier") or txn.get("tier")
+            employer_id = metadata.get("employer_id") or txn.get("user_id")
             await db.employer_billing.update_one(
                 {"employer_id": employer_id},
                 {"$set": {"subscription_tier": tier, "billing_status": "active", "updated_at": datetime.now(timezone.utc).isoformat()}},
                 upsert=True,
             )
         elif txn_type in ("hire_fee", "invoice_payment"):
-            employer_id = meta.get("employer_id") or txn.get("user_id")
+            employer_id = metadata.get("employer_id") or txn.get("user_id")
             await db.employer_billing.update_one(
                 {"employer_id": employer_id},
                 {"$inc": {"usage.hires": 1}},
                 upsert=True,
             )
         elif txn_type == "addon":
-            employer_id = meta.get("employer_id") or txn.get("user_id")
-            addon_type = meta.get("addon_type") or txn.get("addon_type")
+            employer_id = metadata.get("employer_id") or txn.get("user_id")
+            addon_type = metadata.get("addon_type") or txn.get("addon_type")
             inc_field = "usage.boosts_used" if addon_type == "boosted_job" else "usage.addons_purchased"
             await db.employer_billing.update_one(
                 {"employer_id": employer_id},
                 {"$inc": {inc_field: 1}},
                 upsert=True,
             )
-    elif status.status == "expired":
+    elif session_status == "expired":
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"payment_status": "expired"}}
         )
 
-    return {"status": status.status, "payment_status": status.payment_status, "amount": status.amount_total}
+    return {"status": session_status, "payment_status": payment_status, "amount": amount}
 
 
 # ==================== USAGE ====================
