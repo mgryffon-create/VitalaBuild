@@ -1,33 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
-import { FileText, Shield, Users, ArrowRight, CheckCircle, Briefcase, Lock } from "lucide-react";
+import { FileText, Shield, Users, CheckCircle, Lock, LogIn, Briefcase, User } from "lucide-react";
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const features = [
-    {
-      icon: <FileText className="w-6 h-6" />,
-      title: "Universal Application",
-      description: "Apply once and let your profile work across all positions and facilities"
-    },
-    {
-      icon: <Lock className="w-6 h-6" />,
-      title: "Secure Document Vault",
-      description: "Safely store and manage your licenses, certifications, and compliance documents"
-    },
-    {
-      icon: <Shield className="w-6 h-6" />,
-      title: "Verified Credentials",
-      description: "Track certifications, licenses, and medical records with expiration reminders"
-    },
-    {
-      icon: <Users className="w-6 h-6" />,
-      title: "Portable References",
-      description: "Confidential reference system that follows you across applications"
-    }
+    { icon: <FileText className="w-5 h-5" />, title: "Universal Application", description: "One profile works across all positions and facilities" },
+    { icon: <Lock className="w-5 h-5" />, title: "Secure Document Vault", description: "Store licenses, certifications, and compliance docs safely" },
+    { icon: <Shield className="w-5 h-5" />, title: "Verified Credentials", description: "Track certifications and licenses with expiration reminders" },
+    { icon: <Users className="w-5 h-5" />, title: "Portable References", description: "Confidential references that follow you across applications" },
   ];
 
   const benefits = [
@@ -36,43 +20,37 @@ const LandingPage = () => {
     "Verified credential management",
     "Direct messaging with employers",
     "Comprehensive profile builder",
-    "Secure document storage"
+    "Secure document storage",
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Navbar */}
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
+      {/* ── Navbar ─────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <img 
-              src="/images/vitalamatch-logo.png" 
-              alt="VitalaMatch" 
-              className="h-10 w-auto"
-            />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+            <img src="/images/vitalamatch-logo.png" alt="VitalaMatch" className="h-8 sm:h-10 w-auto" />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {user ? (
               <Button
                 data-testid="dashboard-btn"
                 onClick={() => navigate(user.role === "seeker" ? "/seeker" : "/poster")}
                 className="bg-primary hover:bg-primary/90"
+                size="sm"
               >
                 Go to Dashboard
               </Button>
             ) : (
               <>
-                <Button
-                  data-testid="login-btn"
-                  variant="ghost"
-                  onClick={() => navigate("/auth")}
-                >
+                <Button data-testid="login-btn" variant="ghost" size="sm" onClick={() => navigate("/auth")}>
                   Sign In
                 </Button>
                 <Button
                   data-testid="get-started-btn"
                   onClick={() => navigate("/auth")}
-                  className="bg-primary hover:bg-primary/90"
+                  className="bg-primary hover:bg-primary/90 hidden sm:inline-flex"
+                  size="sm"
                 >
                   Get Started
                 </Button>
@@ -82,116 +60,120 @@ const LandingPage = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
+      {/* ── Hero Section ───────────────────────────────── */}
+      <section className="pt-20 sm:pt-28 pb-8 sm:pb-16 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8 animate-fade-in-up">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
-                <span className="text-sm font-medium">For Healthcare Professionals</span>
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left — copy + CTA buttons (visible on first screen mobile) */}
+            <div className="space-y-5 sm:space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/10 text-secondary border border-secondary/20">
+                <span className="text-xs sm:text-sm font-medium">For Healthcare Professionals</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight tracking-tight">
+
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight tracking-tight">
                 Your Healthcare
                 <span className="text-primary"> Career </span>
                 Starts Here
               </h1>
-              <p className="text-lg text-muted-foreground max-w-lg leading-relaxed">
-                A secure, professional platform to manage your credentials, connect with top healthcare facilities, and find your next opportunity.
+
+              <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed">
+                A secure platform to manage credentials, connect with top facilities, and find your next opportunity.
               </p>
-              <div className="flex flex-wrap gap-4">
+
+              {/* Primary CTA — above the fold on mobile */}
+              <div data-testid="hero-cta-group" className="flex flex-col sm:flex-row gap-3">
                 <Button
-                  data-testid="hero-get-started-btn"
+                  data-testid="hero-seeker-btn"
                   size="lg"
                   onClick={() => navigate("/auth")}
-                  className="bg-primary hover:bg-primary/90 text-lg px-8 py-6"
+                  className="bg-primary hover:bg-primary/90 text-base w-full sm:w-auto px-8 py-5"
                 >
-                  Get Started <ArrowRight className="ml-2 w-5 h-5" />
+                  <Briefcase className="w-4 h-4 mr-2" /> I&apos;m a Job Seeker
                 </Button>
                 <Button
-                  data-testid="hero-learn-more-btn"
+                  data-testid="hero-employer-btn"
                   size="lg"
                   variant="outline"
-                  className="text-lg px-8 py-6"
-                  onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={() => navigate("/auth")}
+                  className="text-base w-full sm:w-auto px-8 py-5"
                 >
-                  Learn More
+                  <User className="w-4 h-4 mr-2" /> I&apos;m an Employer
                 </Button>
               </div>
             </div>
-            <div className="relative animate-fade-in-up stagger-2">
-              <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl">
+
+            {/* Right — hero image (small banner on mobile, large on desktop) */}
+            <div className="relative">
+              <div className="rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl">
                 <img
                   src="https://images.unsplash.com/photo-1758691463393-a2aa9900af8a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwxfHxzbWlsaW5nJTIwZG9jdG9yJTIwcG9ydHJhaXQlMjB3aGl0ZSUyMGNvYXR8ZW58MHx8fHwxNzY2Mjc5MjcwfDA&ixlib=rb-4.1.0&q=85"
-                  alt="Medical Professional"
-                  className="w-full h-[500px] object-cover"
+                  alt="Healthcare Professional"
+                  className="w-full h-[180px] sm:h-[280px] lg:h-[440px] object-cover"
                 />
               </div>
-              <div className="absolute -bottom-6 -left-6 w-48 h-48 bg-primary/20 rounded-full blur-3xl"></div>
-              <div className="absolute -top-6 -right-6 w-32 h-32 bg-secondary/20 rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary/20 rounded-full blur-3xl hidden lg:block" />
+              <div className="absolute -top-4 -right-4 w-24 h-24 bg-secondary/20 rounded-full blur-3xl hidden lg:block" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 bg-muted/30">
+      {/* ── Feature Cards ──────────────────────────────── */}
+      <section id="features" className="py-10 sm:py-16 px-4 sm:px-6 bg-muted/30">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 animate-fade-in-up">
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-              Why Choose VitalaMatch?
+          <div className="text-center mb-8 sm:mb-12">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
+              Why VitalaMatch?
             </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Built for healthcare professionals who value security, efficiency, and professionalism
+            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
+              Built for healthcare professionals who value security and efficiency
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className={`p-6 rounded-2xl bg-card border border-border hover-lift animate-fade-in-up stagger-${index + 1}`}
-              >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
-                  {feature.icon}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            {features.map((f, i) => (
+              <div key={i} className="p-4 sm:p-5 rounded-xl bg-card border border-border hover-lift">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3">
+                  {f.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
+                <h3 className="text-sm sm:text-base font-semibold text-foreground mb-1">{f.title}</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section className="py-20 px-6">
+      {/* ── Benefits ───────────────────────────────────── */}
+      <section className="py-10 sm:py-16 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="relative animate-fade-in-up">
-              <div className="rounded-3xl overflow-hidden shadow-xl">
-                <img
-                  src="https://images.unsplash.com/photo-1762625570087-6d98fca29531?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBtZWRpY2FsJTIwaW50ZXJpb3J8ZW58MHx8fHwxNzY2Mjc5MjczfDA&ixlib=rb-4.1.0&q=85"
-                  alt="Modern Medical Facility"
-                  className="w-full h-[400px] object-cover"
-                />
-              </div>
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Image — small banner on mobile */}
+            <div className="rounded-2xl lg:rounded-3xl overflow-hidden shadow-lg order-2 lg:order-1">
+              <img
+                src="https://images.unsplash.com/photo-1762625570087-6d98fca29531?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBtZWRpY2FsJTIwaW50ZXJpb3J8ZW58MHx8fHwxNzY2Mjc5MjczfDA&ixlib=rb-4.1.0&q=85"
+                alt="Modern Medical Facility"
+                className="w-full h-[160px] sm:h-[240px] lg:h-[380px] object-cover"
+              />
             </div>
-            <div className="space-y-8 animate-fade-in-up stagger-2">
-              <h2 className="text-3xl sm:text-4xl font-bold text-foreground">
+            {/* Copy */}
+            <div className="space-y-5 order-1 lg:order-2">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
                 Everything You Need in One Platform
               </h2>
-              <div className="grid gap-4">
-                {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-secondary/10 text-secondary flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-4 h-4" />
+              <div className="grid gap-2.5 sm:gap-3">
+                {benefits.map((b, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <div className="w-5 h-5 rounded-full bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5" />
                     </div>
-                    <span className="text-foreground">{benefit}</span>
+                    <span className="text-sm sm:text-base text-foreground">{b}</span>
                   </div>
                 ))}
               </div>
               <Button
                 data-testid="benefits-cta-btn"
                 onClick={() => navigate("/auth")}
-                className="bg-secondary hover:bg-secondary/90"
+                className="bg-secondary hover:bg-secondary/90 w-full sm:w-auto"
               >
                 Create Your Profile
               </Button>
@@ -200,21 +182,21 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-6 bg-primary">
-        <div className="max-w-4xl mx-auto text-center animate-fade-in-up">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+      {/* ── CTA Banner ─────────────────────────────────── */}
+      <section className="py-12 sm:py-16 px-4 sm:px-6 bg-primary">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
             Ready to Take the Next Step?
           </h2>
-          <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
+          <p className="text-primary-foreground/80 text-sm sm:text-base mb-6 max-w-xl mx-auto">
             Join thousands of healthcare professionals and facilities already using VitalaMatch
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
             <Button
               data-testid="cta-seeker-btn"
               size="lg"
               onClick={() => navigate("/auth")}
-              className="bg-white text-primary hover:bg-white/90"
+              className="bg-white text-primary hover:bg-white/90 w-full sm:w-auto"
             >
               I&apos;m a Job Seeker
             </Button>
@@ -223,7 +205,7 @@ const LandingPage = () => {
               size="lg"
               variant="outline"
               onClick={() => navigate("/auth")}
-              className="border-white text-white hover:bg-white/10"
+              className="border-white text-white hover:bg-white/10 w-full sm:w-auto"
             >
               I&apos;m an Employer
             </Button>
@@ -231,23 +213,54 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-border">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-              <img 
-                src="/images/vitalamatch-logo.png" 
-                alt="VitalaMatch" 
-                className="h-8 w-auto"
-              />
-            </div>
-            <p className="text-muted-foreground text-sm">
-              © 2025 VitalaMatch. All rights reserved.
-            </p>
+      {/* ── Footer ─────────────────────────────────────── */}
+      <footer className="py-8 px-4 sm:px-6 border-t border-border">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+            <img src="/images/vitalamatch-logo.png" alt="VitalaMatch" className="h-7 w-auto" />
           </div>
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            &copy; 2025 VitalaMatch. All rights reserved.
+          </p>
         </div>
       </footer>
+
+      {/* ── Sticky Mobile Action Bar ───────────────────── */}
+      {!user && (
+        <div
+          data-testid="mobile-sticky-bar"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-[10001] bg-card border-t border-border px-3 py-2.5"
+        >
+          <div className="flex items-center gap-2">
+            <Button
+              data-testid="sticky-seeker-btn"
+              size="sm"
+              onClick={() => navigate("/auth")}
+              className="flex-1 bg-primary hover:bg-primary/90 text-xs h-9"
+            >
+              <Briefcase className="w-3.5 h-3.5 mr-1" /> Job Seeker
+            </Button>
+            <Button
+              data-testid="sticky-employer-btn"
+              size="sm"
+              variant="outline"
+              onClick={() => navigate("/auth")}
+              className="flex-1 text-xs h-9"
+            >
+              <User className="w-3.5 h-3.5 mr-1" /> Employer
+            </Button>
+            <Button
+              data-testid="sticky-login-btn"
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate("/auth")}
+              className="text-xs h-9 px-3"
+            >
+              <LogIn className="w-3.5 h-3.5 mr-1" /> Login
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
