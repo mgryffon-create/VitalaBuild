@@ -165,6 +165,24 @@ const NavContent = ({
   </div>
 );
 
+// Bottom nav items — seeker (5 tabs)
+const seekerBottomNav = [
+  { label: "Dashboard", icon: Home, path: "/seeker" },
+  { label: "Jobs", icon: Stethoscope, path: "/seeker/swipe" },
+  { label: "Matches", icon: MessageCircle, path: "/matches" },
+  { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
+  { label: "Profile", icon: User, path: "/seeker/profile" },
+];
+
+// Bottom nav items — employer (5 tabs)
+const posterBottomNav = [
+  { label: "Dashboard", icon: Home, path: "/poster" },
+  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Candidates", icon: Users, path: "/poster/candidates" },
+  { label: "Matches", icon: MessageCircle, path: "/matches" },
+  { label: "Profile", icon: User, path: "/poster/profile" },
+];
+
 const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -174,6 +192,7 @@ const DashboardLayout = ({ children }) => {
 
   const isSeeker = user?.role === "seeker";
   const navigationItems = isSeeker ? seekerNavItems : posterNavItems;
+  const bottomNavItems = isSeeker ? seekerBottomNav : posterBottomNav;
 
   const isActive = useCallback((path) => {
     if (path === "/seeker" || path === "/poster") {
@@ -244,12 +263,44 @@ const DashboardLayout = ({ children }) => {
 
       {/* Main Content */}
       <main className="lg:pl-64">
-        <div className="pt-16 lg:pt-0 min-h-screen">
+        <div className="pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
           <div className="p-6 lg:p-8">
             {children}
           </div>
         </div>
       </main>
+
+      {/* Mobile Bottom Nav */}
+      <nav
+        data-testid="mobile-bottom-nav"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
+      >
+        <div className="flex items-center justify-around h-16 px-1">
+          {bottomNavItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                data-testid={`btm-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                onClick={() => navigate(item.path)}
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full rounded-lg transition-colors ${
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <item.icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
+                <span className={`text-[10px] leading-tight ${active ? "font-semibold" : "font-medium"}`}>
+                  {item.label}
+                </span>
+                {active && (
+                  <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 };
