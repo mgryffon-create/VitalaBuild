@@ -13,6 +13,17 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Conditional Offer & Onboarding Flow with Vault (April 2025)
+- **Secure Document Vault** (`/seeker/vault`): Candidates upload documents once (identity, certifications, licenses, health records, health screens, resumes) and reuse them across job offers
+- **VaultDocument model**: category, subtype, issuing_authority, document_number, expiration_date, verification_status, file_url, extracted_fields
+- **OnboardingCase**: Auto-created when candidate accepts an offer; linked to job, candidate, employer with role-based requirements
+- **Rules-based Requirements**: CNA/RN/LPN/DEFAULT role templates auto-generate compliance requirements (Government ID, Background Check, Drug Screen, License Verification, Fingerprinting, BLS, TB Screening, Vaccinations)
+- **Vault Matching Logic**: System checks candidate's vault before requesting uploads — satisfied_from_vault, missing_document, document_expired, pending_manual_review, pending_external_check statuses
+- **RequirementDocumentMatch**: Links requirements to existing vault documents without duplication
+- **Task System**: Only creates tasks for unresolved requirements — no redundant upload tasks for vault-satisfied items
+- **OnboardingPage** (`/seeker/onboarding`, `/poster/onboarding`): Progress tracking with expandable requirement lists, status badges, upload/complete actions
+- Backend module: `/app/backend/onboarding_logic.py` for business logic separation
+
 ### Mobile App Experience Polish (April 2025)
 - DashboardLayout: Fixed bottom nav active dot indicator (relative positioning), reduced mobile header/content padding, added min tap target sizes (56px+)
 - All pages: Responsive heading sizes (text-xl mobile, text-2xl+ desktop), reduced section spacing on mobile (space-y-5 vs space-y-8)
