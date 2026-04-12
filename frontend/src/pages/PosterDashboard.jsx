@@ -122,7 +122,7 @@ const PosterDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="poster-dashboard" className="space-y-8 max-w-5xl">
+      <div data-testid="poster-dashboard" className="space-y-5 sm:space-y-8 max-w-5xl">
 
         {/* Verification Alerts */}
         {verificationStatus && !verificationStatus.business_email_verified && !verificationStatus.dev_bypass_active && (
@@ -153,30 +153,30 @@ const PosterDashboard = () => {
         )}
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               Welcome back, {user?.full_name?.split(" ")[0] || "there"}
             </h1>
-            <p className="text-muted-foreground mt-1">Manage your job postings and find the best candidates.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best candidates.</p>
           </div>
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2">
             <Button
               data-testid="post-job-btn"
               onClick={() => navigate("/poster/jobs/new")}
-              className={canPost ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"}
+              className={`w-full sm:w-auto ${canPost ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
               disabled={!canPost}
             >
               {canPost ? <Plus className="mr-2 w-4 h-4" /> : <Shield className="mr-2 w-4 h-4" />}
               Post New Job
             </Button>
-            {!canPost && (
-              <p data-testid="post-job-locked-msg" className="text-xs text-amber-600 dark:text-amber-400">
-                Verify your business email to post jobs
-              </p>
-            )}
           </div>
         </div>
+        {!canPost && (
+          <p data-testid="post-job-locked-msg" className="text-xs text-amber-600 dark:text-amber-400 -mt-3">
+            Verify your business email to post jobs
+          </p>
+        )}
 
         {/* Quick Actions */}
         <section data-testid="section-employer-quick-actions">
@@ -234,37 +234,37 @@ const PosterDashboard = () => {
 
         {/* Stats */}
         <section data-testid="section-employer-stats">
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
             <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => {}}>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Briefcase className="w-6 h-6 text-primary" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-foreground">{stats?.active_jobs || 0}</p>
-                  <p className="text-xs text-muted-foreground">Jobs Posted</p>
+                  <p className="text-xl sm:text-3xl font-bold text-foreground">{stats?.active_jobs || 0}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Jobs Posted</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-green-500/40 transition-colors" onClick={() => navigate("/poster/candidates")}>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-foreground">{candidateCount}</p>
-                  <p className="text-xs text-muted-foreground">Candidates</p>
+                  <p className="text-xl sm:text-3xl font-bold text-foreground">{candidateCount}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Candidates</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="cursor-pointer hover:border-blue-500/40 transition-colors" onClick={() => navigate("/poster/offers-sent")}>
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <Send className="w-6 h-6 text-blue-600" />
+              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Send className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-foreground">{offerCount}</p>
-                  <p className="text-xs text-muted-foreground">Offers Sent</p>
+                  <p className="text-xl sm:text-3xl font-bold text-foreground">{offerCount}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Offers Sent</p>
                 </div>
               </CardContent>
             </Card>
@@ -290,35 +290,35 @@ const PosterDashboard = () => {
               ) : (
                 <div className="divide-y divide-border">
                   {jobs.map((job) => (
-                    <div key={job.id} className="p-5 hover:bg-muted/30 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div key={job.id} className="p-4 sm:p-5 hover:bg-muted/30 transition-colors">
+                      <div className="flex flex-col gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-foreground truncate">{job.title}</h3>
-                            <Badge className={job.is_active ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}>
+                            <h3 className="font-semibold text-foreground truncate text-sm sm:text-base">{job.title}</h3>
+                            <Badge className={`text-[10px] shrink-0 ${job.is_active ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
                               {job.is_active ? "Active" : "Inactive"}
                             </Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 mt-1.5 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>
-                            {job.duration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{job.duration}</span>}
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs sm:text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{job.location}</span>
+                            {job.duration && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{job.duration}</span>}
                             {job.pay_range?.min > 0 && (
                               <span className="flex items-center gap-1">
-                                <DollarSign className="w-3.5 h-3.5" />
+                                <DollarSign className="w-3 h-3" />
                                 ${job.pay_range.min.toLocaleString()}-${job.pay_range.max?.toLocaleString()}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button data-testid={`view-candidates-${job.id}`} variant="outline" size="sm" onClick={() => navigate("/poster/candidates")}>
-                            <Eye className="w-4 h-4 mr-1" /> Candidates
+                        <div className="flex items-center gap-2">
+                          <Button data-testid={`view-candidates-${job.id}`} variant="outline" size="sm" onClick={() => navigate("/poster/candidates")} className="flex-1 sm:flex-none text-xs sm:text-sm h-8 sm:h-9">
+                            <Eye className="w-3.5 h-3.5 mr-1" /> Candidates
                           </Button>
-                          <Button data-testid={`edit-job-${job.id}`} variant="ghost" size="sm" onClick={() => navigate(`/poster/jobs/${job.id}/edit`)}>
-                            <Edit className="w-4 h-4" />
+                          <Button data-testid={`edit-job-${job.id}`} variant="ghost" size="sm" onClick={() => navigate(`/poster/jobs/${job.id}/edit`)} className="h-8 sm:h-9 w-8 sm:w-9 p-0">
+                            <Edit className="w-3.5 h-3.5" />
                           </Button>
-                          <Button data-testid={`delete-job-${job.id}`} variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteJobId(job.id)}>
-                            <Trash2 className="w-4 h-4" />
+                          <Button data-testid={`delete-job-${job.id}`} variant="ghost" size="sm" className="text-destructive hover:text-destructive h-8 sm:h-9 w-8 sm:w-9 p-0" onClick={() => setDeleteJobId(job.id)}>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>

@@ -82,11 +82,11 @@ const MyOffersPage = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="offers-page" className="space-y-6 max-w-4xl">
+      <div data-testid="offers-page" className="space-y-4 sm:space-y-6 max-w-4xl">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Offers</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Offers</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             {offers.length === 0
               ? "No offers yet — keep finding jobs!"
               : `${offers.length} offer${offers.length !== 1 ? "s" : ""} received`}
@@ -133,13 +133,13 @@ const MyOffersPage = () => {
                   data-testid={`offer-card-${offer.id}`}
                   className={`transition-colors ${isPending ? "border-amber-300 dark:border-amber-700" : ""}`}
                 >
-                  <CardContent className="p-5">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col gap-3">
                       {/* Left — details */}
                       <div className="space-y-2 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-lg text-foreground">{offer.position_title}</h3>
-                          <Badge variant="outline" className={`text-xs ${cfg.className}`}>{cfg.label}</Badge>
+                          <h3 className="font-semibold text-base sm:text-lg text-foreground">{offer.position_title}</h3>
+                          <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>{cfg.label}</Badge>
                         </div>
 
                         <p className="text-sm text-muted-foreground">

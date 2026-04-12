@@ -80,12 +80,12 @@ const SwipePage = () => {
     <DashboardLayout>
       <div data-testid="swipe-page" className="max-w-lg mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
               {isSeeker ? "Find Jobs" : "Review Candidates"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {remaining > 0 ? `${remaining} remaining` : "All caught up"}
             </p>
           </div>
@@ -110,7 +110,7 @@ const SwipePage = () => {
         ) : (
           <>
             {/* Card Stack */}
-            <div className="relative w-full mb-6" style={{ minHeight: expanded ? "auto" : "520px" }}>
+            <div className="relative w-full mb-4 sm:mb-6" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 280px))" }}>
               <AnimatePresence>
                 {cards.slice(currentIndex, currentIndex + 2).reverse().map((card, idx) => {
                   const stackLen = Math.min(2, cards.length - currentIndex);
@@ -245,7 +245,7 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       layout
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[520px]"}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(420px,calc(100vh-280px))] sm:h-[520px]"}`}>
         {/* Swipe indicators */}
         {isTop && !expanded && (
           <>
@@ -282,7 +282,7 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
         </div>
 
         {/* Card body */}
-        <div className={`p-5 ${expanded ? "" : "overflow-y-auto"}`} style={expanded ? {} : { maxHeight: "392px" }}>
+        <div className={`p-4 sm:p-5 ${expanded ? "" : "overflow-y-auto"}`} style={expanded ? {} : { maxHeight: "calc(100% - 112px)" }}>
           {isSeeker ? (
             <SeekerViewContent card={card} expanded={expanded} />
           ) : (

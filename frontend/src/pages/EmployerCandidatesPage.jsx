@@ -136,50 +136,50 @@ const EmployerCandidatesPage = () => {
     <DashboardLayout>
       <div data-testid="employer-candidates-page" className="space-y-6 max-w-5xl">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/poster")}>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/poster")} data-testid="candidates-back-btn" className="shrink-0 -ml-1">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Candidates</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Candidates</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} across {jobs.length} job{jobs.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{counts.pending}</p>
-                <p className="text-xs text-muted-foreground">Interested</p>
+                <p className="text-lg sm:text-2xl font-bold text-foreground">{counts.pending}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Interested</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-green-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+                <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{counts.matched}</p>
-                <p className="text-xs text-muted-foreground">Matched</p>
+                <p className="text-lg sm:text-2xl font-bold text-foreground">{counts.matched}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Matched</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Send className="w-5 h-5 text-blue-600" />
+            <CardContent className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                <Send className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{counts.offer_sent}</p>
-                <p className="text-xs text-muted-foreground">Offers Sent</p>
+                <p className="text-lg sm:text-2xl font-bold text-foreground">{counts.offer_sent}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Offers Sent</p>
               </div>
             </CardContent>
           </Card>
@@ -223,40 +223,40 @@ const EmployerCandidatesPage = () => {
               const cfg = STATUS_CONFIG[c.status] || STATUS_CONFIG.pending;
               return (
                 <Card key={c.id} className="hover:border-primary/30 transition-colors">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-lg font-semibold text-primary">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-base sm:text-lg font-semibold text-primary">
                             {c.seeker.full_name?.charAt(0) || "?"}
                           </span>
                         </div>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-foreground">{c.seeker.full_name}</p>
+                            <p className="font-semibold text-foreground text-sm sm:text-base">{c.seeker.full_name}</p>
                             <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>{cfg.label}</Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs sm:text-sm text-muted-foreground">
                             {c.seeker.specialty && (
-                              <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5" />{c.seeker.specialty}</span>
+                              <span className="flex items-center gap-1"><Star className="w-3 h-3" />{c.seeker.specialty}</span>
                             )}
                             {c.seeker.years_experience && (
                               <span>{c.seeker.years_experience} yrs exp</span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Briefcase className="w-3 h-3" /> {c.job.title}
-                            {c.job.location && <><MapPin className="w-3 h-3 ml-2" />{c.job.location}</>}
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+                            <Briefcase className="w-3 h-3 shrink-0" /> <span className="truncate">{c.job.title}</span>
+                            {c.job.location && <><MapPin className="w-3 h-3 ml-1 shrink-0" /><span>{c.job.location}</span></>}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 sm:self-end">
                         {c.status === "pending" && (
                           <Button
                             data-testid={`accept-candidate-${c.id}`}
                             size="sm"
-                            className="bg-green-500 hover:bg-green-600 text-white"
+                            className="bg-green-500 hover:bg-green-600 text-white flex-1 sm:flex-none h-9"
                             onClick={() => handleAccept(c)}
                           >
                             <CheckCircle className="w-4 h-4 mr-1" /> Accept
@@ -266,7 +266,7 @@ const EmployerCandidatesPage = () => {
                           <Button
                             data-testid={`send-offer-${c.id}`}
                             size="sm"
-                            className="bg-primary hover:bg-primary/90"
+                            className="bg-primary hover:bg-primary/90 flex-1 sm:flex-none h-9"
                             onClick={() => {
                               setSelectedCandidate(c);
                               setShowOfferDialog(true);

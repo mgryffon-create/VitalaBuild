@@ -81,25 +81,24 @@ const SeekerDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="seeker-dashboard" className="space-y-8 max-w-4xl">
+      <div data-testid="seeker-dashboard" className="space-y-5 sm:space-y-8 max-w-4xl">
 
         {/* ── Header ─────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               Welcome back, {user?.full_name?.split(" ")[0] || "there"}
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-0.5">
               Here&apos;s what needs your attention today.
             </p>
           </div>
           <Button
             data-testid="find-jobs-btn"
             onClick={() => navigate("/seeker/swipe")}
-            size="lg"
-            className="bg-primary hover:bg-primary/90 shadow-sm"
+            className="bg-primary hover:bg-primary/90 shadow-sm w-full sm:w-auto"
           >
-            Find Jobs <ArrowRight className="ml-2 w-5 h-5" />
+            Find Jobs <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
 

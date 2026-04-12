@@ -239,7 +239,7 @@ const DashboardLayout = ({ children }) => {
 
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass border-b border-border">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-3 py-2.5">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
             <img 
               src="/images/vitalamatch-logo.png" 
@@ -263,8 +263,8 @@ const DashboardLayout = ({ children }) => {
 
       {/* Main Content */}
       <main className="lg:pl-64">
-        <div className="pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
-          <div className="p-6 lg:p-8">
+        <div className="pt-14 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
+          <div className="px-4 py-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </div>
@@ -275,7 +275,7 @@ const DashboardLayout = ({ children }) => {
         data-testid="mobile-bottom-nav"
         className="lg:hidden fixed bottom-0 left-0 right-0 z-[10001] bg-card border-t border-border"
       >
-        <div className="flex items-center justify-around h-16 px-1">
+        <div className="flex items-center justify-around h-16 px-1 safe-area-bottom">
           {bottomNavItems.map((item) => {
             const active = isActive(item.path);
             return (
@@ -283,10 +283,10 @@ const DashboardLayout = ({ children }) => {
                 key={item.path}
                 data-testid={`btm-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                 onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full rounded-lg transition-colors ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full min-w-[56px] min-h-[48px] rounded-lg transition-colors ${
                   active
                     ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground active:text-foreground"
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
@@ -294,7 +294,7 @@ const DashboardLayout = ({ children }) => {
                   {item.label}
                 </span>
                 {active && (
-                  <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
+                  <span className="absolute bottom-1.5 w-1 h-1 rounded-full bg-primary" />
                 )}
               </button>
             );
