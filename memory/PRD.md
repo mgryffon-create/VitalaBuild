@@ -13,6 +13,16 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Resume Onboarding Wizard & Reference Packets (April 2025)
+- **Resume Onboarding Wizard** (`/seeker/resume-onboarding`): 4-step flow — Upload (file dropzone + paste text) → Parsing (GPT loading) → Review (parsed profile with confidence badges) → Complete (profile ready CTA)
+- "One profile. Apply everywhere." headline with progress bar
+- **EmploymentGroupCard**: Travel work grouping with expand/collapse for nested assignments, Travel badge, assignment count, location rollup
+- **ConfBadge**: Confidence indicators (High=green, Med=amber, Low=red) on all parsed fields
+- **Profile Review**: Sections for Summary, Licenses & Certs, Work History, Education, Clinical Skills — all with confidence scoring
+- **Apply to Profile**: "Use This Profile" button maps parsed data to seeker_profiles collection
+- **Dashboard Prompt**: Resume upload CTA card appears on SeekerDashboard when profile < 50% complete
+- **Reference Packet UI**: "Reference Packet" button (appears with 2+ refs) generates formatted summary dialog with top 3 references, verification badges, feedback snippets
+
 ### Portable Reference System & AI Resume Parser (April 2025)
 - **Portable References** (`/references`): Full CRUD for professional references with name, title, facility, relationship, email, phone. Verification flow: request → email (mocked) → public token endpoint → confirm identity/relationship → optional feedback/rating → verified badge
 - **Reference endpoints**: `GET/POST/PUT/DELETE /api/references`, `POST /{id}/request-verification`, `GET/POST /verify/{token}` (public), `GET /candidate/{id}` (employer), `GET /packet/{id}` (summary)
