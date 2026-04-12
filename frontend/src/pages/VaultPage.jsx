@@ -12,8 +12,9 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Shield, Plus, FileText, AlertTriangle, CheckCircle, Clock,
-  Trash2, Upload, CreditCard, Heart, Stethoscope, File, X
+  Trash2, Upload, CreditCard, Heart, Stethoscope, File, X, Eye
 } from "lucide-react";
+import DocumentPreview from "@/components/DocumentPreview";
 
 const CATEGORY_META = {
   identity: { label: "Identity", icon: CreditCard, color: "text-blue-600 bg-blue-100 dark:bg-blue-900/30" },
@@ -42,6 +43,7 @@ const VaultPage = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
   const [form, setForm] = useState({
     category: "", subtype: "", issuing_authority: "",
     document_number: "", issue_date: "", expiration_date: "",
@@ -200,7 +202,7 @@ const VaultPage = () => {
               const vBadge = VERIFICATION_BADGE[doc.verification_status] || VERIFICATION_BADGE.unverified;
               const isExpired = doc.expiration_date && new Date(doc.expiration_date) < new Date();
               return (
-                <Card key={doc.id} data-testid={`vault-doc-${doc.id}`} className={`transition-colors ${isExpired ? "border-amber-300 dark:border-amber-700" : ""}`}>
+                <Card key={doc.id} data-testid={`vault-doc-${doc.id}`} className={`transition-colors cursor-pointer hover:border-primary/30 ${isExpired ? "border-amber-300 dark:border-amber-700" : ""}`} onClick={() => setPreviewDoc(doc)}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
@@ -223,11 +225,11 @@ const VaultPage = () => {
                             <span className="text-[10px] text-muted-foreground">Exp: {doc.expiration_date.slice(0, 10)}</span>
                           )}
                           {doc.file_url && (
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline" onClick={(e) => e.stopPropagation()}>View file</a>
+                            <span className="text-[10px] text-primary flex items-center gap-0.5"><Eye className="w-2.5 h-2.5" /> Preview</span>
                           )}
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(doc.id)}>
+                      <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
@@ -342,6 +344,9 @@ const VaultPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Document Preview */}
+      <DocumentPreview doc={previewDoc} open={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </DashboardLayout>
   );
 };

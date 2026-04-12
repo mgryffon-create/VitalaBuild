@@ -13,6 +13,7 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const { login, register, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedRole, setSelectedRole] = useState("seeker");
 
   // Redirect if already logged in - use useEffect to avoid setState during render
@@ -289,11 +290,27 @@ const AuthPage = () => {
                         />
                       </div>
                     </div>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="terms-checkbox"
+                        data-testid="terms-checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <label htmlFor="terms-checkbox" className="text-xs text-muted-foreground leading-relaxed">
+                        I agree to the{" "}
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms of Service</a>
+                        {" "}and{" "}
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>
+                      </label>
+                    </div>
                     <Button
                       data-testid="register-submit-btn"
                       type="submit"
                       className="w-full bg-primary hover:bg-primary/90"
-                      disabled={isLoading}
+                      disabled={isLoading || !termsAccepted}
                     >
                       {isLoading ? "Creating account..." : "Create Account"}
                     </Button>

@@ -219,9 +219,11 @@ const LandingPage = () => {
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
             <img src="/images/vitalamatch-logo.png" alt="VitalaMatch" className="h-7 w-auto" />
           </div>
-          <p className="text-muted-foreground text-xs sm:text-sm">
-            &copy; 2025 VitalaMatch. All rights reserved.
-          </p>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <a href="/terms" className="hover:text-foreground transition-colors" data-testid="footer-terms">Terms of Service</a>
+            <a href="/privacy" className="hover:text-foreground transition-colors" data-testid="footer-privacy">Privacy Policy</a>
+            <span>&copy; 2025 VitalaMatch</span>
+          </div>
         </div>
       </footer>
 

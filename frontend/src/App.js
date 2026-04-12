@@ -27,6 +27,8 @@ import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import AdminOnboardingPage from "@/pages/AdminOnboardingPage";
+import TermsPage from "@/pages/TermsPage";
+import PrivacyPage from "@/pages/PrivacyPage";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -169,6 +171,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/references/submit/:token" element={<ReferenceSubmitPage />} />
           
           {/* Seeker Routes */}
