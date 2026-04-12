@@ -13,6 +13,13 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Portable Reference System & AI Resume Parser (April 2025)
+- **Portable References** (`/references`): Full CRUD for professional references with name, title, facility, relationship, email, phone. Verification flow: request → email (mocked) → public token endpoint → confirm identity/relationship → optional feedback/rating → verified badge
+- **Reference endpoints**: `GET/POST/PUT/DELETE /api/references`, `POST /{id}/request-verification`, `GET/POST /verify/{token}` (public), `GET /candidate/{id}` (employer), `GET /packet/{id}` (summary)
+- **AI Resume Parser**: GPT-4.1 powered via emergentintegrations (EMERGENT_LLM_KEY). Supports PDF/DOCX/text input. Healthcare-optimized extraction: travel work grouping (CNAs, LPNs, RNs), title/specialty normalization, confidence scoring per field
+- **Parser endpoints**: `POST /api/resume/parse/upload` (file), `POST /api/resume/parse/text` (pasted), `GET /api/resume/parses` (history), `POST /api/resume/apply-to-profile/{id}` (update profile from parse)
+- Backend modules: `routes/references.py`, `routes/resume.py`, `resume_parser.py`
+
 ### Compliance Score & Hiring Workflow Configuration (April 2025)
 - **Compliance score badges**: Candidate cards show real-time compliance % (green >=80, amber >=50, red <50) computed from training assignments, onboarding progress, and vault document count
 - **Hiring workflow config**: Job posting form now includes Application Workflow section with: workflow type (in_platform_only/external_required_immediately/external_required_after_match/external_optional), external URL, stage, profile sufficiency toggle, additional requirements
