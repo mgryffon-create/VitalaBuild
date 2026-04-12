@@ -44,16 +44,18 @@ const seekerNavItems = [
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
-// Employer navigation - MVP Phase 1
+// Employer navigation — grouped into Hiring / Operations / Account
 const posterNavItems = [
+  { type: "header", label: "Hiring" },
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Candidates", icon: Users, path: "/poster/candidates" },
-  { label: "Matches", icon: MessageCircle, path: "/matches" },
-  { label: "Offers Sent", icon: ClipboardList, path: "/poster/offers-sent" },
-  { label: "Onboarding", icon: ClipboardCheck, path: "/poster/onboarding" },
-  { label: "Compliance", icon: ShieldCheck, path: "/poster/compliance" },
-  { label: "Billing", icon: CreditCard, path: "/poster/billing" },
+  { label: "Jobs", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Pipeline", icon: Users, path: "/poster/pipeline" },
+  { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
+  { label: "Offers & Hires", icon: ClipboardList, path: "/poster/offers-sent" },
+  { type: "header", label: "Operations" },
+  { label: "Compliance & Onboarding", icon: ShieldCheck, path: "/poster/compliance" },
+  { type: "header", label: "Account" },
+  { label: "Billing & Plans", icon: CreditCard, path: "/poster/billing" },
   { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];
@@ -87,8 +89,12 @@ const NavContent = ({
 
     {/* Navigation */}
     <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-      {navigationItems.map((item) => (
-        item.isCategory ? (
+      {navigationItems.map((item, idx) => (
+        item.type === "header" ? (
+          <div key={`hdr-${item.label}`} className={`px-3 pt-4 pb-1 ${idx === 0 ? "pt-0" : ""}`}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{item.label}</p>
+          </div>
+        ) : item.isCategory ? (
           // Collapsible category
           <div key={item.label}>
             <button
@@ -187,10 +193,10 @@ const seekerBottomNav = [
 // Bottom nav items — employer (5 tabs)
 const posterBottomNav = [
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Candidates", icon: Users, path: "/poster/candidates" },
-  { label: "Matches", icon: MessageCircle, path: "/matches" },
-  { label: "Profile", icon: User, path: "/poster/profile" },
+  { label: "Jobs", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Pipeline", icon: Users, path: "/poster/pipeline" },
+  { label: "Messages", icon: MessageCircle, path: "/poster/messages" },
+  { label: "More", icon: Settings, path: "/poster/billing" },
 ];
 
 // Admin navigation

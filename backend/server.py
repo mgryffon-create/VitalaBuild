@@ -4163,12 +4163,14 @@ from routes.training import router as training_router
 from routes.references import router as references_router
 from routes.resume import router as resume_router
 from routes.billing import router as billing_router
+from routes.pipeline import router as pipeline_router
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
 api_router.include_router(training_router)
 api_router.include_router(references_router)
 api_router.include_router(resume_router)
 api_router.include_router(billing_router)
+api_router.include_router(pipeline_router)
 
 # Include the main api_router
 app.include_router(api_router)
