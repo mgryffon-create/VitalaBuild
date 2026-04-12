@@ -180,8 +180,8 @@ const SettingsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Settings</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Manage your notification preferences
             </p>
           </div>
@@ -270,7 +270,7 @@ const SettingsPage = () => {
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <div>
                     <p className="font-medium text-green-700 dark:text-green-400">Push notifications enabled</p>
-                    <p className="text-sm text-green-600 dark:text-green-500">You&apos;ll receive instant alerts for matches, messages, and more.</p>
+                    <p className="text-sm text-green-600 dark:text-green-500">You&apos;ll receive instant alerts for matches, messages, and offers.</p>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleDisablePush}>
@@ -281,7 +281,7 @@ const SettingsPage = () => {
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div>
                   <p className="font-medium text-foreground">Enable push notifications</p>
-                  <p className="text-sm text-muted-foreground">Get instant alerts for new matches, messages, and interview requests.</p>
+                  <p className="text-sm text-muted-foreground">Get instant alerts for new matches, messages, and offers.</p>
                 </div>
                 <Button onClick={handleEnablePush} className="bg-primary hover:bg-primary/90">
                   Enable
@@ -421,7 +421,7 @@ const SettingsPage = () => {
               <div>
                 <p className="font-medium text-foreground">Match Notifications</p>
                 <p className="text-sm text-muted-foreground">
-                  Get notified when you connect with a {user?.role === "seeker" ? "job" : "candidate"}
+                  Get notified when you match with a {user?.role === "seeker" ? "job" : "candidate"}
                 </p>
               </div>
               <Switch

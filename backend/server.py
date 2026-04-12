@@ -3830,6 +3830,70 @@ async def create_vault_document(doc: VaultDocumentCreate, current_user: dict = D
     await db.vault_documents.insert_one(doc_data)
     return {"id": doc_id, "message": "Document added to vault"}
 
+VAULT_UPLOAD_DIR = ROOT_DIR / "uploads" / "vault"
+VAULT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+@api_router.post("/vault/upload")
+async def upload_vault_file(
+    file: UploadFile = File(...),
+    category: str = Form(...),
+    subtype: str = Form(None),
+    issuing_authority: str = Form(None),
+    document_number: str = Form(None),
+    issue_date: str = Form(None),
+    expiration_date: str = Form(None),
+    document_date: str = Form(None),
+    state: str = Form(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a file to the secure document vault"""
+    if category not in VAULT_CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {VAULT_CATEGORIES}")
+
+    # Validate file type
+    allowed = (".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".doc", ".docx")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail=f"File type not allowed. Accepted: {', '.join(allowed)}")
+
+    # Read file, enforce size limit
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Max 10 MB.")
+
+    doc_id = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    safe_name = f"{doc_id}{ext}"
+    file_path = VAULT_UPLOAD_DIR / safe_name
+
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(contents)
+
+    file_url = f"/uploads/vault/{safe_name}"
+    doc_data = {
+        "id": doc_id,
+        "candidate_id": current_user["id"],
+        "category": category,
+        "subtype": subtype or None,
+        "issuing_authority": issuing_authority or None,
+        "document_number": document_number or None,
+        "issue_date": issue_date or None,
+        "expiration_date": expiration_date or None,
+        "document_date": document_date or now_iso[:10],
+        "state": state or None,
+        "verification_status": "pending",
+        "file_url": file_url,
+        "file_name": file.filename,
+        "file_size": len(contents),
+        "content_type": file.content_type,
+        "extracted_fields": {},
+        "uploaded_at": now_iso,
+        "last_reviewed_at": None,
+    }
+    await db.vault_documents.insert_one(doc_data)
+    return {"id": doc_id, "file_url": file_url, "message": "File uploaded to vault"}
+
 @api_router.get("/vault/documents")
 async def get_vault_documents(current_user: dict = Depends(get_current_user)):
     """Get all vault documents for current user"""
@@ -4271,6 +4335,10 @@ async def seed_admin_user():
 
 # Include the router
 app.include_router(api_router)
+
+# Serve uploaded files
+from starlette.staticfiles import StaticFiles
+app.mount("/uploads", StaticFiles(directory=str(ROOT_DIR / "uploads")), name="uploads")
 
 # CORS middleware
 app.add_middleware(

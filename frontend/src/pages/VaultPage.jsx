@@ -40,10 +40,12 @@ const VaultPage = () => {
   const [showUpload, setShowUpload] = useState(false);
   const [filter, setFilter] = useState("all");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [form, setForm] = useState({
     category: "", subtype: "", issuing_authority: "",
     document_number: "", issue_date: "", expiration_date: "",
-    document_date: "", state: "", file_name: "",
+    document_date: "", state: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -64,25 +66,39 @@ const VaultPage = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleUpload = async () => {
-    if (!form.category || !form.file_name) {
-      toast.error("Category and file name are required");
+    if (!form.category) {
+      toast.error("Please select a category");
+      return;
+    }
+    if (!selectedFile) {
+      toast.error("Please select a file to upload");
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
     try {
-      await axios.post(`${API}/vault/documents`, {
-        ...form,
-        subtype: form.subtype || null,
-        document_number: form.document_number || null,
-        issue_date: form.issue_date || null,
-        expiration_date: form.expiration_date || null,
-        document_date: form.document_date || null,
-        state: form.state || null,
-        issuing_authority: form.issuing_authority || null,
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("category", form.category);
+      if (form.subtype) formData.append("subtype", form.subtype);
+      if (form.issuing_authority) formData.append("issuing_authority", form.issuing_authority);
+      if (form.document_number) formData.append("document_number", form.document_number);
+      if (form.issue_date) formData.append("issue_date", form.issue_date);
+      if (form.expiration_date) formData.append("expiration_date", form.expiration_date);
+      if (form.document_date) formData.append("document_date", form.document_date);
+      if (form.state) formData.append("state", form.state);
+
+      await axios.post(`${API}/vault/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        },
       });
-      toast.success("Document added to vault");
+      toast.success("Document uploaded to vault");
       setShowUpload(false);
-      setForm({ category: "", subtype: "", issuing_authority: "", document_number: "", issue_date: "", expiration_date: "", document_date: "", state: "", file_name: "" });
+      setForm({ category: "", subtype: "", issuing_authority: "", document_number: "", issue_date: "", expiration_date: "", document_date: "", state: "" });
+      setSelectedFile(null);
+      setUploadProgress(0);
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to upload");
@@ -192,7 +208,10 @@ const VaultPage = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-foreground truncate">{doc.file_name || doc.subtype || doc.category}</p>
-                        <p className="text-xs text-muted-foreground">{meta.label}{doc.subtype ? ` — ${doc.subtype.replace(/_/g, " ")}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {meta.label}{doc.subtype ? ` — ${doc.subtype.replace(/_/g, " ")}` : ""}
+                          {doc.file_size ? ` — ${(doc.file_size / 1024).toFixed(0)} KB` : ""}
+                        </p>
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                           <Badge variant="outline" className={`text-[10px] ${vBadge.className}`}>{vBadge.label}</Badge>
                           {isExpired && (
@@ -202,6 +221,9 @@ const VaultPage = () => {
                           )}
                           {doc.expiration_date && !isExpired && (
                             <span className="text-[10px] text-muted-foreground">Exp: {doc.expiration_date.slice(0, 10)}</span>
+                          )}
+                          {doc.file_url && (
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline" onClick={(e) => e.stopPropagation()}>View file</a>
                           )}
                         </div>
                       </div>
@@ -218,12 +240,55 @@ const VaultPage = () => {
       </div>
 
       {/* Upload Dialog */}
-      <Dialog open={showUpload} onOpenChange={setShowUpload}>
+      <Dialog open={showUpload} onOpenChange={(open) => { setShowUpload(open); if (!open) { setSelectedFile(null); setUploadProgress(0); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Document to Vault</DialogTitle>
+            <DialogTitle>Upload Document to Vault</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            {/* File Picker */}
+            <div className="space-y-1.5">
+              <Label>File *</Label>
+              {selectedFile ? (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                  <FileText className="w-5 h-5 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(0)} KB</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedFile(null)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <label
+                  data-testid="vault-file-dropzone"
+                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium text-foreground">Click to select a file</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PDF, JPG, PNG, DOCX — Max 10 MB</p>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.size > 10 * 1024 * 1024) { toast.error("File too large. Max 10 MB."); return; }
+                        setSelectedFile(f);
+                      }
+                    }}
+                  />
+                </label>
+              )}
+              {uploading && uploadProgress > 0 && (
+                <div className="w-full bg-muted rounded-full h-1.5 mt-1">
+                  <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Category *</Label>
@@ -248,10 +313,6 @@ const VaultPage = () => {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Document Name / File Name *</Label>
-              <Input data-testid="vault-filename-input" value={form.file_name} onChange={(e) => setForm((p) => ({ ...p, file_name: e.target.value }))} placeholder="e.g., CA Drivers License" />
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Issuing Authority</Label>
@@ -275,8 +336,8 @@ const VaultPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUpload(false)}>Cancel</Button>
-            <Button data-testid="vault-submit-btn" onClick={handleUpload} disabled={uploading || !form.category || !form.file_name}>
-              {uploading ? "Uploading..." : "Add to Vault"}
+            <Button data-testid="vault-submit-btn" onClick={handleUpload} disabled={uploading || !form.category || !selectedFile}>
+              {uploading ? `Uploading ${uploadProgress}%...` : "Upload to Vault"}
             </Button>
           </DialogFooter>
         </DialogContent>

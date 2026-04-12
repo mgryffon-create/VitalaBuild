@@ -124,10 +124,10 @@ const SwipeBinsPage = () => {
       const response = await axios.put(`${API}/swipe/bins/${swipeId}/reconsider?new_action=${newAction}`);
       
       if (response.data.matched) {
-        toast.success("It's a connection!");
+        toast.success("It's a match!");
         navigate("/matches");
       } else {
-        toast.success(newAction === "like" ? "Added to interested!" : newAction === "maybe" ? "Moved to Saved" : "Passed");
+        toast.success(newAction === "like" ? "Marked as interested!" : newAction === "maybe" ? "Moved to Saved" : "Passed");
         fetchProfiles(activeTab);
       }
     } catch (error) {
