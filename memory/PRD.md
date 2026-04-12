@@ -13,6 +13,13 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Compliance Score & Hiring Workflow Configuration (April 2025)
+- **Compliance score badges**: Candidate cards show real-time compliance % (green >=80, amber >=50, red <50) computed from training assignments, onboarding progress, and vault document count
+- **Hiring workflow config**: Job posting form now includes Application Workflow section with: workflow type (in_platform_only/external_required_immediately/external_required_after_match/external_optional), external URL, stage, profile sufficiency toggle, additional requirements
+- Default suggestion: `external_required_after_match` (labeled "Recommended") to reduce candidate drop-off while preserving employer compliance
+- **Candidate flow logic**: SwipePage shows blue notice for external workflow jobs — immediate external shows "Apply externally" link; after-match shows "required after match" message
+- Workflow fields stored at job-post level and exposed to downstream parsing/autofill logic
+
 ### Auto-Assign Training & Backend Refactor (April 2025)
 - **Auto-assign training on offer accept**: When onboarding case is created, system queries `compliance_requirements` for employer + role_type and auto-creates `training_assignments` for matching courses (avoids duplicates)
 - **Backend refactor**: Extracted auth, vault, and training routes into separate FastAPI router modules under `/app/backend/routes/`
