@@ -24,7 +24,8 @@ import {
   UserCheck,
   ClipboardCheck,
   BookOpen,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -52,6 +53,7 @@ const posterNavItems = [
   { label: "Offers Sent", icon: ClipboardList, path: "/poster/offers-sent" },
   { label: "Onboarding", icon: ClipboardCheck, path: "/poster/onboarding" },
   { label: "Compliance", icon: ShieldCheck, path: "/poster/compliance" },
+  { label: "Billing", icon: CreditCard, path: "/poster/billing" },
   { label: "Company Profile", icon: User, path: "/poster/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
 ];

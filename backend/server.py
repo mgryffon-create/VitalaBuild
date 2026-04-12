@@ -4162,14 +4162,45 @@ from routes.vault import router as vault_router
 from routes.training import router as training_router
 from routes.references import router as references_router
 from routes.resume import router as resume_router
+from routes.billing import router as billing_router
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
 api_router.include_router(training_router)
 api_router.include_router(references_router)
 api_router.include_router(resume_router)
+api_router.include_router(billing_router)
 
 # Include the main api_router
 app.include_router(api_router)
+
+# Stripe webhook (outside /api prefix for direct Stripe access)
+from fastapi import Request as FastAPIRequest
+from emergentintegrations.payments.stripe.checkout import StripeCheckout
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: FastAPIRequest):
+    """Handle Stripe webhook events"""
+    stripe_key = os.environ.get("STRIPE_API_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    host_url = str(request.base_url).rstrip("/")
+    stripe = StripeCheckout(api_key=stripe_key, webhook_url=f"{host_url}/api/webhook/stripe")
+    body = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
+    try:
+        event = await stripe.handle_webhook(body, sig)
+        # Log the webhook event
+        await db.webhook_events.insert_one({
+            "event_type": event.event_type,
+            "event_id": event.event_id,
+            "session_id": event.session_id,
+            "payment_status": event.payment_status,
+            "metadata": event.metadata,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 # CORS middleware
 app.add_middleware(
