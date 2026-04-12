@@ -273,7 +273,7 @@ const DashboardLayout = ({ children }) => {
       {/* Mobile Bottom Nav */}
       <nav
         data-testid="mobile-bottom-nav"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-[10001] bg-card border-t border-border"
       >
         <div className="flex items-center justify-around h-16 px-1">
           {bottomNavItems.map((item) => {
