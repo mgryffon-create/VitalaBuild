@@ -13,6 +13,15 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Mobile App Experience Polish (April 2025)
+- DashboardLayout: Fixed bottom nav active dot indicator (relative positioning), reduced mobile header/content padding, added min tap target sizes (56px+)
+- All pages: Responsive heading sizes (text-xl mobile, text-2xl+ desktop), reduced section spacing on mobile (space-y-5 vs space-y-8)
+- MatchesPage: Rewrote for mobile-native UX — mobile shows full-screen detail view with back button instead of awkward stacked panels
+- PosterDashboard: Responsive stats grid (compact on mobile), full-width action buttons, tighter job listing cards
+- EmployerCandidatesPage: Responsive stats cards, better candidate card layout with full-width action buttons on mobile
+- SwipePage: Responsive card height (adapts to viewport), larger touch targets for Pass/Interested buttons with active:scale feedback
+- MyOffersPage: Responsive offer cards with full-width Accept/Decline buttons on mobile
+
 ### Job Posting Form UX Improvement (April 2025)
 - Refactored long single-scroll job form into 5 organized sections: Basic Info, Schedule, Compensation & Benefits, Requirements & Certifications, Review & Submit
 - Sticky progress tracker at top with scroll-spy (IntersectionObserver) highlighting active section
