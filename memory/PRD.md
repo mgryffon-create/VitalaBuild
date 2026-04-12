@@ -13,6 +13,15 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Auto-Assign Training & Backend Refactor (April 2025)
+- **Auto-assign training on offer accept**: When onboarding case is created, system queries `compliance_requirements` for employer + role_type and auto-creates `training_assignments` for matching courses (avoids duplicates)
+- **Backend refactor**: Extracted auth, vault, and training routes into separate FastAPI router modules under `/app/backend/routes/`
+  - `shared.py` (408 lines): Shared config, DB, auth helpers, models, services
+  - `routes/auth.py` (65 lines): Register, login, me
+  - `routes/vault.py` (153 lines): Documents CRUD, file upload/serve, categories
+  - `routes/training.py` (131 lines): Courses, assignments, compliance, transcript, certificates
+  - `server.py` reduced from 4536 → 4113 lines; remaining routes (profiles, jobs, matching, hiring, onboarding, admin) can be extracted incrementally
+
 ### Security Hardening, Training & Compliance Architecture (April 2025)
 - **Audit Logging**: `audit_log.py` service logs login, login_failed, register, vault_upload, vault_access, file_access, unauthorized_access to MongoDB `audit_logs` collection
 - **Secure Vault Files**: `GET /api/vault/files/{filename}` now requires auth, checks file ownership (candidate/admin/employer-with-onboarding-case), blocks path traversal
