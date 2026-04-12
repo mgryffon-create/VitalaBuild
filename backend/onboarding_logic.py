@@ -196,7 +196,8 @@ def detect_role_type(job_data):
 
 async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
     """
-    Create an OnboardingCase with requirements, vault matching, and tasks.
+    Create an OnboardingCase with requirements, vault matching, tasks,
+    and auto-assigned training from compliance requirements.
     Returns the case_id.
     """
     role_type = detect_role_type(job)
@@ -305,5 +306,45 @@ async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
         await db.requirement_document_matches.insert_many(doc_matches)
     if tasks:
         await db.onboarding_tasks.insert_many(tasks)
+
+    # Auto-assign training from compliance requirements
+    compliance_reqs = await db.compliance_requirements.find(
+        {"employer_id": employer_id, "role_type": role_type}, {"_id": 0}
+    ).to_list(50)
+    # Also check for "DEFAULT" role requirements
+    if role_type != "DEFAULT":
+        default_reqs = await db.compliance_requirements.find(
+            {"employer_id": employer_id, "role_type": "DEFAULT"}, {"_id": 0}
+        ).to_list(50)
+        compliance_reqs.extend(default_reqs)
+
+    for cr in compliance_reqs:
+        # Check if this training is already assigned to this candidate
+        existing = await db.training_assignments.find_one({
+            "user_id": candidate_id,
+            "course_id": cr["course_id"],
+            "employer_id": employer_id,
+        })
+        if existing:
+            continue
+        assignment = {
+            "id": str(uuid.uuid4()),
+            "user_id": candidate_id,
+            "course_id": cr["course_id"],
+            "assigned_by": "system",
+            "employer_id": employer_id,
+            "job_id": offer.get("job_id"),
+            "due_date": None,
+            "completion_status": "not_started",
+            "completion_date": None,
+            "score": None,
+            "certificate_url": None,
+            "certificate_metadata": None,
+            "external_assignment_id": None,
+            "external_lms_user_id": None,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        await db.training_assignments.insert_one(assignment)
 
     return case_id
