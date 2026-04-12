@@ -13,6 +13,14 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Admin Panel & Employer Onboarding Dashboard (April 2025)
+- **Admin Panel** (`/admin/onboarding`): View all onboarding cases across employers, review vault matches, manually attach vault docs to requirements, update statuses/notes, flag issues, mark as verified
+- **Admin endpoints**: `GET /api/admin/onboarding/cases`, `GET /api/admin/onboarding/cases/{id}`, `PUT /api/admin/onboarding/requirements/{id}`, `GET /api/admin/vault/documents/{candidate_id}`, `POST /api/admin/seed`
+- **Employer Dashboard**: Added Onboarding Progress section showing per-candidate progress cards with % complete, vault satisfaction count, review/external/flagged counts
+- **Status Logic Fix**: Only `satisfied_from_vault` and `completed` count as resolved; `pending_manual_review` and `pending_external_check` do NOT count; `flagged_issue` sets case to flagged; all resolved = cleared
+- **Notifications**: Triggers on offer accept (onboarding started to candidate + employer), onboarding cleared (congratulations to candidate) — uses existing NotificationService (SendGrid MOCKED, logged to DB)
+- Admin user: `admin@vitalamatch.com / admin123` (seeded via `/api/admin/seed`)
+
 ### Conditional Offer & Onboarding Flow with Vault (April 2025)
 - **Secure Document Vault** (`/seeker/vault`): Candidates upload documents once (identity, certifications, licenses, health records, health screens, resumes) and reuse them across job offers
 - **VaultDocument model**: category, subtype, issuing_authority, document_number, expiration_date, verification_status, file_url, extracted_fields
