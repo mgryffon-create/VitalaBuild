@@ -103,6 +103,68 @@ const SeekerDashboard = () => {
           </Button>
         </div>
 
+        {/* ── Quick Actions (compact, near top) ──────────── */}
+        <section data-testid="section-quick-actions">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              data-testid="qa-find-jobs"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/seeker/swipe")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Stethoscope className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Find Jobs</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-upload-license"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/seeker/licenses")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+                <Shield className="w-4 h-4 text-secondary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Upload License</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-upload-docs"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-accent/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/seeker/documents")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                <Upload className="w-4 h-4 text-accent" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Upload Docs</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-complete-profile"
+              className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                profileCompletion < 100
+                  ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 hover:border-amber-400"
+                  : "bg-card border-border hover:border-primary/40 hover:bg-muted/50"
+              }`}
+              onClick={() => navigate("/seeker/profile")}
+            >
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                profileCompletion < 100 ? "bg-amber-500/10" : "bg-primary/10"
+              }`}>
+                <User className={`w-4 h-4 ${profileCompletion < 100 ? "text-amber-600" : "text-primary"}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">
+                  {profileCompletion < 100 ? "Complete Profile" : "Edit Profile"}
+                </p>
+              </div>
+            </button>
+          </div>
+        </section>
+
         {/* ── Section: Profile Status ────────────────────── */}
         <section data-testid="section-profile-status">
           <h2 className="text-base font-semibold text-foreground mb-3">Profile Status</h2>
@@ -286,74 +348,6 @@ const SeekerDashboard = () => {
                 <p className="text-xs text-muted-foreground">Pending job offers to review</p>
               </CardContent>
             </Card>
-          </div>
-        </section>
-
-        {/* ── Section: Quick Actions ─────────────────────── */}
-        <section data-testid="section-quick-actions">
-          <h2 className="text-base font-semibold text-foreground mb-3">Quick Actions</h2>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <button
-              data-testid="qa-find-jobs"
-              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
-              onClick={() => navigate("/seeker/swipe")}
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Stethoscope className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-foreground">Find Jobs</p>
-                <p className="text-xs text-muted-foreground">Browse available positions</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-
-            <button
-              data-testid="qa-upload-license"
-              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
-              onClick={() => navigate("/seeker/licenses")}
-            >
-              <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
-                <Shield className="w-5 h-5 text-secondary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-foreground">Upload License</p>
-                <p className="text-xs text-muted-foreground">Add professional licenses</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-
-            <button
-              data-testid="qa-upload-docs"
-              className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border hover:border-accent/40 hover:bg-muted/50 cursor-pointer transition-all text-left"
-              onClick={() => navigate("/seeker/documents")}
-            >
-              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-                <Upload className="w-5 h-5 text-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-foreground">Upload Documents</p>
-                <p className="text-xs text-muted-foreground">Certifications &amp; compliance docs</p>
-              </div>
-              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </button>
-
-            {profileCompletion < 100 && (
-              <button
-                data-testid="qa-complete-profile"
-                className="flex items-center gap-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 hover:border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 cursor-pointer transition-all text-left"
-                onClick={() => navigate("/seeker/profile")}
-              >
-                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5 text-amber-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-foreground">Complete Profile</p>
-                  <p className="text-xs text-muted-foreground">{profileCompletion}% done</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
-            )}
           </div>
         </section>
       </div>

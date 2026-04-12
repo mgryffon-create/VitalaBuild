@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Briefcase, Plus, MapPin, DollarSign, Clock, Eye, Edit, Trash2,
-  ArrowRight, Mail, CheckCircle, AlertTriangle, Shield, Users, Send
+  ArrowRight, Mail, CheckCircle, AlertTriangle, Shield, Users, Send, MessageCircle
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -167,6 +167,60 @@ const PosterDashboard = () => {
             <Plus className="mr-2 w-4 h-4" /> Post New Job
           </Button>
         </div>
+
+        {/* Quick Actions */}
+        <section data-testid="section-employer-quick-actions">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              data-testid="qa-post-job"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/poster/jobs/new")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Plus className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Post Job</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-view-candidates"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-green-500/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/poster/candidates")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4 text-green-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Candidates</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-view-matches"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-blue-500/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/matches")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Matches</p>
+              </div>
+            </button>
+            <button
+              data-testid="qa-edit-profile"
+              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 transition-all text-left"
+              onClick={() => navigate("/poster/profile")}
+            >
+              <div className="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+                <Edit className="w-4 h-4 text-secondary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm text-foreground">Company Profile</p>
+              </div>
+            </button>
+          </div>
+        </section>
 
         {/* Stats */}
         <section data-testid="section-employer-stats">
