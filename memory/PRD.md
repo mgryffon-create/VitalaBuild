@@ -13,6 +13,13 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Mobile Landing Page Optimization (April 2025)
+- Hero CTA buttons ("I'm a Job Seeker" / "I'm an Employer") visible on first screen mobile without scrolling
+- Hero image capped at 180px mobile, 280px tablet, 440px desktop
+- Sticky bottom action bar (Job Seeker | Employer | Login) on mobile for non-logged-in users
+- Compact 2-col feature card grid on mobile, benefits image as small banner
+- All navigation buttons route to /auth
+
 ### Phase 1 MVP — Employer Workflow (March 2025)
 - **Employer Dashboard**: Section-based — stats (Jobs Posted, Candidates, Offers Sent), job postings list with Candidates/Edit/Delete, business email verification
 - **Candidates Page** (`/poster/candidates`): Shows all seekers who expressed interest, filterable by job. Employer can Accept (creates match) or Send Offer (opens dialog).
