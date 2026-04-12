@@ -1,16 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   ClipboardCheck, CheckCircle, Clock, AlertTriangle, Upload, Shield,
-  ExternalLink, ArrowLeft, Briefcase, XCircle, FileText, Eye
+  ExternalLink, ArrowLeft, Briefcase, XCircle, FileText, Eye, X, Flag
 } from "lucide-react";
 
 const STATUS_META = {
@@ -22,13 +26,23 @@ const STATUS_META = {
   pending_external_check: { label: "External Check", icon: ExternalLink, className: "text-purple-600 bg-purple-100 dark:bg-purple-900/30" },
   action_required_candidate: { label: "Action Needed", icon: AlertTriangle, className: "text-amber-600 bg-amber-100 dark:bg-amber-900/30" },
   in_progress: { label: "In Progress", icon: Clock, className: "text-blue-600 bg-blue-100 dark:bg-blue-900/30" },
-  flagged_issue: { label: "Flagged", icon: AlertTriangle, className: "text-red-600 bg-red-100 dark:bg-red-900/30" },
+  flagged_issue: { label: "Flagged", icon: Flag, className: "text-red-600 bg-red-100 dark:bg-red-900/30" },
 };
 
 const CASE_STATUS_META = {
   active: { label: "Active", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
   cleared: { label: "Cleared", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
   flagged: { label: "Flagged", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+};
+
+// Map requirement types to vault categories/subtypes for the upload dialog
+const REQ_CATEGORY_HINTS = {
+  government_id: { category: "identity", subtypes: ["drivers_license", "passport", "state_id"] },
+  bls_certification: { category: "certification", subtypes: ["BLS", "CPR", "CPR_BLS"] },
+  acls_certification: { category: "certification", subtypes: ["ACLS"] },
+  license_verification: { category: "license", subtypes: ["CNA_license", "RN_license", "LPN_license"] },
+  tb_screening: { category: "health_screen", subtypes: ["TB_test", "QuantiFERON", "PPD"] },
+  vaccination_records: { category: "health_record", subtypes: ["MMR", "HepB", "Varicella", "Flu", "COVID", "Tdap"] },
 };
 
 const OnboardingPage = () => {
@@ -38,6 +52,13 @@ const OnboardingPage = () => {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedCase, setExpandedCase] = useState(null);
+
+  // Upload dialog state
+  const [uploadReq, setUploadReq] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadForm, setUploadForm] = useState({ category: "", subtype: "", expiration_date: "", state: "" });
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const fetchCases = useCallback(async () => {
     try {
@@ -60,6 +81,48 @@ const OnboardingPage = () => {
       fetchCases();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to update");
+    }
+  };
+
+  const openUploadDialog = (req) => {
+    const hint = REQ_CATEGORY_HINTS[req.type] || {};
+    setUploadReq(req);
+    setUploadForm({
+      category: hint.category || "miscellaneous",
+      subtype: hint.subtypes?.[0] || "",
+      expiration_date: "",
+      state: "",
+    });
+    setSelectedFile(null);
+    setUploadProgress(0);
+  };
+
+  const handleUploadForReq = async () => {
+    if (!selectedFile || !uploadReq) return;
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("category", uploadForm.category);
+      if (uploadForm.subtype) formData.append("subtype", uploadForm.subtype);
+      if (uploadForm.expiration_date) formData.append("expiration_date", uploadForm.expiration_date);
+      if (uploadForm.state) formData.append("state", uploadForm.state);
+
+      await axios.post(`${API}/onboarding/requirements/${uploadReq.id}/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        },
+      });
+      toast.success("Document uploaded and linked to requirement");
+      setUploadReq(null);
+      setSelectedFile(null);
+      fetchCases();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -114,7 +177,7 @@ const OnboardingPage = () => {
             {cases.map((c) => {
               const caseMeta = CASE_STATUS_META[c.status] || CASE_STATUS_META.active;
               const progress = c.progress || {};
-              const pct = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+              const pct = progress.percent || 0;
               const isExpanded = expandedCase === c.id;
 
               return (
@@ -156,6 +219,11 @@ const OnboardingPage = () => {
                             <Clock className="w-3 h-3" /> {progress.pending} pending
                           </span>
                         )}
+                        {(progress.flagged || 0) > 0 && (
+                          <span className="flex items-center gap-1 text-red-600">
+                            <Flag className="w-3 h-3" /> {progress.flagged} flagged
+                          </span>
+                        )}
                       </div>
                     </button>
 
@@ -172,7 +240,7 @@ const OnboardingPage = () => {
                             <div
                               key={req.id}
                               data-testid={`req-${req.id}`}
-                              className={`flex items-center gap-3 p-3 rounded-lg ${isDone ? "bg-green-50 dark:bg-green-900/10" : "bg-muted/50"}`}
+                              className={`flex items-center gap-3 p-3 rounded-lg ${isDone ? "bg-green-50 dark:bg-green-900/10" : req.status === "flagged_issue" ? "bg-red-50 dark:bg-red-900/10" : "bg-muted/50"}`}
                             >
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${sm.className}`}>
                                 <Icon className="w-3.5 h-3.5" />
@@ -190,7 +258,7 @@ const OnboardingPage = () => {
                                     size="sm"
                                     variant="outline"
                                     className="h-7 text-xs"
-                                    onClick={(e) => { e.stopPropagation(); navigate("/seeker/vault"); }}
+                                    onClick={(e) => { e.stopPropagation(); openUploadDialog(req); }}
                                     data-testid={`upload-for-${req.id}`}
                                   >
                                     <Upload className="w-3 h-3 mr-1" /> Upload
@@ -220,6 +288,102 @@ const OnboardingPage = () => {
           </div>
         )}
       </div>
+
+      {/* Inline Upload Dialog */}
+      <Dialog open={!!uploadReq} onOpenChange={(open) => { if (!open) { setUploadReq(null); setSelectedFile(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Upload for: {uploadReq?.label}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {/* File Picker */}
+            {selectedFile ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                <FileText className="w-5 h-5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(0)} KB</p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedFile(null)}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <label
+                data-testid="onb-upload-dropzone"
+                className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
+              >
+                <Upload className="w-7 h-7 text-muted-foreground mb-1.5" />
+                <p className="text-sm font-medium text-foreground">Select file</p>
+                <p className="text-[10px] text-muted-foreground">PDF, JPG, PNG, DOCX — Max 10 MB</p>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      if (f.size > 10 * 1024 * 1024) { toast.error("File too large. Max 10 MB."); return; }
+                      setSelectedFile(f);
+                    }
+                  }}
+                />
+              </label>
+            )}
+            {uploading && uploadProgress > 0 && (
+              <div className="w-full bg-muted rounded-full h-1.5">
+                <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            )}
+
+            {/* Category / Subtype (pre-filled from requirement type) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Category</Label>
+                <Select value={uploadForm.category} onValueChange={(v) => setUploadForm((p) => ({ ...p, category: v, subtype: "" }))}>
+                  <SelectTrigger data-testid="onb-category-select" className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["identity", "certification", "license", "health_record", "health_screen", "resume", "miscellaneous"].map((c) => (
+                      <SelectItem key={c} value={c}>{c.replace(/_/g, " ")}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Subtype</Label>
+                <Select value={uploadForm.subtype} onValueChange={(v) => setUploadForm((p) => ({ ...p, subtype: v }))}>
+                  <SelectTrigger data-testid="onb-subtype-select" className="h-8 text-xs">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(REQ_CATEGORY_HINTS[uploadReq?.type]?.subtypes || []).map((s) => (
+                      <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Expiration Date</Label>
+                <Input type="date" className="h-8 text-xs" data-testid="onb-expiration" value={uploadForm.expiration_date} onChange={(e) => setUploadForm((p) => ({ ...p, expiration_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">State</Label>
+                <Input className="h-8 text-xs" placeholder="e.g., CA" value={uploadForm.state} onChange={(e) => setUploadForm((p) => ({ ...p, state: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setUploadReq(null)}>Cancel</Button>
+            <Button data-testid="onb-upload-submit" size="sm" onClick={handleUploadForReq} disabled={uploading || !selectedFile}>
+              {uploading ? `Uploading ${uploadProgress}%...` : "Upload & Link"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

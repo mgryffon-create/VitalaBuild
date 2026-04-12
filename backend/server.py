@@ -18,10 +18,10 @@ import asyncio
 from contextlib import asynccontextmanager
 from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES
 
-# SendGrid and Twilio imports
+# SendGrid and Twilio imports (Phase 1: Twilio disabled, SendGrid mocked)
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
-from twilio.rest import Client as TwilioClient
+# from twilio.rest import Client as TwilioClient  # Phase 1: SMS disabled
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -196,24 +196,9 @@ class NotificationService:
     
     @staticmethod
     async def send_sms(to_phone: str, message: str) -> bool:
-        """Send SMS via Twilio using API Key authentication"""
-        if not all([TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_PHONE_NUMBER]):
-            logger.warning(f"Twilio not configured. Would send SMS to {to_phone}: {message}")
-            return False
-        
-        try:
-            # Use API Key + Secret authentication
-            client = TwilioClient(TWILIO_API_KEY, TWILIO_API_SECRET, TWILIO_ACCOUNT_SID)
-            msg = client.messages.create(
-                body=message,
-                from_=TWILIO_PHONE_NUMBER,
-                to=to_phone
-            )
-            logger.info(f"SMS sent to {to_phone}, SID: {msg.sid}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send SMS to {to_phone}: {str(e)}")
-            return False
+        """Send SMS via Twilio — DISABLED for Phase 1 MVP"""
+        logger.info(f"[Phase 1 - SMS disabled] Would send to {to_phone}: {message}")
+        return False
     
     @staticmethod
     async def send_notification(user_id: str, subject: str, content: str, sms_content: str = None):
@@ -248,63 +233,14 @@ class LicenseVerificationService:
     @staticmethod
     async def verify_via_nursys(license_number: str, state: str, license_type: str, first_name: str, last_name: str) -> dict:
         """
-        Verify a nursing license via Nursys API
-        Returns verification result with status and details
+        Verify a nursing license via Nursys API — DISABLED for Phase 1 MVP
         """
-        if not NURSYS_API_KEY:
-            logger.warning("Nursys API not configured. Cannot perform license verification.")
-            return {
-                "success": False,
-                "error": "Nursys API not configured",
-                "status": "api_not_configured"
-            }
-        
-        try:
-            import httpx
-            
-            # Nursys API request (structure based on typical license verification APIs)
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{NURSYS_API_URL}/verify",
-                    headers={
-                        "Authorization": f"Bearer {NURSYS_API_KEY}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "license_number": license_number,
-                        "state": state,
-                        "license_type": license_type,
-                        "first_name": first_name,
-                        "last_name": last_name
-                    },
-                    timeout=30.0
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "success": True,
-                        "verified": data.get("verified", False),
-                        "license_status": data.get("license_status", "unknown"),
-                        "expiration_date": data.get("expiration_date"),
-                        "discipline_actions": data.get("discipline_actions", []),
-                        "compact_status": data.get("compact_status"),
-                        "raw_response": data
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": f"API returned status {response.status_code}",
-                        "status": "api_error"
-                    }
-                    
-        except Exception as e:
-            logger.error(f"Nursys verification failed: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e),
-                "status": "exception"
-            }
+        logger.info(f"[Phase 1 - Nursys disabled] Would verify license {license_number} in {state}")
+        return {
+            "success": False,
+            "error": "Nursys API disabled for Phase 1 MVP",
+            "status": "api_disabled"
+        }
     
     @staticmethod
     async def create_verification_request(
@@ -4085,38 +4021,65 @@ async def update_requirement_status(req_id: str, current_user: dict = Depends(ge
     return {"message": "Requirement marked as completed", "case_status": new_status}
 
 @api_router.post("/onboarding/requirements/{req_id}/upload")
-async def upload_for_requirement(req_id: str, doc: VaultDocumentCreate, current_user: dict = Depends(get_current_user)):
-    """Upload a vault document to fulfill an onboarding requirement"""
+async def upload_for_requirement(
+    req_id: str,
+    file: UploadFile = File(...),
+    category: str = Form(...),
+    subtype: str = Form(None),
+    issuing_authority: str = Form(None),
+    document_number: str = Form(None),
+    expiration_date: str = Form(None),
+    state: str = Form(None),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a file directly to fulfill an onboarding requirement (adds to vault + links)"""
     req = await db.onboarding_requirements.find_one({"id": req_id})
     if not req:
         raise HTTPException(status_code=404, detail="Requirement not found")
     case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
     if not case or case["candidate_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
-    # Create vault document
+
+    # Validate file
+    allowed = (".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".doc", ".docx")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail=f"File type not allowed. Accepted: {', '.join(allowed)}")
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Max 10 MB.")
+
+    # Save file
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
+    safe_name = f"{doc_id}{ext}"
+    file_path = VAULT_UPLOAD_DIR / safe_name
+    async with aiofiles.open(file_path, "wb") as f:
+        await f.write(contents)
+
+    file_url = f"/api/vault/files/{safe_name}"
     doc_data = {
         "id": doc_id,
         "candidate_id": current_user["id"],
-        "category": doc.category,
-        "subtype": doc.subtype,
-        "issuing_authority": doc.issuing_authority,
-        "document_number": doc.document_number,
-        "issue_date": doc.issue_date,
-        "expiration_date": doc.expiration_date,
-        "document_date": doc.document_date or now_iso[:10],
-        "state": doc.state,
+        "category": category,
+        "subtype": subtype or None,
+        "issuing_authority": issuing_authority or None,
+        "document_number": document_number or None,
+        "issue_date": None,
+        "expiration_date": expiration_date or None,
+        "document_date": now_iso[:10],
+        "state": state or None,
         "verification_status": "pending",
-        "file_url": doc.file_url,
-        "file_name": doc.file_name,
-        "extracted_fields": doc.extracted_fields or {},
+        "file_url": file_url,
+        "file_name": file.filename,
+        "file_size": len(contents),
+        "content_type": file.content_type,
+        "extracted_fields": {},
         "uploaded_at": now_iso,
         "last_reviewed_at": None,
     }
-    if doc.file_data:
-        doc_data["file_data"] = doc.file_data
     await db.vault_documents.insert_one(doc_data)
+
     # Link to requirement
     match_link = {
         "id": str(uuid.uuid4()),
@@ -4128,7 +4091,8 @@ async def upload_for_requirement(req_id: str, doc: VaultDocumentCreate, current_
         "notes": "Uploaded by candidate for requirement fulfillment",
     }
     await db.requirement_document_matches.insert_one(match_link)
-    # Update requirement status
+
+    # Update requirement and task statuses
     await db.onboarding_requirements.update_one(
         {"id": req_id},
         {"$set": {"status": "pending_manual_review", "fulfillment_source": "candidate_upload"}}
@@ -4137,7 +4101,7 @@ async def upload_for_requirement(req_id: str, doc: VaultDocumentCreate, current_
         {"onboarding_requirement_id": req_id},
         {"$set": {"status": "in_progress"}}
     )
-    return {"id": doc_id, "message": "Document uploaded and linked to requirement"}
+    return {"id": doc_id, "file_url": file_url, "message": "Document uploaded and linked to requirement"}
 
 @api_router.get("/onboarding/tasks")
 async def get_onboarding_tasks(current_user: dict = Depends(get_current_user)):
