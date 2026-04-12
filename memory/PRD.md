@@ -13,6 +13,13 @@ The platform has been refactored from a feature-heavy social matching app into a
 
 ## What's Been Implemented
 
+### Terminology Cleanup & File Upload Support (April 2025)
+- **Terminology**: SwipeBinsPage — "It's a match!" (not "connection"), "Marked as interested!" (not "Added to interested")
+- **Terminology**: SettingsPage — "match with a job/candidate" (not "connect with"), "matches, messages, and offers" (not "interview requests"), responsive heading
+- **File Upload**: Added `POST /api/vault/upload` multipart endpoint (PDF, JPG, PNG, DOCX, max 10 MB)
+- **File Upload**: Files stored at `/app/backend/uploads/vault/`, served via `/api/vault/files/{filename}` (ingress-compatible)
+- **Vault UI**: File picker dropzone with size validation, upload progress bar, file size display (KB), "View file" link on doc cards
+
 ### Admin Panel & Employer Onboarding Dashboard (April 2025)
 - **Admin Panel** (`/admin/onboarding`): View all onboarding cases across employers, review vault matches, manually attach vault docs to requirements, update statuses/notes, flag issues, mark as verified
 - **Admin endpoints**: `GET /api/admin/onboarding/cases`, `GET /api/admin/onboarding/cases/{id}`, `PUT /api/admin/onboarding/requirements/{id}`, `GET /api/admin/vault/documents/{candidate_id}`, `POST /api/admin/seed`

@@ -3834,6 +3834,15 @@ VAULT_UPLOAD_DIR = ROOT_DIR / "uploads" / "vault"
 VAULT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
+@api_router.get("/vault/files/{filename}")
+async def serve_vault_file(filename: str):
+    """Serve uploaded vault files"""
+    file_path = VAULT_UPLOAD_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    from starlette.responses import FileResponse
+    return FileResponse(str(file_path))
+
 @api_router.post("/vault/upload")
 async def upload_vault_file(
     file: UploadFile = File(...),
@@ -3870,7 +3879,7 @@ async def upload_vault_file(
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(contents)
 
-    file_url = f"/uploads/vault/{safe_name}"
+    file_url = f"/api/vault/files/{safe_name}"
     doc_data = {
         "id": doc_id,
         "candidate_id": current_user["id"],
