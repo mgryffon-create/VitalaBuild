@@ -142,12 +142,43 @@ async def delete_vault_document(doc_id: str, current_user: dict = Depends(get_cu
 async def get_vault_categories():
     return {
         "categories": {
-            "identity": ["drivers_license", "passport", "state_id"],
-            "certification": ["BLS", "ACLS", "CPR", "CPR_BLS", "CNA_certificate", "PALS"],
-            "license": ["CNA_license", "RN_license", "LPN_license", "LVN_license"],
-            "health_record": ["MMR", "HepB", "Varicella", "Flu", "COVID", "Tdap"],
-            "health_screen": ["TB_test", "QuantiFERON", "PPD", "physical", "drug_screen"],
-            "resume": ["resume", "cv"],
-            "miscellaneous": ["other"],
+            "medical": {
+                "label": "Medical Documents",
+                "groups": {
+                    "vaccinations": {
+                        "label": "Vaccinations",
+                        "types": [
+                            "COVID-19 Vaccine", "Influenza (Flu)", "Hepatitis B",
+                            "MMR", "Varicella", "Tdap", "Other Vaccination",
+                        ],
+                    },
+                    "tb_clearance": {
+                        "label": "TB / Medical Clearance",
+                        "types": [
+                            "TB Skin Test (PPD)", "TB Blood Test (Quantiferon)",
+                            "Chest X-Ray (TB Clearance)", "Physical Exam",
+                        ],
+                    },
+                },
+            },
+            "certification": {
+                "label": "Certifications",
+                "types": ["BLS", "ACLS", "PALS", "CPR", "CNA Certificate"],
+            },
+            "identification": {
+                "label": "Identification",
+                "types": ["Driver's License", "Passport", "State ID"],
+            },
+            "license": {
+                "label": "Licenses",
+                "types": ["RN License", "CNA License", "LPN License", "LVN License"],
+            },
+            "compliance": {
+                "label": "Compliance Documents",
+                "types": [
+                    "Background Check", "Drug Screen",
+                    "Professional Liability Insurance", "NPI Certificate", "DEA License",
+                ],
+            },
         }
     }

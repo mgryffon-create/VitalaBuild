@@ -724,6 +724,8 @@ class Message(BaseModel):
 
 class DocumentUpload(BaseModel):
     document_type: str
+    document_category: Optional[str] = None
+    document_tags: Optional[List[str]] = None
     expiration_date: Optional[str] = None
     file_data: str  # base64 encoded
     file_name: str
@@ -3086,6 +3088,8 @@ async def upload_document(doc: DocumentUpload, current_user: dict = Depends(get_
         "id": doc_id,
         "user_id": current_user["id"],
         "document_type": doc.document_type,
+        "document_category": doc.document_category,
+        "document_tags": doc.document_tags or [],
         "file_name": doc.file_name,
         "file_data": doc.file_data,
         "expiration_date": doc.expiration_date,

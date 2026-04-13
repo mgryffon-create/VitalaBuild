@@ -54,7 +54,7 @@ VAULT_UPLOAD_DIR = ROOT_DIR / "uploads" / "vault"
 VAULT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-VAULT_CATEGORIES = ["identity", "certification", "license", "health_record", "health_screen", "resume", "miscellaneous"]
+VAULT_CATEGORIES = ["medical", "certification", "identification", "license", "compliance"]
 
 # ==================== SPECIALTY LISTS ====================
 
