@@ -58,36 +58,42 @@ const matchLabel = (score) => {
 // Known clinical certifications worth showing
 const CLINICAL_CERTS = new Set(["bls", "acls", "pals", "nrp", "tncc", "ccrn", "cen", "cnl", "np", "rn", "lpn", "cna"]);
 
-// Build 2-3 smart highlights — no filler, no duplicates
+// Build 2-3 specific highlights — no generic filler
 const getHighlights = (pro) => {
   const bullets = [];
 
-  // 1. Skills-based highlight (if real skills exist)
-  if (pro.skills?.length > 0) {
-    const realSkills = pro.skills
-      .slice(0, 3)
+  // 1. Specialty-derived experience highlight
+  if (pro.specialty) {
+    const sub = pro.specialty.replace(/.*\)\s*-?\s*/, "").replace(/Registered Nurse|Licensed Practical Nurse|Certified Nursing Assistant/gi, "").trim();
+    if (sub && sub.length > 2) bullets.push(`${sub} experience`);
+  }
+
+  // 2. Individual clinical certifications as separate items
+  const certs = (pro.certifications || [])
+    .map(c => typeof c === "string" ? c : c?.name || c?.title || "")
+    .filter(c => c && CLINICAL_CERTS.has(c.toLowerCase()) && !["rn", "lpn", "cna"].includes(c.toLowerCase()));
+  for (const cert of certs.slice(0, 2)) {
+    if (bullets.length < 3) bullets.push(`${cert.toUpperCase()} certified`);
+  }
+
+  // 3. Bio snippet — only meaningful, specific content
+  if (pro.bio && bullets.length < 3) {
+    const sentences = pro.bio.split(/[.\n]/).map(s => s.trim()).filter(s => s.length > 10 && s.length < 80);
+    const useful = sentences.find(s => {
+      const low = s.toLowerCase();
+      return !low.match(/^(rn|lpn|cna|nurse|healthcare)\s+(with|having)\s+\d/) &&
+        !low.startsWith("seeking") && !low.startsWith("looking for") &&
+        !low.match(/^\d+\s*years?\s*(of\s+)?experience/);
+    });
+    if (useful) bullets.push(useful);
+  }
+
+  // 4. Skills as fallback
+  if (bullets.length < 2 && pro.skills?.length > 0) {
+    const realSkills = pro.skills.slice(0, 2)
       .map(s => typeof s === "string" ? s : s?.skill || s?.name || "")
       .filter(s => s.length > 1 && s.length < 40);
     if (realSkills.length) bullets.push(realSkills.join(", "));
-  }
-
-  // 2. Clinical certifications only (filter out non-clinical role abbreviations)
-  const certs = (pro.certifications || [])
-    .map(c => typeof c === "string" ? c : c?.name || c?.title || "")
-    .filter(c => c && CLINICAL_CERTS.has(c.toLowerCase()));
-  if (certs.length) {
-    bullets.push(`${certs.join(", ")} certified`);
-  }
-
-  // 3. Bio snippet — only if it adds value (not generic "RN with X years")
-  if (pro.bio && bullets.length < 3) {
-    const sentences = pro.bio.split(/[.\n]/).map(s => s.trim()).filter(s => s.length > 10 && s.length < 80);
-    const useful = sentences.find(s =>
-      !s.toLowerCase().match(/^(rn|lpn|cna|nurse|healthcare)\s+(with|having)\s+\d/) &&
-      !s.toLowerCase().startsWith("seeking") &&
-      !s.toLowerCase().startsWith("looking for")
-    );
-    if (useful) bullets.push(useful);
   }
 
   return bullets.slice(0, 3);
@@ -228,15 +234,21 @@ const BrowseProsPage = () => {
                   )}
                 </div>
 
-                {/* Trust badges */}
-                <div className="px-4 pb-2 flex items-center gap-2">
-                  <span data-testid="badge-verified" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${current.verified_references > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
-                    <BadgeCheck className="w-3 h-3" /> {current.verified_references > 0 ? "Verified Pro" : "Unverified"}
-                  </span>
-                  <span data-testid="badge-compliance" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${current.vault_documents >= 3 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
-                    <CircleCheck className="w-3 h-3" /> {current.vault_documents >= 3 ? "Compliance Ready" : "Docs Pending"}
-                  </span>
-                </div>
+                {/* Trust badges — only show positive signals */}
+                {(current.verified_references > 0 || current.vault_documents >= 3) && (
+                  <div className="px-4 pb-2 flex items-center gap-2">
+                    {current.verified_references > 0 && (
+                      <span data-testid="badge-verified" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        <BadgeCheck className="w-3 h-3" /> Verified Pro
+                      </span>
+                    )}
+                    {current.vault_documents >= 3 && (
+                      <span data-testid="badge-compliance" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        <CircleCheck className="w-3 h-3" /> Compliance Ready
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Highlights — 2-3 short bullets */}
                 {getHighlights(current).length > 0 && (
@@ -252,16 +264,23 @@ const BrowseProsPage = () => {
                   </div>
                 )}
 
-                {/* Context: why this pro — from server ranking */}
-                {current.match_reasons?.length > 0 && (
-                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-0.5">
-                    {current.match_reasons.map((r, i) => (
-                      <p key={i} data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                        <Star className="w-3 h-3 shrink-0" /> {r}
-                      </p>
-                    ))}
-                  </div>
-                )}
+                {/* Context: why this pro — job match reasons only */}
+                {(() => {
+                  const reasons = (current.match_reasons || []).filter(r =>
+                    !r.match(/^\d+\+?\s*years?\s*(experience|exp)/i) &&
+                    !r.toLowerCase().includes("complete profile") &&
+                    !r.toLowerCase().includes("compliance docs")
+                  );
+                  return reasons.length > 0 ? (
+                    <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+                      {reasons.slice(0, 1).map((r, i) => (
+                        <p key={i} data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                          <Star className="w-3 h-3 shrink-0" /> {r}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </CardContent>
             </Card>
 
