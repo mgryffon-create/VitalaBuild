@@ -9,25 +9,24 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Job Card Polish (April 2025)
+- **Reason line wording**: "Aligned with your RN specialty" (not "Related RN role"), "Meets your X+ year experience requirement", "You hold all required certifications"
+- **Description de-emphasis**: collapsed = 1-line truncated preview (text-xs, opacity 70%); full text in expanded/Details view only
+- **Chip hierarchy**: primary row (shift, duration, start date) in solid badges; secondary row (hours, stipend, exp, certs) in lighter outline
+- **Date formatting**: "Starts Feb 1" (not "Start 2026-02-01"), "36 hrs/week" (not "36hrs/week")
+
 ### Phase 2: Tiered Matching System (April 2025)
-- **3-tier classification**: Strong Match (exact specialty + experience met + no major conflicts), Possible Match (related role/partial fit), Hidden (unrelated/major conflicts)
-- **7-dimension scoring**: specialty, experience, certifications, shift, location, job type, start timing
-- **Job quality filtering**: jobs missing pay, shift, location, or having poor descriptions are downgraded
-- **Human-readable reason lines**: 1-2 plain-language explanations per job card (e.g., "Matches your Med-Surg specialty")
-- **Tier badges**: "Strong Match" (green) / "Possible Match" (amber) — no raw percentages shown
-- **Expand Search**: hidden jobs only appear when user explicitly expands after exhausting top matches
-- **API change**: GET /api/swipe/jobs returns `{jobs, counts, has_hidden}` (not flat array); supports `?expand=true`
-- **Backward compat**: poster swipe (/api/swipe/seekers) still returns flat array via legacy wrapper
+- 3-tier classification (Strong/Possible/Hidden), 7-dimension scoring, job quality filtering
+- Human-readable reason lines, tier badges, Expand Search, backward compat for poster swipe
 
 ### Phase 2: Structured Pay System (April 2025)
-- Structured pay fields: base_rate, guaranteed_hours, weekly_stipend, overtime_rate, weekly_pay, job_type, stipend, weekly_hours
-- Backend models updated, auto-calculated weekly pay, pay range validation, high-salience card display
+- Structured pay fields persisted and returned, auto-calculated weekly pay, pay range validation
 
 ### Phase 2: Job Posting Quality Gate (April 2025)
 - 9+ required fields, weak title detection, section-level errors, publish gating
 
 ### Phase 2: Job Card Redesign (April 2025)
-- Pay-first hierarchy, smart title, match score badge, quick detail chips, action buttons with labels
+- Pay-first hierarchy, smart title, match score badge, quick detail chips, action buttons
 
 ### Phase 2: Document Vault Organization (April 2025)
 - Category tabs, human labels, single status, dedup, replace flow, preview fix
