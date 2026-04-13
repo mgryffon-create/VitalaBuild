@@ -473,7 +473,7 @@ class TokenResponse(BaseModel):
 class SeekerProfile(BaseModel):
     contact_info: Optional[Dict[str, Any]] = None
     work_history: Optional[List[Dict[str, Any]]] = None
-    certifications: Optional[List[Dict[str, Any]]] = None
+    certifications: Optional[List[Any]] = None  # Can be list of strings or dicts
     licenses: Optional[List[Dict[str, Any]]] = None
     expected_pay: Optional[Dict[str, Any]] = None
     desired_benefits: Optional[List[str]] = None
@@ -489,7 +489,7 @@ class SeekerProfile(BaseModel):
     travel_readiness: Optional[str] = None
     job_type_preference: Optional[str] = None
     experience_highlights: Optional[List[str]] = None
-    skills: Optional[List[str]] = None
+    skills: Optional[List[Any]] = None  # Can be list of strings or dicts
     # Phase 2: Worker protection preferences
     schedule_stability_importance: Optional[str] = None  # Low, Medium, High
     overtime_preference: Optional[str] = None  # Avoid overtime, Open to overtime, Prefer overtime
@@ -498,6 +498,17 @@ class SeekerProfile(BaseModel):
     staffing_tolerance: Optional[str] = None  # Only well-staffed environments, Moderate flexibility, Comfortable in high-acuity / short-staffed environments
     floating_tolerance: Optional[str] = None  # Do not float, Occasional floating acceptable, Flexible
     pay_transparency_importance: Optional[str] = None  # Critical, Important, Flexible
+    # Additional fields from resume parsing and legacy data
+    education: Optional[List[Dict[str, Any]]] = None
+    full_name: Optional[str] = None
+    license_number: Optional[str] = None
+    license_state: Optional[str] = None
+    license_type: Optional[str] = None
+    phone: Optional[str] = None
+    work_history_mode: Optional[str] = None
+    
+    class Config:
+        extra = "ignore"  # Ignore any extra fields not defined in the model
 
 class PosterProfile(BaseModel):
     company_name: Optional[str] = None

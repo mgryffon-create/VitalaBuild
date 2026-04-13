@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
 import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -413,7 +414,6 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
   const [newCert, setNewCert] = useState({ name: "", expiration: "" });
   const [newLicense, setNewLicense] = useState({ name: "", state: "", expiration: "", license_number: "" });
   const [newBenefit, setNewBenefit] = useState("");
-  const [newLocation, setNewLocation] = useState("");
   const [newWorkHistory, setNewWorkHistory] = useState({
     facility_name: "",
     position: "",
@@ -1188,42 +1188,12 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             <CardDescription>Where you&apos;d like to work</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                data-testid="new-location-input"
-                placeholder="City, State"
-                value={newLocation}
-                onChange={(e) => setNewLocation(e.target.value)}
-              />
-              <Button
-                data-testid="add-location-btn"
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  if (newLocation) {
-                    addToArray("preferred_locations", newLocation);
-                    setNewLocation("");
-                  }
-                }}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(profile.preferred_locations || []).map((loc, index) => (
-                <Badge key={index} variant="outline" className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {loc}
-                  <button
-                    type="button"
-                    onClick={() => removeFromArray("preferred_locations", index)}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+            <LocationAutocomplete
+              locations={profile.preferred_locations || []}
+              onAdd={(city) => addToArray("preferred_locations", city)}
+              onRemove={(index) => removeFromArray("preferred_locations", index)}
+              testId="preferred-locations"
+            />
           </CardContent>
         </Card>
 
