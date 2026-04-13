@@ -1682,10 +1682,10 @@ async def browse_pros(include_all: bool = False, current_user: dict = Depends(ge
                     context_reasons.append(f"Meets your {req}+ year experience requirement")
             elif tier == "possible":
                 if specialty_match and not experience_met and req > 0:
-                    context_reasons.append(f"Right specialty, below {req}-year requirement ({exp} yrs)")
+                    context_reasons.append(f"Right specialty, building toward {req}-year requirement")
                 elif broad_role_match and job_sub:
                     role_abbr = next((a for a in ["RN", "LPN", "CNA", "NP"] if a.lower() in pro_spec), "")
-                    context_reasons.append(f"{role_abbr} background, different specialty than {job_sub[:25]}")
+                    context_reasons.append(f"Transferable {role_abbr} experience, outside {job_sub[:25]}")
                 # Secondary signals
                 locs = profile.get("preferred_locations", [])
                 job_loc = best_job_data.get("location", "")
