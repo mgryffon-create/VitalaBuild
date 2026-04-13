@@ -876,9 +876,33 @@ async def get_seeker_profile(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/profile/completion")
 async def get_profile_completion(current_user: dict = Depends(get_current_user)):
-    """Get profile completion status for onboarding gating"""
+    """Get profile completion status for onboarding gating — uses vault as document source of truth"""
     if current_user["role"] == "seeker":
         profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+
+        # Check vault for required document types
+        vault_docs = await db.vault_documents.find(
+            {"candidate_id": current_user["id"]},
+            {"_id": 0, "subtype": 1, "category": 1}
+        ).to_list(200)
+        vault_subtypes = {d.get("subtype", "").lower() for d in vault_docs}
+        vault_categories = {d.get("category", "").lower() for d in vault_docs}
+
+        # Also check documents collection
+        plain_docs = await db.documents.find(
+            {"user_id": current_user["id"]},
+            {"_id": 0, "document_type": 1, "document_category": 1}
+        ).to_list(200)
+        for d in plain_docs:
+            vault_subtypes.add((d.get("document_type") or "").lower())
+            vault_categories.add((d.get("document_category") or "").lower())
+
+        has_tb = any(t in vault_subtypes for t in ["tb skin test (ppd)", "tb blood test (quantiferon)", "chest x-ray (tb clearance)"])
+        has_bls = any(t in vault_subtypes for t in ["bls"])
+        has_any_medical = "medical" in vault_categories or has_tb
+        has_any_cert = "certification" in vault_categories or has_bls or bool(profile.get("certifications"))
+        has_any_license = "license" in vault_categories or bool(profile.get("licenses"))
+
         checks = {
             "specialty": bool(profile.get("specialty")),
             "years_experience": bool(profile.get("years_experience")),
@@ -887,8 +911,17 @@ async def get_profile_completion(current_user: dict = Depends(get_current_user))
             "travel_readiness": bool(profile.get("travel_readiness")),
             "job_type_preference": bool(profile.get("job_type_preference")),
             "experience_highlights": len(profile.get("experience_highlights", []) or []) >= 2,
-            "certifications_or_licenses": bool(profile.get("certifications")) or bool(profile.get("licenses")),
+            "certifications_or_licenses": has_any_cert or has_any_license,
         }
+
+        # Document-specific checks (for granular routing)
+        doc_checks = {
+            "tb_clearance": has_tb,
+            "bls_certification": has_bls,
+            "medical_document": has_any_medical,
+            "license_document": has_any_license,
+        }
+
         filled = sum(1 for v in checks.values() if v)
         total = len(checks)
         return {
@@ -898,6 +931,7 @@ async def get_profile_completion(current_user: dict = Depends(get_current_user))
             "filled": filled,
             "total": total,
             "checks": checks,
+            "doc_checks": doc_checks,
         }
     elif current_user["role"] == "poster":
         profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}

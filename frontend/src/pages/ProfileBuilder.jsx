@@ -16,7 +16,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
-import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
+import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, Circle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import SuggestionInput from "@/components/SuggestionInput";
 import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
@@ -581,6 +581,7 @@ const ProfileBuilder = () => {
 
 // Seeker Profile Form
 const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, updateArrayItem, specialties }) => {
+  const navigate = useNavigate();
   const [newCert, setNewCert] = useState({ name: "", expiration: "" });
   const [newLicense, setNewLicense] = useState({ name: "", state: "", expiration: "", license_number: "" });
   const [newBenefit, setNewBenefit] = useState("");
@@ -592,12 +593,6 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     end_date: "",
     is_current: false,
     responsibilities: ""
-  });
-  const [newMedicalRecord, setNewMedicalRecord] = useState({
-    record_type: "",
-    date_completed: "",
-    expiration_date: "",
-    result: ""
   });
 
   const benefitOptions = [
@@ -613,25 +608,6 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     "Tuition Reimbursement",
     "Housing Stipend",
     "Travel Reimbursement"
-  ];
-
-  const medicalRecordTypes = [
-    "TB Test (PPD/Quantiferon)",
-    "COVID-19 Vaccination",
-    "COVID-19 Booster",
-    "MMR Vaccination",
-    "MMR Titers",
-    "Hepatitis B Vaccination",
-    "Hepatitis B Titers",
-    "Varicella Vaccination",
-    "Varicella Titers",
-    "Tdap Vaccination",
-    "Influenza Vaccination",
-    "Annual Physical",
-    "Drug Screen",
-    "Background Check",
-    "Fit Test (N95)",
-    "Other"
   ];
 
   return (
@@ -986,9 +962,9 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
         </Card>
       </TabsContent>
 
-      {/* Credentials Tab */}
+      {/* Credentials Tab — Status + Vault routing */}
       <TabsContent value="credentials" className="space-y-6">
-        {/* Certifications */}
+        {/* Certifications Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -998,22 +974,20 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             <CardDescription>Your professional certifications (BLS, ACLS, etc.)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2 mb-4">
-              {(profile.certifications || []).map((cert, index) => (
-                <Badge key={index} variant="secondary" className="flex items-center gap-1 py-1.5 px-3">
-                  <Award className="w-3 h-3" />
-                  {cert.name}
-                  {cert.expiration && <span className="text-xs opacity-70 ml-1">exp: {cert.expiration}</span>}
-                  <button
-                    type="button"
-                    onClick={() => removeFromArray("certifications", index)}
-                    className="ml-1 hover:text-destructive"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
+            {(profile.certifications || []).length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {(profile.certifications || []).map((cert, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1 py-1.5 px-3">
+                    <Award className="w-3 h-3" />
+                    {cert.name}
+                    {cert.expiration && <span className="text-xs opacity-70 ml-1">exp: {cert.expiration}</span>}
+                    <button type="button" onClick={() => removeFromArray("certifications", index)} className="ml-1 hover:text-destructive">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 data-testid="new-cert-name-input"
@@ -1042,10 +1016,16 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
+            <div data-testid="cert-vault-cta" className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Upload certification documents for employer verification</p>
+              <Button size="sm" variant="outline" onClick={() => navigate("/seeker/vault?category=certification&from=profile")} data-testid="cert-go-to-vault">
+                <Shield className="w-3.5 h-3.5 mr-1.5" /> Upload in Vault
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Licenses */}
+        {/* Licenses Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1055,9 +1035,8 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             <CardDescription>Your state nursing/professional licenses</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Existing Licenses */}
             {(profile.licenses || []).length > 0 && (
-              <div className="space-y-2 mb-4">
+              <div className="space-y-2 mb-2">
                 {profile.licenses.map((lic, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
@@ -1067,64 +1046,33 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                         Exp: {lic.expiration || "N/A"}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFromArray("licenses", index)}
-                      className="text-destructive hover:text-destructive"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => removeFromArray("licenses", index)} className="text-destructive hover:text-destructive">
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                 ))}
               </div>
             )}
-            
             <div className="grid sm:grid-cols-4 gap-2">
-              <Input
-                data-testid="new-license-name-input"
-                placeholder="License type (e.g., RN)"
-                value={newLicense.name}
-                onChange={(e) => setNewLicense({ ...newLicense, name: e.target.value })}
-              />
-              <Input
-                data-testid="new-license-state-input"
-                placeholder="State"
-                value={newLicense.state}
-                onChange={(e) => setNewLicense({ ...newLicense, state: e.target.value })}
-              />
-              <Input
-                data-testid="new-license-number-input"
-                placeholder="License #"
-                value={newLicense.license_number}
-                onChange={(e) => setNewLicense({ ...newLicense, license_number: e.target.value })}
-              />
-              <Input
-                data-testid="new-license-exp-input"
-                type="date"
-                value={newLicense.expiration}
-                onChange={(e) => setNewLicense({ ...newLicense, expiration: e.target.value })}
-              />
+              <Input data-testid="new-license-name-input" placeholder="License type (e.g., RN)" value={newLicense.name} onChange={(e) => setNewLicense({ ...newLicense, name: e.target.value })} />
+              <Input data-testid="new-license-state-input" placeholder="State" value={newLicense.state} onChange={(e) => setNewLicense({ ...newLicense, state: e.target.value })} />
+              <Input data-testid="new-license-number-input" placeholder="License #" value={newLicense.license_number} onChange={(e) => setNewLicense({ ...newLicense, license_number: e.target.value })} />
+              <Input data-testid="new-license-exp-input" type="date" value={newLicense.expiration} onChange={(e) => setNewLicense({ ...newLicense, expiration: e.target.value })} />
             </div>
-            <Button
-              data-testid="add-license-btn"
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                if (newLicense.name && newLicense.state) {
-                  addToArray("licenses", newLicense);
-                  setNewLicense({ name: "", state: "", expiration: "", license_number: "" });
-                }
-              }}
-            >
+            <Button data-testid="add-license-btn" type="button" variant="outline" className="w-full" onClick={() => { if (newLicense.name && newLicense.state) { addToArray("licenses", newLicense); setNewLicense({ name: "", state: "", expiration: "", license_number: "" }); } }}>
               <Plus className="w-4 h-4 mr-2" /> Add License
             </Button>
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Upload license documents for employer verification</p>
+              <Button size="sm" variant="outline" onClick={() => navigate("/seeker/vault?category=license&from=profile")} data-testid="license-go-to-vault">
+                <Shield className="w-3.5 h-3.5 mr-1.5" /> Upload in Vault
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </TabsContent>
 
-      {/* Medical Records Tab */}
+      {/* Medical Records Tab — Status + Vault routing */}
       <TabsContent value="medical" className="space-y-6">
         <Card>
           <CardHeader>
@@ -1132,112 +1080,39 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               <FileText className="w-5 h-5 text-primary" />
               Medical Records & Immunizations
             </CardTitle>
-            <CardDescription>Track your health clearances and immunization records</CardDescription>
+            <CardDescription>Your health clearances and immunization status</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Info Banner */}
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
-              <p className="text-sm text-muted-foreground">
-                <strong className="text-foreground">Note:</strong> This section helps you track your medical compliance requirements. 
-                Upload actual documents in the Documents section for verification.
-              </p>
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+              <p className="text-sm text-foreground font-medium">All medical documents are managed in your Document Vault</p>
+              <p className="text-xs text-muted-foreground">Upload vaccinations, TB tests, and medical clearances in one secure place. Employers will see your compliance status automatically.</p>
+              <Button onClick={() => navigate("/seeker/vault?category=medical&from=profile")} data-testid="medical-go-to-vault" className="w-full sm:w-auto">
+                <Shield className="w-4 h-4 mr-1.5" /> Go to Document Vault
+              </Button>
             </div>
 
-            {/* Existing Medical Records */}
-            {(profile.medical_records || []).length > 0 && (
-              <div className="space-y-2 mb-4">
-                {profile.medical_records.map((record, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{record.record_type}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Completed: {record.date_completed}
-                        {record.expiration_date && ` • Expires: ${record.expiration_date}`}
-                        {record.result && ` • Result: ${record.result}`}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFromArray("medical_records", index)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add New Medical Record */}
-            <div className="p-4 border border-dashed border-border rounded-xl space-y-4">
-              <p className="text-sm font-medium text-foreground">Add Medical Record</p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Record Type</Label>
-                  <Select
-                    value={newMedicalRecord.record_type}
-                    onValueChange={(value) => setNewMedicalRecord({ ...newMedicalRecord, record_type: value })}
-                  >
-                    <SelectTrigger data-testid="medical-type-select">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {medicalRecordTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Date Completed</Label>
-                  <Input
-                    data-testid="medical-date-input"
-                    type="date"
-                    value={newMedicalRecord.date_completed}
-                    onChange={(e) => setNewMedicalRecord({ ...newMedicalRecord, date_completed: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Expiration Date (if applicable)</Label>
-                  <Input
-                    data-testid="medical-exp-input"
-                    type="date"
-                    value={newMedicalRecord.expiration_date}
-                    onChange={(e) => setNewMedicalRecord({ ...newMedicalRecord, expiration_date: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Result (if applicable)</Label>
-                  <Input
-                    data-testid="medical-result-input"
-                    value={newMedicalRecord.result}
-                    onChange={(e) => setNewMedicalRecord({ ...newMedicalRecord, result: e.target.value })}
-                    placeholder="e.g., Negative, Immune, Complete"
-                  />
-                </div>
-              </div>
-              <Button
-                data-testid="add-medical-btn"
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  if (newMedicalRecord.record_type && newMedicalRecord.date_completed) {
-                    addToArray("medical_records", newMedicalRecord);
-                    setNewMedicalRecord({
-                      record_type: "",
-                      date_completed: "",
-                      expiration_date: "",
-                      result: ""
-                    });
-                  } else {
-                    toast.error("Please select record type and completion date");
-                  }
-                }}
-              >
-                <Plus className="w-4 h-4 mr-2" /> Add Medical Record
-              </Button>
+            {/* Quick status of required medical documents */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Required Documents</p>
+              {[
+                { label: "TB Test (PPD / Quantiferon / Chest X-Ray)", type: "TB Skin Test (PPD)", category: "medical" },
+                { label: "Physical Exam", type: "Physical Exam", category: "medical" },
+                { label: "COVID-19 Vaccine", type: "COVID-19 Vaccine", category: "medical" },
+                { label: "Influenza (Flu)", type: "Influenza (Flu)", category: "medical" },
+                { label: "Hepatitis B", type: "Hepatitis B", category: "medical" },
+                { label: "MMR", type: "MMR", category: "medical" },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  data-testid={`medical-status-${item.type.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate(`/seeker/vault?category=${item.category}&type=${encodeURIComponent(item.type)}&from=profile`)}
+                >
+                  <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                  <span className="text-sm text-muted-foreground flex-1">{item.label}</span>
+                  <span className="text-[10px] text-primary">Upload</span>
+                </button>
+              ))}
             </div>
           </CardContent>
         </Card>

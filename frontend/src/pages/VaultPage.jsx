@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,10 +36,12 @@ const VERIFICATION_BADGE = {
 
 const VaultPage = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [fromContext, setFromContext] = useState(null); // "completion" | "profile" | null
 
   // Upload state — single type
   const [showUpload, setShowUpload] = useState(false);
@@ -72,6 +75,27 @@ const VaultPage = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Handle deep-link from profile completion or profile tabs
+  useEffect(() => {
+    const category = searchParams.get("category");
+    const type = searchParams.get("type");
+    const from = searchParams.get("from");
+
+    if (category) {
+      setFromContext(from);
+      setSelectedCategory(category);
+      if (type) {
+        setSelectedType(type);
+        setUploadStep("details");
+      } else {
+        setUploadStep("type");
+      }
+      setShowUpload(true);
+      // Clear params after reading
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const resetUpload = () => {
     setUploadStep("category");
@@ -223,6 +247,24 @@ const VaultPage = () => {
             <Plus className="w-4 h-4 mr-1.5" /> Add Document
           </Button>
         </div>
+
+        {/* Contextual guidance banner when routed from profile completion */}
+        {fromContext && (
+          <div data-testid="vault-guidance-banner" className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
+            <Shield className="w-5 h-5 text-primary shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {fromContext === "completion"
+                  ? "Complete your profile by uploading the required document"
+                  : "Upload your document for employer verification"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">Select the document type and upload your file below</p>
+            </div>
+            <button onClick={() => setFromContext(null)} className="text-muted-foreground hover:text-foreground shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Category Filters */}
         <div className="flex flex-wrap gap-2">
