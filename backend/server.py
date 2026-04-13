@@ -528,20 +528,28 @@ class JobPosting(BaseModel):
     title: str
     description: str
     location: str
-    duration: str
-    pay_range: Dict[str, Any]
-    benefits: List[str]
-    time_off_policy: str
-    requirements: List[str]
-    certifications_required: List[str]
-    experience_required: int
+    duration: str = ""
+    pay_range: Dict[str, Any] = {}
+    benefits: List[str] = []
+    time_off_policy: str = ""
+    requirements: List[str] = []
+    certifications_required: List[str] = []
+    experience_required: int = 0
     specialty: str
     shift_type: Optional[str] = None
     start_date: Optional[str] = None
+    job_type: Optional[str] = None
+    stipend: Optional[str] = None
+    weekly_hours: Optional[str] = None
+    base_rate: Optional[float] = None
+    guaranteed_hours: Optional[float] = None
+    weekly_stipend: Optional[float] = None
+    overtime_rate: Optional[float] = None
+    weekly_pay: Optional[float] = None
     # Hiring workflow configuration
-    application_workflow_type: Optional[str] = "in_platform_only"  # in_platform_only, external_required_immediately, external_required_after_match, external_optional
+    application_workflow_type: Optional[str] = "in_platform_only"
     external_application_url: Optional[str] = None
-    external_application_stage: Optional[str] = None  # before_match, after_match, after_offer
+    external_application_stage: Optional[str] = None
     profile_sufficient_for_initial_review: Optional[bool] = True
     required_additional_fields: Optional[str] = None
 
@@ -551,13 +559,13 @@ class JobPostingResponse(BaseModel):
     title: str
     description: str
     location: str
-    duration: str
-    pay_range: Dict[str, Any]
-    benefits: List[str]
-    time_off_policy: str
-    requirements: List[str]
-    certifications_required: List[str]
-    experience_required: int
+    duration: str = ""
+    pay_range: Dict[str, Any] = {}
+    benefits: List[str] = []
+    time_off_policy: str = ""
+    requirements: List[str] = []
+    certifications_required: List[str] = []
+    experience_required: int = 0
     specialty: str
     shift_type: Optional[str] = None
     start_date: Optional[str] = None
@@ -565,6 +573,14 @@ class JobPostingResponse(BaseModel):
     is_active: bool = True
     company_name: Optional[str] = None
     company_logo: Optional[str] = None
+    job_type: Optional[str] = None
+    stipend: Optional[str] = None
+    weekly_hours: Optional[str] = None
+    base_rate: Optional[float] = None
+    guaranteed_hours: Optional[float] = None
+    weekly_stipend: Optional[float] = None
+    overtime_rate: Optional[float] = None
+    weekly_pay: Optional[float] = None
     # Hiring workflow configuration
     application_workflow_type: Optional[str] = "in_platform_only"
     external_application_url: Optional[str] = None
