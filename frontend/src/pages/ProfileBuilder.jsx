@@ -14,7 +14,7 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff } from "lucide-react";
+import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -321,16 +321,72 @@ const ProfileBuilder = () => {
         )}
 
         {isSeeker ? (
-          <SeekerProfileForm 
-            profile={profile} 
-            updateField={updateField} 
-            addToArray={addToArray} 
-            removeFromArray={removeFromArray}
-            updateArrayItem={updateArrayItem}
-            specialties={specialties}
-          />
+          <>
+            {/* Quick links — pages accessible from Profile */}
+            <div data-testid="profile-quick-links" className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { label: "Document Vault", icon: Shield, path: "/seeker/vault", desc: "Upload & manage docs" },
+                { label: "Licenses", icon: FileText, path: "/seeker/licenses", desc: "Professional licenses" },
+                { label: "References", icon: UserCheck, path: "/references", desc: "Portable references" },
+                { label: "Training", icon: BookOpen, path: "/seeker/training", desc: "CEU & compliance" },
+                { label: "Onboarding", icon: ClipboardCheck, path: "/seeker/onboarding", desc: "Offer requirements" },
+                { label: "Settings", icon: Settings, path: "/settings", desc: "Notifications & prefs" },
+              ].map((link) => (
+                <button
+                  key={link.path}
+                  data-testid={`quick-link-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  onClick={() => navigate(link.path)}
+                  className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/50 transition-colors text-left group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <link.icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{link.label}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{link.desc}</p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
+                </button>
+              ))}
+            </div>
+            <SeekerProfileForm 
+              profile={profile} 
+              updateField={updateField} 
+              addToArray={addToArray} 
+              removeFromArray={removeFromArray}
+              updateArrayItem={updateArrayItem}
+              specialties={specialties}
+            />
+          </>
         ) : (
-          <PosterProfileForm profile={profile} updateField={updateField} specialties={specialties} />
+          <>
+            {/* Quick links — pages accessible from Profile */}
+            <div data-testid="profile-quick-links" className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { label: "Billing & Plans", icon: CreditCard, path: "/poster/billing", desc: "Subscription & invoices" },
+                { label: "Compliance", icon: ShieldCheck, path: "/poster/compliance", desc: "Onboarding & training" },
+                { label: "Offers & Hires", icon: Briefcase, path: "/poster/offers-sent", desc: "Sent offers tracker" },
+                { label: "Settings", icon: Settings, path: "/settings", desc: "Notifications & prefs" },
+              ].map((link) => (
+                <button
+                  key={link.path}
+                  data-testid={`quick-link-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  onClick={() => navigate(link.path)}
+                  className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/50 transition-colors text-left group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <link.icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{link.label}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{link.desc}</p>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
+                </button>
+              ))}
+            </div>
+            <PosterProfileForm profile={profile} updateField={updateField} specialties={specialties} />
+          </>
         )}
 
         {/* Save Button at Bottom */}

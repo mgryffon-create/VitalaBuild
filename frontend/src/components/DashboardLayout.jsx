@@ -5,7 +5,6 @@ import { useAuth } from "@/App";
 import {
   Home, 
   User, 
-  FileText, 
   Users, 
   Settings, 
   LogOut, 
@@ -13,51 +12,29 @@ import {
   X,
   Briefcase,
   MessageCircle,
-  Shield,
-  CheckCircle,
-  RotateCcw,
-  HelpCircle,
   Stethoscope,
-  ClipboardList,
   ChevronDown,
   ChevronRight,
-  UserCheck,
   ClipboardCheck,
-  BookOpen,
-  ShieldCheck,
-  CreditCard
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-// Seeker navigation - MVP Phase 1
+// Seeker navigation — Phase 2 simplified (5 items)
 const seekerNavItems = [
   { label: "Dashboard", icon: Home, path: "/seeker" },
   { label: "Find Jobs", icon: Stethoscope, path: "/seeker/swipe" },
-  { label: "My Profile", icon: User, path: "/seeker/profile" },
-  { label: "Document Vault", icon: Shield, path: "/seeker/vault" },
-  { label: "Licenses", icon: FileText, path: "/seeker/licenses" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
-  { label: "References", icon: UserCheck, path: "/references" },
-  { label: "Onboarding", icon: ClipboardCheck, path: "/seeker/onboarding" },
-  { label: "Training", icon: BookOpen, path: "/seeker/training" },
-  { label: "Settings", icon: Settings, path: "/settings" },
+  { label: "Profile", icon: User, path: "/seeker/profile" },
 ];
 
-// Employer navigation — grouped into Hiring / Operations / Account
+// Employer navigation — Phase 2 simplified (5 items)
 const posterNavItems = [
-  { type: "header", label: "Hiring" },
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Jobs", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Pipeline", icon: Users, path: "/poster/pipeline" },
+  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Candidates", icon: Users, path: "/poster/pipeline" },
   { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
-  { label: "Offers & Hires", icon: ClipboardList, path: "/poster/offers-sent" },
-  { type: "header", label: "Operations" },
-  { label: "Compliance & Onboarding", icon: ShieldCheck, path: "/poster/compliance" },
-  { type: "header", label: "Account" },
-  { label: "Billing & Plans", icon: CreditCard, path: "/poster/billing" },
-  { label: "Company Profile", icon: User, path: "/poster/profile" },
-  { label: "Settings", icon: Settings, path: "/settings" },
+  { label: "Profile", icon: User, path: "/poster/profile" },
 ];
 
 // NavContent component moved outside DashboardLayout
@@ -181,7 +158,7 @@ const NavContent = ({
   </div>
 );
 
-// Bottom nav items — seeker (5 tabs)
+// Bottom nav items — seeker (5 tabs, mirrors sidebar)
 const seekerBottomNav = [
   { label: "Dashboard", icon: Home, path: "/seeker" },
   { label: "Jobs", icon: Stethoscope, path: "/seeker/swipe" },
@@ -190,13 +167,13 @@ const seekerBottomNav = [
   { label: "Profile", icon: User, path: "/seeker/profile" },
 ];
 
-// Bottom nav items — employer (5 tabs)
+// Bottom nav items — employer (5 tabs, mirrors sidebar)
 const posterBottomNav = [
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Jobs", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Pipeline", icon: Users, path: "/poster/pipeline" },
-  { label: "Messages", icon: MessageCircle, path: "/poster/messages" },
-  { label: "More", icon: Settings, path: "/poster/billing" },
+  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Candidates", icon: Users, path: "/poster/pipeline" },
+  { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
+  { label: "Profile", icon: User, path: "/poster/profile" },
 ];
 
 // Admin navigation
