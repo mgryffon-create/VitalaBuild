@@ -253,16 +253,21 @@ const DashboardLayout = ({ children }) => {
             />
           </div>
           
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="mobile-menu-btn">
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <NavContent {...navProps} mobile />
-            </SheetContent>
-          </Sheet>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="mobile-signout-btn" className="text-muted-foreground hover:text-destructive">
+              <LogOut className="w-5 h-5" />
+            </Button>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" data-testid="mobile-menu-btn">
+                  {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-64">
+                <NavContent {...navProps} mobile />
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
 
