@@ -8,7 +8,57 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { X, Heart, MapPin, Clock, DollarSign, Briefcase, CheckCircle, MessageCircle, Sparkles, ChevronUp, ChevronDown, Award, Star, User, FileText, ExternalLink } from "lucide-react";
+import {
+  X, Heart, MapPin, Clock, DollarSign, Briefcase, CheckCircle, Sparkles,
+  ChevronDown, Award, Star, User, ExternalLink, Calendar, Home, Zap
+} from "lucide-react";
+
+// ── Smart title generation ───────────────────────────────
+function smartTitle(card) {
+  // If title is generic/ID-like, generate from specialty + shift
+  const title = card.title || "";
+  const isGeneric = /test|posting|job\s*\d|^\d+$/i.test(title) || title.length < 5;
+
+  if (!isGeneric) return title;
+
+  // Build from specialty
+  let parts = [];
+  if (card.specialty) {
+    // "Registered Nurse (RN) - ICU/Critical Care" → "ICU RN"
+    const match = card.specialty.match(/\(([^)]+)\)\s*-\s*(.+)/);
+    if (match) {
+      parts.push(`${match[2].trim()} ${match[1].trim()}`);
+    } else {
+      const simple = card.specialty.match(/\(([^)]+)\)/);
+      parts.push(simple ? simple[1] : card.specialty);
+    }
+  } else {
+    parts.push("Healthcare Position");
+  }
+
+  if (card.shift_type) {
+    parts[0] += ` – ${card.shift_type}`;
+  }
+
+  return parts[0];
+}
+
+// ── Format pay for display ───────────────────────────────
+function formatPay(payRange) {
+  if (!payRange) return null;
+  const { min, max } = payRange;
+  if (!min && !max) return null;
+  if (min === max || !max) return `$${min.toLocaleString()}/week`;
+  return `$${min.toLocaleString()}–$${max.toLocaleString()}/week`;
+}
+
+function formatHourlyPay(payRange) {
+  if (!payRange) return null;
+  const { min, max } = payRange;
+  if (!min && !max) return null;
+  if (min === max || !max) return `$${min}/hr`;
+  return `$${min}–$${max}/hr`;
+}
 
 const SwipePage = () => {
   const { jobId } = useParams();
@@ -29,21 +79,18 @@ const SwipePage = () => {
         ? await axios.get(`${API}/swipe/jobs`)
         : await axios.get(`${API}/swipe/seekers?job_id=${jobId}`);
       setCards(response.data);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load cards");
     } finally {
       setLoading(false);
     }
   }, [isSeeker, jobId]);
 
-  useEffect(() => {
-    fetchCards();
-  }, [fetchCards]);
+  useEffect(() => { fetchCards(); }, [fetchCards]);
 
   const handleAction = async (action) => {
     if (currentIndex >= cards.length) return;
     const card = cards[currentIndex];
-
     try {
       const response = isSeeker
         ? await axios.post(`${API}/swipe`, { target_id: card.id, action })
@@ -53,14 +100,13 @@ const SwipePage = () => {
         setMatchData({ ...response.data, card });
         setShowMatchDialog(true);
       } else if (action === "like") {
-        toast.success(`Marked as interested!`, {
-          description: isSeeker ? `${card.title} — ${card.company_name || "Facility"}` : card.full_name,
+        toast.success("Marked as interested!", {
+          description: isSeeker ? `${smartTitle(card)} — ${card.company_name || "Facility"}` : card.full_name,
         });
       }
-
       setCurrentIndex((prev) => prev + 1);
       setExpanded(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to record action");
     }
   };
@@ -94,25 +140,20 @@ const SwipePage = () => {
         </div>
 
         {!currentCard ? (
-          /* Empty State */
           <div className="text-center py-20">
             <Briefcase className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
             <h2 className="text-xl font-semibold text-foreground mb-2">
               {isSeeker ? "No more jobs right now" : "No candidates to review"}
             </h2>
             <p className="text-muted-foreground mb-6">Check back later for new opportunities.</p>
-            <Button
-              data-testid="back-to-dashboard-btn"
-              variant="outline"
-              onClick={() => navigate(isSeeker ? "/seeker" : "/poster")}
-            >
+            <Button data-testid="back-to-dashboard-btn" variant="outline" onClick={() => navigate(isSeeker ? "/seeker" : "/poster")}>
               Back to Dashboard
             </Button>
           </div>
         ) : (
           <>
             {/* Card Stack */}
-            <div className="relative w-full pb-28 sm:pb-4" style={{ minHeight: expanded ? "auto" : "min(380px, calc(100vh - 340px))" }}>
+            <div className="relative w-full pb-28 sm:pb-4" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 320px))" }}>
               <AnimatePresence>
                 {cards.slice(currentIndex, currentIndex + 2).reverse().map((card, idx) => {
                   const stackLen = Math.min(2, cards.length - currentIndex);
@@ -133,47 +174,50 @@ const SwipePage = () => {
               </AnimatePresence>
             </div>
 
-            {/* Action Buttons — fixed on mobile, inline on desktop */}
+            {/* Action Buttons */}
             <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto">
-              <div className="flex justify-center items-center gap-5 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
-                <Button
-                  data-testid="pass-btn"
-                  size="lg"
-                  variant="outline"
-                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-destructive/50 text-destructive hover:bg-destructive hover:text-white active:scale-90 transition-all"
-                  onClick={() => handleAction("pass")}
-                  disabled={expanded}
-                >
-                  <X className="w-6 h-6 sm:w-7 sm:h-7" />
-                </Button>
-                <Button
-                  data-testid="expand-btn"
-                  size="lg"
-                  variant="outline"
-                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all ${
-                    expanded
-                      ? "border-primary bg-primary text-white"
-                      : "border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary"
-                  }`}
-                  onClick={() => setExpanded(!expanded)}
-                >
-                  {expanded ? <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" />}
-                </Button>
-                <Button
-                  data-testid="interested-btn"
-                  size="lg"
-                  className="w-[4.5rem] h-[4.5rem] sm:w-16 sm:h-16 rounded-full bg-green-500 hover:bg-green-600 text-white active:scale-90 transition-all shadow-xl shadow-green-500/30"
-                  onClick={() => handleAction("like")}
-                  disabled={expanded}
-                >
-                  <Heart className="w-7 h-7 sm:w-7 sm:h-7" />
-                </Button>
-              </div>
-              {/* Labels */}
-              <div className="flex justify-center items-center gap-5 px-6 sm:mt-2">
-                <span className="text-[10px] text-muted-foreground w-14 sm:w-16 text-center">Pass</span>
-                <span className="text-[10px] text-muted-foreground w-10 sm:w-12 text-center">Details</span>
-                <span className="text-[10px] text-muted-foreground w-[4.5rem] sm:w-16 text-center font-semibold text-green-600">Interested</span>
+              <div className="flex justify-center items-center gap-4 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
+                <div className="flex flex-col items-center">
+                  <Button
+                    data-testid="pass-btn"
+                    size="lg"
+                    variant="outline"
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white active:scale-90 transition-all"
+                    onClick={() => handleAction("pass")}
+                    disabled={expanded}
+                  >
+                    <X className="w-6 h-6 sm:w-7 sm:h-7" />
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground mt-1">Pass</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <Button
+                    data-testid="expand-btn"
+                    size="lg"
+                    variant="outline"
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all ${
+                      expanded
+                        ? "border-primary bg-primary text-white"
+                        : "border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary"
+                    }`}
+                    onClick={() => setExpanded(!expanded)}
+                  >
+                    <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform ${expanded ? "" : "rotate-180"}`} />
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground mt-1">Details</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <Button
+                    data-testid="interested-btn"
+                    size="lg"
+                    className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-full bg-green-500 hover:bg-green-600 text-white active:scale-90 transition-all shadow-xl shadow-green-500/30"
+                    onClick={() => handleAction("like")}
+                    disabled={expanded}
+                  >
+                    <Heart className="w-7 h-7" />
+                  </Button>
+                  <span className="text-[10px] font-semibold text-green-600 mt-1">Interested</span>
+                </div>
               </div>
             </div>
           </>
@@ -195,19 +239,11 @@ const SwipePage = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-6 flex flex-col gap-3">
-                <Button
-                  data-testid="view-match-btn"
-                  onClick={() => { setShowMatchDialog(false); navigate("/matches"); }}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" /> Send Message
+                <Button data-testid="view-match-btn" onClick={() => { setShowMatchDialog(false); navigate("/matches"); }}>
+                  View Match
                 </Button>
-                <Button
-                  data-testid="keep-browsing-btn"
-                  variant="outline"
-                  onClick={() => setShowMatchDialog(false)}
-                >
-                  Keep Browsing
+                <Button variant="outline" data-testid="keep-swiping-btn" onClick={() => setShowMatchDialog(false)}>
+                  Keep Looking
                 </Button>
               </div>
             </div>
@@ -248,44 +284,21 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       layout
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(380px,calc(100vh-340px))] sm:h-[400px]"}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(420px,calc(100vh-320px))] sm:h-[440px]"}`}>
         {/* Swipe indicators */}
         {isTop && !expanded && (
           <>
-            <motion.div
-              className="absolute top-6 right-6 z-10 px-3 py-1.5 rounded-lg bg-green-500 text-white font-bold text-lg rotate-12"
-              style={{ opacity: likeOpacity }}
-            >
+            <motion.div className="absolute top-6 right-6 z-10 px-3 py-1.5 rounded-lg bg-green-500 text-white font-bold text-lg rotate-12" style={{ opacity: likeOpacity }}>
               INTERESTED
             </motion.div>
-            <motion.div
-              className="absolute top-6 left-6 z-10 px-3 py-1.5 rounded-lg bg-destructive text-white font-bold text-lg -rotate-12"
-              style={{ opacity: passOpacity }}
-            >
+            <motion.div className="absolute top-6 left-6 z-10 px-3 py-1.5 rounded-lg bg-destructive text-white font-bold text-lg -rotate-12" style={{ opacity: passOpacity }}>
               PASS
             </motion.div>
           </>
         )}
 
-        {/* Header gradient */}
-        <div className="h-28 bg-gradient-to-br from-primary/15 via-primary/5 to-secondary/10 relative flex items-center justify-center">
-          {isSeeker ? (
-            <Briefcase className="w-12 h-12 text-primary/40" />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-white shadow flex items-center justify-center">
-              <span className="text-2xl font-bold text-primary">{card.full_name?.charAt(0) || "?"}</span>
-            </div>
-          )}
-          {card.compatibility_score > 0 && (
-            <div className="absolute bottom-2 right-4 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <span className="text-xs font-semibold text-foreground">{card.compatibility_score}% fit</span>
-            </div>
-          )}
-        </div>
-
         {/* Card body */}
-        <div className={`p-4 sm:p-5 ${expanded ? "" : "overflow-y-auto"}`} style={expanded ? {} : { maxHeight: "calc(100% - 112px)" }}>
+        <div className={`${expanded ? "" : "overflow-y-auto h-full"}`}>
           {isSeeker ? (
             <SeekerViewContent card={card} expanded={expanded} />
           ) : (
@@ -293,7 +306,6 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
           )}
         </div>
 
-        {/* Collapse footer */}
         {expanded && (
           <div className="px-5 pb-4">
             <Button variant="ghost" className="w-full text-muted-foreground" onClick={onExpand}>
@@ -306,156 +318,231 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
   );
 };
 
-/* ── Card content: seeker sees a job ───────────────────────── */
-const SeekerViewContent = ({ card, expanded }) => (
-  <>
-    <h2 className="text-lg font-bold text-foreground leading-tight">{card.title}</h2>
-    <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
+/* ── Card content: seeker sees a job (DECISION-FIRST) ──────── */
+const SeekerViewContent = ({ card, expanded }) => {
+  const title = smartTitle(card);
+  const pay = formatPay(card.pay_range) || formatHourlyPay(card.pay_range);
+  const hasExp = card.experience_required > 0;
 
-    <div className="flex flex-wrap gap-1.5 mt-3">
-      <Badge variant="secondary" className="text-xs gap-1">
-        <MapPin className="w-3 h-3" /> {card.location}
-      </Badge>
-      {card.pay_range?.min && (
-        <Badge variant="outline" className="text-xs gap-1">
-          <DollarSign className="w-3 h-3" />
-          ${card.pay_range.min.toLocaleString()}-${card.pay_range.max?.toLocaleString()}
-        </Badge>
-      )}
-      {card.duration && (
-        <Badge variant="outline" className="text-xs gap-1">
-          <Clock className="w-3 h-3" /> {card.duration}
-        </Badge>
-      )}
-    </div>
-
-    <div className="grid grid-cols-2 gap-2 mt-4 p-3 bg-muted/50 rounded-xl text-sm">
-      <div>
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Specialty</p>
-        <p className="font-medium text-foreground">{card.specialty || "General"}</p>
-      </div>
-      <div>
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Experience</p>
-        <p className="font-medium text-foreground">{card.experience_required || 0}+ yrs</p>
-      </div>
-    </div>
-
-    {card.description && (
-      <p className={`text-sm text-muted-foreground mt-4 leading-relaxed ${expanded ? "" : "line-clamp-3"}`}>
-        {card.description}
-      </p>
-    )}
-
-    {expanded && (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
-        {card.benefits?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Benefits</p>
-            <div className="flex flex-wrap gap-1.5">
-              {card.benefits.map((b, i) => (
-                <Badge key={i} variant="secondary" className="text-xs"><CheckCircle className="w-3 h-3 mr-1" />{b}</Badge>
-              ))}
-            </div>
+  return (
+    <div className="p-5">
+      {/* ── Hero section: Pay + Title + Location ── */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          {/* Pay — MOST PROMINENT */}
+          {pay && (
+            <p data-testid="job-pay" className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-none">
+              {pay}
+            </p>
+          )}
+          {/* Title */}
+          <h2 data-testid="job-title" className={`font-bold text-foreground leading-tight ${pay ? "text-base mt-1.5" : "text-xl"}`}>
+            {title}
+          </h2>
+          {/* Facility */}
+          <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
+        </div>
+        {/* Match score badge */}
+        {card.compatibility_score > 0 && (
+          <div data-testid="match-score" className="shrink-0 flex flex-col items-center rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
+            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{card.compatibility_score}%</span>
+            <span className="text-[9px] text-amber-600/70">match</span>
           </div>
         )}
-        {card.requirements?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Requirements</p>
-            <ul className="space-y-1">
-              {card.requirements.map((r, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {r}
-                </li>
-              ))}
-            </ul>
-          </div>
+      </div>
+
+      {/* ── Location row ── */}
+      <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
+        <MapPin className="w-3.5 h-3.5 shrink-0" />
+        <span>{card.location || "Location TBD"}</span>
+      </div>
+
+      {/* ── Quick detail chips — visible without expand ── */}
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {card.shift_type && (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Clock className="w-3 h-3" /> {card.shift_type}
+          </Badge>
+        )}
+        {card.duration && (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Calendar className="w-3 h-3" /> {card.duration}
+          </Badge>
+        )}
+        {card.start_date && (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Zap className="w-3 h-3" /> Start {card.start_date}
+          </Badge>
+        )}
+        {card.stipend && (
+          <Badge variant="outline" className="text-xs gap-1">
+            <Home className="w-3 h-3" /> {card.stipend}
+          </Badge>
+        )}
+        {hasExp && (
+          <Badge variant="outline" className="text-xs gap-1">
+            {card.experience_required}+ yrs required
+          </Badge>
         )}
         {card.certifications_required?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Certifications</p>
-            <div className="flex flex-wrap gap-1.5">
-              {card.certifications_required.map((c, i) => (
-                <Badge key={i} variant="outline" className="text-xs"><Award className="w-3 h-3 mr-1" />{c}</Badge>
-              ))}
-            </div>
-          </div>
-        )}
-        {(card.shift_type || card.start_date) && (
-          <div className="grid grid-cols-2 gap-2 p-3 bg-muted/50 rounded-xl text-sm">
-            {card.shift_type && (
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Shift</p>
-                <p className="font-medium text-foreground">{card.shift_type}</p>
-              </div>
-            )}
-            {card.start_date && (
-              <div>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Start Date</p>
-                <p className="font-medium text-foreground">{card.start_date}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </motion.div>
-    )}
-
-    {/* External application notice */}
-    {card.application_workflow_type && card.application_workflow_type !== "in_platform_only" && (
-      <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
-        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-          {card.application_workflow_type === "external_required_immediately" && "External application required"}
-          {card.application_workflow_type === "external_required_after_match" && "External application required after match"}
-          {card.application_workflow_type === "external_optional" && "External application may be requested"}
-        </p>
-        {card.application_workflow_type === "external_required_immediately" && card.external_application_url && (
-          <a href={card.external_application_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">
-            Apply externally
-          </a>
+          <Badge variant="outline" className="text-xs gap-1">
+            <Award className="w-3 h-3" /> {card.certifications_required.join(", ")}
+          </Badge>
         )}
       </div>
-    )}
-  </>
-);
+
+      {/* ── Specialty + key info grid ── */}
+      {card.specialty && (
+        <div className="mt-3 px-3 py-2 bg-muted/50 rounded-lg">
+          <p className="text-xs text-muted-foreground">{card.specialty}</p>
+        </div>
+      )}
+
+      {/* ── Description preview ── */}
+      {card.description && (
+        <p className={`text-sm text-muted-foreground mt-3 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
+          {card.description}
+        </p>
+      )}
+
+      {/* ── Expanded details ── */}
+      {expanded && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
+          {card.benefits?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Benefits</p>
+              <div className="flex flex-wrap gap-1.5">
+                {card.benefits.map((b, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs"><CheckCircle className="w-3 h-3 mr-1" />{b}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {card.requirements?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Requirements</p>
+              <ul className="space-y-1">
+                {card.requirements.map((r, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {r}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {card.time_off_policy && (
+            <div className="px-3 py-2 bg-muted/50 rounded-lg">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Time Off</p>
+              <p className="text-sm font-medium text-foreground">{card.time_off_policy}</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* External application notice */}
+      {card.application_workflow_type && card.application_workflow_type !== "in_platform_only" && (
+        <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            {card.application_workflow_type === "external_required_immediately" && "External application required"}
+            {card.application_workflow_type === "external_required_after_match" && "External application required after match"}
+            {card.application_workflow_type === "external_optional" && "External application may be requested"}
+          </p>
+          {card.application_workflow_type === "external_required_immediately" && card.external_application_url && (
+            <a href={card.external_application_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">
+              Apply externally
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ── Card content: poster sees a seeker ────────────────────── */
 const PosterViewContent = ({ card, expanded }) => (
-  <>
-    <h2 className="text-lg font-bold text-foreground leading-tight">{card.full_name}</h2>
-    <p className="text-sm text-muted-foreground mt-0.5">{card.specialty || "Medical Professional"}</p>
+  <div className="p-5">
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex-1 min-w-0">
+        {/* Pay expectation — prominent */}
+        {card.expected_pay?.min > 0 && (
+          <p className="text-2xl font-extrabold text-foreground tracking-tight leading-none">
+            ${card.expected_pay.min}/hr{card.expected_pay.max > card.expected_pay.min ? `–$${card.expected_pay.max}/hr` : "+"}
+          </p>
+        )}
+        <h2 className={`font-bold text-foreground leading-tight ${card.expected_pay?.min > 0 ? "text-base mt-1.5" : "text-xl"}`}>
+          {card.full_name}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5">{card.specialty || "Medical Professional"}</p>
+      </div>
+      {card.compatibility_score > 0 && (
+        <div className="shrink-0 flex flex-col items-center rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
+          <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+          <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{card.compatibility_score}%</span>
+          <span className="text-[9px] text-amber-600/70">match</span>
+        </div>
+      )}
+    </div>
 
     <div className="flex flex-wrap gap-1.5 mt-3">
-      {card.years_experience && (
+      {card.years_experience > 0 && (
         <Badge variant="secondary" className="text-xs gap-1">
-          <Star className="w-3 h-3" /> {card.years_experience} yrs exp
+          <Star className="w-3 h-3" /> {card.years_experience} yrs
         </Badge>
       )}
       {card.preferred_locations?.[0] && (
-        <Badge variant="outline" className="text-xs gap-1">
+        <Badge variant="secondary" className="text-xs gap-1">
           <MapPin className="w-3 h-3" /> {card.preferred_locations[0]}
         </Badge>
       )}
-      {card.expected_pay?.min && (
+      {card.availability && (
         <Badge variant="outline" className="text-xs gap-1">
-          <DollarSign className="w-3 h-3" /> ${card.expected_pay.min}/hr+
+          <Zap className="w-3 h-3" /> {card.availability}
+        </Badge>
+      )}
+      {card.preferred_shift && (
+        <Badge variant="outline" className="text-xs gap-1">
+          <Clock className="w-3 h-3" /> {card.preferred_shift}
         </Badge>
       )}
     </div>
 
+    {card.experience_highlights?.length > 0 && (
+      <div className="mt-3 space-y-1">
+        {card.experience_highlights.slice(0, expanded ? 5 : 2).map((h, i) => (
+          <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+            <span className="line-clamp-1">{h}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
     {card.bio && (
-      <p className={`text-sm text-muted-foreground mt-4 leading-relaxed ${expanded ? "" : "line-clamp-3"}`}>
+      <p className={`text-sm text-muted-foreground mt-3 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
         {card.bio}
       </p>
     )}
 
     {expanded && (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
+        {card.skills?.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Skills</p>
+            <div className="flex flex-wrap gap-1.5">
+              {card.skills.slice(0, 8).map((s, i) => (
+                <Badge key={i} variant="outline" className="text-xs">{typeof s === "string" ? s : s?.name || ""}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
         {card.certifications?.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Certifications</p>
             <div className="flex flex-wrap gap-1.5">
               {card.certifications.map((c, i) => (
-                <Badge key={i} variant="outline" className="text-xs"><Award className="w-3 h-3 mr-1" />{c.name || c}</Badge>
+                <Badge key={i} variant="secondary" className="text-xs"><Award className="w-3 h-3 mr-1" />{c.name || c}</Badge>
               ))}
             </div>
           </div>
@@ -472,7 +559,7 @@ const PosterViewContent = ({ card, expanded }) => (
         )}
       </motion.div>
     )}
-  </>
+  </div>
 );
 
 export default SwipePage;
