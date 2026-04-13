@@ -9,19 +9,17 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Document Vault Organization + Clean UX (April 2025)
-- **Phase A — Category Tabs**: Top-level tabs (All, Medical Records, Certifications, Identification, Compliance) with dynamic counts
-- **Phase B — Human Labels**: LABEL_MAP converts raw names (drivers_license→Driver's License, TB_test→TB Test, etc.) + CATEGORY_NORMALIZE maps old categories (identity→identification, health_screen→medical, resume→compliance)
-- **Phase C — Single Status**: One badge per doc: Active/Expires in Xd/Expired/Uploaded/Replaced — no double badges
-- **Phase D — Dedup**: Shows only latest per category+subtype. Older versions hidden by default, shown via "History" toggle with reduced opacity and "Replaced" badge
-- **Phase E — Metadata Prefill**: Replace flow prefills issuing authority, document number, state from original
-- **Phase F/G — Counts + Sorting**: Dynamic tab counts, sort expired→expiring→active→uploaded→replaced
+### Phase 2: Searchable Inputs + Document Preview Fix (April 2025)
+- **All long-list fields are now autocomplete**: Specialty (SpecialtyAutocomplete), Certifications, License Type, License State, Position/Title, Department/Unit (InlineAutocomplete), Clinical Skills, Experience Highlights (SuggestionInput), Preferred Locations (LocationAutocomplete)
+- **Short-list fields remain as Select** (by design): Availability, Shift, Job Type, Travel Readiness, Worker Protection fields (3-5 options each)
+- **Document Preview fixed**: Root cause — file_url pointed to auth-protected endpoint but `<img src>` / `<iframe src>` don't send auth headers. Fix: DocumentPreview.jsx now fetches via authenticated `axios.get(url, {responseType:'blob'})` → creates blob URL → uses as src. Images render as `<img>`, PDFs as `<iframe>`, others show download fallback.
+- **Dedup improved**: Prefers documents with file_url over metadata-only duplicates
 
-### Phase 2: Human-Centered Vault (April 2025)
-- User-first language, expiration badges, replace flow, archived versioning, attention banner
+### Phase 2: Document Vault Organization (April 2025)
+- Category tabs, human labels, single status, dedup, replace flow, attention banner
 
 ### Phase 2: All Prior Features
-- Work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
+- Human-centered vault, work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
 
 ## Test Accounts
 | Role | Email | Password |
