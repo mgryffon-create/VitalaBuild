@@ -200,25 +200,25 @@ const PosterDashboard = () => {
             <button
               data-testid="qa-view-candidates"
               className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-green-500/40 hover:bg-muted/50 transition-all text-left"
-              onClick={() => navigate("/poster/candidates")}
+              onClick={() => navigate("/poster/pipeline")}
             >
               <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
                 <Users className="w-4 h-4 text-green-600" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">Candidates</p>
+                <p className="font-medium text-sm text-foreground">View Candidates</p>
               </div>
             </button>
             <button
               data-testid="qa-view-matches"
               className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-blue-500/40 hover:bg-muted/50 transition-all text-left"
-              onClick={() => navigate("/matches")}
+              onClick={() => navigate("/poster/messages")}
             >
               <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
                 <MessageCircle className="w-4 h-4 text-blue-600" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">Matches</p>
+                <p className="font-medium text-sm text-foreground">View Matches</p>
               </div>
             </button>
             <button
@@ -230,7 +230,7 @@ const PosterDashboard = () => {
                 <Edit className="w-4 h-4 text-secondary" />
               </div>
               <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">Company Profile</p>
+                <p className="font-medium text-sm text-foreground">Edit Company Profile</p>
               </div>
             </button>
           </div>
@@ -250,7 +250,7 @@ const PosterDashboard = () => {
                 </div>
               </CardContent>
             </Card>
-            <Card className="cursor-pointer hover:border-green-500/40 transition-colors" onClick={() => navigate("/poster/candidates")}>
+            <Card className="cursor-pointer hover:border-green-500/40 transition-colors" onClick={() => navigate("/poster/pipeline")}>
               <CardContent className="p-3 sm:p-5 flex items-center gap-3">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
                   <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
