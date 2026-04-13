@@ -9,13 +9,14 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: ResizeObserver Root Cause Fix (April 2025)
-- **Root cause**: Radix Select's `SelectContent` used dynamic CSS variables (`--radix-select-content-available-height`, `--radix-select-trigger-height`) set by internal ResizeObserver, creating a measurement→resize→measurement feedback loop
-- **Fix**: Modified `/app/frontend/src/components/ui/select.jsx` — replaced `max-h-[--radix-select-content-available-height]` with static `max-h-96`, removed `h-[var(--radix-select-trigger-height)]` from Viewport, removed `origin-[--radix-select-content-transform-origin]`
-- **Removed** global error suppression from `index.js` — no longer needed since root cause is fixed
-- Verified all dropdowns (Specialty, Availability, Shift, Job Type, Travel Readiness) work without errors
+### Phase 2: ResizeObserver Root Cause Fix — REAL FIX (April 2025)
+- **Root cause**: `SelectContent` in `select.jsx` defaulted to `position="popper"`, which invoked Radix's internal `SelectPopperPosition` → `@radix-ui/react-popper` → `@floating-ui/dom` → creates `ResizeObserver` for autoUpdate positioning. This ResizeObserver created a measurement→resize→measurement feedback loop when dropdown opened.
+- **Fix**: Changed default from `position="popper"` to `position="item-aligned"`. This uses Radix's native `SelectItemAlignedPosition` which positions the dropdown aligned to items WITHOUT floating-ui or ResizeObserver. Zero dynamic CSS variables. Zero measurement loops.
+- **Removed**: All dynamic CSS variables (`--radix-select-content-available-height`, `--radix-select-trigger-height`, `--radix-select-content-transform-origin`), popper-specific translate classes, and the global error suppression from `index.js`
+- **Component chain**: `ProfileBuilder.jsx` → `<Select>` → `<SelectContent>` (select.jsx) → `SelectPrimitive.Content` (radix) → now uses `SelectItemAlignedPosition` (no ResizeObserver) instead of `SelectPopperPosition` (ResizeObserver)
+- **Verified**: All 5 dropdowns (Specialty, Availability, Shift, Job Type, Travel Readiness) open/select/close with zero errors captured via comprehensive error tracking (window error events, onerror, console.error — all capture phase, no suppression)
 
-### Phase 2: Preferences Tab Fixes (April 2025)
+### Phase 2: Preferences Tab — Location Autocomplete (April 2025)
 - LocationAutocomplete with ~200 US cities in "City, ST" format
 - SeekerProfile model fix (missing fields + extra='ignore')
 
