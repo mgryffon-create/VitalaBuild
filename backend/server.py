@@ -1567,15 +1567,16 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
 
 @api_router.get("/employer/browse-pros")
 async def browse_pros(current_user: dict = Depends(get_current_user)):
-    """Get all seekers available for employer to browse (not already connected)"""
+    """Get all seekers available for employer to browse, ranked by job compatibility"""
     if current_user["role"] != "poster":
         raise HTTPException(status_code=403, detail="Only employers can browse pros")
 
-    # Get employer's active jobs
-    employer_jobs = await db.jobs.find(
+    # Get employer's active jobs (full data for scoring)
+    employer_jobs_full = await db.jobs.find(
         {"poster_id": current_user["id"], "status": {"$ne": "closed"}},
-        {"_id": 0, "id": 1, "title": 1}
+        {"_id": 0}
     ).to_list(100)
+    employer_jobs = [{"id": j["id"], "title": j.get("title", "")} for j in employer_jobs_full]
 
     # Get all seeker IDs already connected to this employer (via swipes or employer interest)
     job_ids = [j["id"] for j in employer_jobs]
@@ -1611,6 +1612,47 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
             {"candidate_id": seeker["id"], "verification_status": "verified"}
         )
         vault_count = await db.vault_documents.count_documents({"candidate_id": seeker["id"]})
+
+        # Score against all active jobs — take best match
+        best_score = 0
+        best_job_id = None
+        best_job_title = ""
+        match_reasons = []
+        for job in employer_jobs_full:
+            score = calculate_compatibility(profile, job)
+            if score > best_score:
+                best_score = score
+                best_job_id = job["id"]
+                best_job_title = job.get("title", "")
+
+        # Build match reasons from best job
+        if best_job_id:
+            best_job = next((j for j in employer_jobs_full if j["id"] == best_job_id), {})
+            spec = profile.get("specialty", "").lower()
+            job_spec = best_job.get("specialty", "").lower()
+            if spec and job_spec and (spec in job_spec or job_spec in spec):
+                short_title = best_job_title.split(" - ")[0] if " - " in best_job_title else best_job_title
+                match_reasons.append(f"Matches your {short_title.strip()[:30]} role")
+            locs = profile.get("preferred_locations", [])
+            job_loc = best_job.get("location", "")
+            if locs and job_loc and any(l.lower().split(",")[0] in job_loc.lower() for l in locs):
+                match_reasons.append("Near your location")
+            shift = profile.get("preferred_shift", "")
+            if shift:
+                match_reasons.append(f"Available for {shift.lower()}")
+            exp = profile.get("years_experience", 0)
+            req = best_job.get("experience_required", 0)
+            if exp and req and exp >= req:
+                match_reasons.append(f"Meets {req}+ yr requirement")
+
+        if not match_reasons:
+            if ref_count > 0:
+                match_reasons.append("Has verified references")
+            elif vault_count >= 3:
+                match_reasons.append("Compliance docs ready")
+            elif profile.get("years_experience", 0) >= 3:
+                match_reasons.append(f"{profile['years_experience']}+ years experience")
+
         pros.append({
             "id": seeker["id"],
             "full_name": seeker.get("full_name"),
@@ -1625,7 +1667,14 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
             "verified_references": ref_count,
             "vault_documents": vault_count,
             "profile_complete": seeker.get("profile_complete", False),
+            "match_score": best_score,
+            "best_job_id": best_job_id,
+            "best_job_title": best_job_title,
+            "match_reasons": match_reasons[:2],
         })
+
+    # Sort by match score descending — best matches first
+    pros.sort(key=lambda p: p["match_score"], reverse=True)
 
     return {"pros": pros, "jobs": employer_jobs}
 

@@ -153,8 +153,8 @@ const BrowseProsPage = () => {
     <DashboardLayout>
       <div data-testid="browse-pros-page" className="max-w-lg mx-auto space-y-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Browse Pros</h1>
-          <p className="text-xs text-muted-foreground">{remaining > 0 ? `${remaining} pros available` : "No more pros to browse"}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Top Pros for Your Jobs</h1>
+          <p className="text-xs text-muted-foreground">{remaining > 0 ? `${remaining} pros ranked by role, location & availability` : "No more pros to browse"}</p>
         </div>
 
         {!current ? (
@@ -226,12 +226,34 @@ const BrowseProsPage = () => {
                   </div>
                 )}
 
-                {/* "Why this Pro?" */}
-                {whyThisPro(current, jobs) && (
+                {/* "Why this Pro?" — server-ranked reasons */}
+                {current.match_reasons?.length > 0 && (
+                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-0.5">
+                    {current.match_reasons.map((r, i) => (
+                      <p key={i} data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                        <Star className="w-3 h-3 shrink-0" /> {r}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {!current.match_reasons?.length && whyThisPro(current, jobs) && (
                   <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
                     <p data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
                       <Star className="w-3 h-3 shrink-0" /> {whyThisPro(current, jobs)}
                     </p>
+                  </div>
+                )}
+
+                {/* Match score bar */}
+                {current.match_score > 0 && (
+                  <div className="mx-4 mb-3 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${current.match_score >= 70 ? "bg-green-500" : current.match_score >= 40 ? "bg-amber-500" : "bg-muted-foreground/30"}`}
+                        style={{ width: `${current.match_score}%` }}
+                      />
+                    </div>
+                    <span className="text-[9px] text-muted-foreground shrink-0">{current.match_score}% match</span>
                   </div>
                 )}
               </CardContent>
