@@ -799,7 +799,14 @@ def calculate_compatibility(seeker_profile: dict, job: dict) -> int:
     
     # Certifications match (15 points)
     max_score += 15
-    seeker_certs = [c.get('name', '').lower() for c in seeker_profile.get('certifications', [])]
+    # Handle certifications as either list of strings or list of objects with 'name' key
+    raw_certs = seeker_profile.get('certifications', [])
+    seeker_certs = []
+    for c in raw_certs:
+        if isinstance(c, str):
+            seeker_certs.append(c.lower())
+        elif isinstance(c, dict):
+            seeker_certs.append(c.get('name', '').lower())
     required_certs = [c.lower() for c in job.get('certifications_required', [])]
     if required_certs:
         matched_certs = sum(1 for rc in required_certs if any(rc in sc for sc in seeker_certs))

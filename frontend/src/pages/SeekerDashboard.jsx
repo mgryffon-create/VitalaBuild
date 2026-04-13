@@ -21,19 +21,22 @@ const SeekerDashboard = () => {
   const [recentMatches, setRecentMatches] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [jobsAvailable, setJobsAvailable] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [statsRes, docsRes, matchesRes, profileRes] = await Promise.all([
+      const [statsRes, docsRes, matchesRes, profileRes, jobsRes] = await Promise.all([
         axios.get(`${API}/stats`),
         axios.get(`${API}/documents/expiring`),
         axios.get(`${API}/matches`),
-        axios.get(`${API}/profile/seeker`).catch(() => ({ data: null }))
+        axios.get(`${API}/profile/seeker`).catch(() => ({ data: null })),
+        axios.get(`${API}/swipe/jobs`).catch(() => ({ data: [] })),
       ]);
       setStats(statsRes.data);
       setExpiringDocs(docsRes.data);
       setRecentMatches(matchesRes.data.slice(0, 3));
       setProfile(profileRes.data);
+      setJobsAvailable(Array.isArray(jobsRes.data) ? jobsRes.data.length : 0);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -98,7 +101,7 @@ const SeekerDashboard = () => {
             onClick={() => navigate("/seeker/swipe")}
             className="bg-primary hover:bg-primary/90 shadow-sm w-full sm:w-auto"
           >
-            Find Jobs <ArrowRight className="ml-2 w-4 h-4" />
+            Find Jobs {jobsAvailable > 0 && <Badge variant="secondary" className="ml-1.5 bg-white/20 text-primary-foreground text-[10px] h-5 px-1.5">{jobsAvailable}</Badge>}
           </Button>
         </div>
 
@@ -308,7 +311,7 @@ const SeekerDashboard = () => {
                 <Button
                   data-testid="manage-docs-btn"
                   variant="outline"
-                  onClick={() => navigate("/seeker/documents")}
+                  onClick={() => navigate("/seeker/vault")}
                   className="flex-1 sm:flex-none"
                 >
                   <Upload className="w-4 h-4 mr-2" /> Upload Documents

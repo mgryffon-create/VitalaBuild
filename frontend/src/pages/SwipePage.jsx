@@ -53,7 +53,9 @@ const SwipePage = () => {
         setMatchData({ ...response.data, card });
         setShowMatchDialog(true);
       } else if (action === "like") {
-        toast.success("Interest sent!");
+        toast.success(`Marked as interested!`, {
+          description: isSeeker ? `${card.title} — ${card.company_name || "Facility"}` : card.full_name,
+        });
       }
 
       setCurrentIndex((prev) => prev + 1);

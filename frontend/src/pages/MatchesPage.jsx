@@ -9,12 +9,13 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft } from "lucide-react";
+import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle } from "lucide-react";
 
 const STATUS_CONFIG = {
-  pending: { label: "Pending", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200" },
-  matched: { label: "Matched", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200" },
-  offer:   { label: "Offer",   className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200" },
+  pending:    { label: "Pending",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200", icon: Clock },
+  matched:    { label: "Matched",    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200", icon: CheckCircle },
+  offer_sent: { label: "Offer Sent", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Send },
+  offer:      { label: "Offer Sent", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Send },
 };
 
 const MatchesPage = () => {
@@ -87,6 +88,13 @@ const MatchesPage = () => {
   };
 
   const items = isSeeker ? applications : legacyMatches;
+
+  // Status counts for seeker
+  const statusCounts = isSeeker ? {
+    pending: applications.filter(a => a.status === "pending").length,
+    matched: applications.filter(a => a.status === "matched").length,
+    offer: applications.filter(a => a.status === "offer" || a.status === "offer_sent").length,
+  } : null;
 
   if (loading) {
     return (
@@ -260,7 +268,22 @@ const MatchesPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="matches-page">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-4">Matches</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Matches</h1>
+
+        {/* Status summary for seekers */}
+        {isSeeker && items.length > 0 && statusCounts && (
+          <div data-testid="matches-status-summary" className="flex gap-2 mb-4 overflow-x-auto pb-1">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 whitespace-nowrap">
+              <Clock className="w-3 h-3" /> Pending: {statusCounts.pending}
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 whitespace-nowrap">
+              <CheckCircle className="w-3 h-3" /> Matched: {statusCounts.matched}
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 whitespace-nowrap">
+              <Send className="w-3 h-3" /> Offers: {statusCounts.offer}
+            </div>
+          </div>
+        )}
 
         {items.length === 0 ? (
           <Card>
