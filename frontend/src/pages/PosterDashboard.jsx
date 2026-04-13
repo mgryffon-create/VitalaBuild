@@ -52,16 +52,47 @@ const PosterDashboard = () => {
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
+
+      // Compute exclusive stage counts — each pro exists in exactly ONE stage
+      const allCandidates = Array.isArray(candidatesRes.data) ? candidatesRes.data : [];
+      const allOffers = Array.isArray(offersRes.data) ? offersRes.data : [];
+      const allCases = Array.isArray(onbRes.data) ? onbRes.data : [];
+
+      // Onboarding: active cases (not cleared/completed/rejected)
+      const activeOnboarding = allCases.filter(c =>
+        c.status !== "cleared" && c.status !== "completed" && c.status !== "rejected"
+      );
+      const onboardingSeekerIds = new Set(activeOnboarding.map(c => c.candidate_id));
+
+      // Offers: only pending offers, excluding pros already in onboarding
+      const activeOfferSeekerIds = new Set(
+        allOffers
+          .filter(o => o.status === "pending" && !onboardingSeekerIds.has(o.seeker_id))
+          .map(o => o.seeker_id)
+      );
+
+      // From candidates: applicants = pending (not in any later stage)
+      // matched = matched status AND not in offers/onboarding
+      const applicants = allCandidates.filter(c =>
+        c.status === "pending" &&
+        !activeOfferSeekerIds.has(c.seeker_id) &&
+        !onboardingSeekerIds.has(c.seeker_id)
+      );
+      const matched = allCandidates.filter(c =>
+        c.status === "matched" &&
+        !activeOfferSeekerIds.has(c.seeker_id) &&
+        !onboardingSeekerIds.has(c.seeker_id)
+      );
+
       setCandidateCounts({
-        total: candidatesRes.data.length,
-        applicants: candidatesRes.data.filter(c => c.status === "pending").length,
-        matched: candidatesRes.data.filter(c => c.status === "matched").length,
+        total: allCandidates.length,
+        applicants: applicants.length,
+        matched: matched.length,
       });
-      setOfferCount(offersRes.data.length);
+      setOfferCount(activeOfferSeekerIds.size);
       setVerificationStatus(verifyRes.data);
-      const cases = Array.isArray(onbRes.data) ? onbRes.data : [];
-      setOnboardingCases(cases);
-      setOnboardingCount(cases.filter(c => c.status !== "cleared" && c.status !== "rejected").length);
+      setOnboardingCases(allCases);
+      setOnboardingCount(activeOnboarding.length);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
