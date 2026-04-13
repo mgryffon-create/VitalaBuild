@@ -272,13 +272,13 @@ const PosterDashboard = () => {
         <section data-testid="section-hiring-flow">
           <div className="mb-2">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Hiring Flow</h2>
-            <p className="text-[10px] text-muted-foreground">Active pros across all jobs</p>
+            <p className="text-[10px] text-muted-foreground">Current pros in each hiring stage</p>
           </div>
           <div className="flex items-stretch rounded-xl border bg-card overflow-hidden">
             <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-applicants" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
               <p className="text-[10px] font-semibold text-foreground">Applicants</p>
               <p className="text-lg font-bold text-amber-600 leading-tight">{candidateCounts.applicants}</p>
-              <p className="text-[8px] text-muted-foreground">Interested pros</p>
+              <p className="text-[8px] text-muted-foreground">Interested now</p>
             </button>
             <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/messages")} data-testid="flow-matches" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
@@ -290,13 +290,13 @@ const PosterDashboard = () => {
             <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
               <p className="text-[10px] font-semibold text-foreground">Offers</p>
               <p className="text-lg font-bold text-purple-600 leading-tight">{offerCount}</p>
-              <p className="text-[8px] text-muted-foreground">Offers sent</p>
+              <p className="text-[8px] text-muted-foreground">Pending offers</p>
             </button>
             <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/compliance")} data-testid="flow-onboarding" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors min-w-0">
               <p className="text-[10px] font-semibold text-foreground">Onboarding</p>
               <p className="text-lg font-bold text-emerald-600 leading-tight">{onboardingCount}</p>
-              <p className="text-[8px] text-muted-foreground">Hires in progress</p>
+              <p className="text-[8px] text-muted-foreground">Active onboarding</p>
             </button>
           </div>
         </section>
