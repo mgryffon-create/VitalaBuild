@@ -14,16 +14,17 @@ import {
   AlertTriangle, Bell, Zap
 } from "lucide-react";
 
+// UI stages — "interviewing" is hidden, merged visually into "Matches"
 const STAGES = [
   { id: "interested", label: "Applicants", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-  { id: "matched", label: "Matched", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
-  { id: "interviewing", label: "Interviewing", color: "border-blue-400", bg: "bg-blue-50 dark:bg-blue-950/20", badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
-  { id: "offer_sent", label: "Offer Sent", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
+  { id: "matched", label: "Matches", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", merges: ["interviewing"] },
+  { id: "offer_sent", label: "Offers", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
   { id: "hired", label: "Onboarding", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
 ];
 
-const NEXT_STAGE = { interested: "matched", matched: "interviewing", interviewing: "offer_sent", offer_sent: "hired" };
-const NEXT_LABEL = { interested: "Match", matched: "Interview", interviewing: "Send Offer", offer_sent: "Hire" };
+// Backend stages still flow through "interviewing" — UI skips it visually
+const NEXT_STAGE = { interested: "matched", matched: "offer_sent", offer_sent: "hired" };
+const NEXT_LABEL = { interested: "Match", matched: "Send Offer", offer_sent: "Onboard" };
 
 const NudgeBanner = ({ nudges, onAction }) => {
   if (!nudges?.length) return null;
@@ -162,6 +163,24 @@ const HiringPipelinePage = () => {
   const stats = data.stats || {};
   const nudgeIds = new Set(nudges.map((n) => n.candidate_id));
 
+  // Merge backend stage data: "interviewing" cards fold into the "matched" UI column
+  const mergedCandidates = {};
+  for (const stage of STAGES) {
+    const base = data.candidates?.[stage.id] || [];
+    const merged = stage.merges
+      ? [...base, ...(stage.merges.flatMap(m => data.candidates?.[m] || []))]
+      : base;
+    mergedCandidates[stage.id] = merged;
+  }
+
+  // Merged stats for the pills
+  const mergedStats = {};
+  for (const stage of STAGES) {
+    const base = stats[stage.id] || 0;
+    const extra = stage.merges ? stage.merges.reduce((sum, m) => sum + (stats[m] || 0), 0) : 0;
+    mergedStats[stage.id] = base + extra;
+  }
+
   return (
     <DashboardLayout>
       <div data-testid="hiring-pipeline-page" className="space-y-4">
@@ -183,7 +202,7 @@ const HiringPipelinePage = () => {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STAGES.map((s) => (
             <div key={s.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${s.badge}`}>
-              {s.label}: {stats[s.id] || 0}
+              {s.label}: {mergedStats[s.id] || 0}
             </div>
           ))}
         </div>
@@ -191,7 +210,7 @@ const HiringPipelinePage = () => {
         {/* Kanban Board */}
         <div className="flex gap-3 overflow-x-auto pb-4 snap-x" style={{ minHeight: "calc(100vh - 16rem)" }}>
           {STAGES.map((stage) => {
-            const cards = data.candidates?.[stage.id] || [];
+            const cards = mergedCandidates[stage.id] || [];
             return (
               <div
                 key={stage.id}

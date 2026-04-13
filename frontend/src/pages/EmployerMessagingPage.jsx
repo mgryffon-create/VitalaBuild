@@ -18,9 +18,17 @@ import {
 const STAGE_BADGE = {
   interested: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   matched: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  interviewing: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  interviewing: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   offer_sent: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   hired: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+};
+
+const STAGE_LABEL = {
+  interested: "Applicant",
+  matched: "Match",
+  interviewing: "Match",
+  offer_sent: "Offer",
+  hired: "Onboarding",
 };
 
 const TEMPLATES = [
@@ -297,7 +305,12 @@ const EmployerMessagingPage = () => {
     }
   };
 
-  const filtered = filter === "all" ? conversations : conversations.filter((c) => c.stage === filter);
+  // Filter: "matched" filter includes "interviewing" stage (merged visually)
+  const filtered = filter === "all"
+    ? conversations
+    : filter === "matched"
+      ? conversations.filter((c) => c.stage === "matched" || c.stage === "interviewing")
+      : conversations.filter((c) => c.stage === filter);
   const nudgeMap = new Map(nudges.map(n => [n.candidate_id, n]));
   const selectedNudge = selected ? nudgeMap.get(selected.candidate_id) : null;
   const selectedExtLink = selected?.job_id ? jobExtLinks[selected.job_id] : null;
@@ -315,7 +328,7 @@ const EmployerMessagingPage = () => {
           {/* Left: Conversation list */}
           <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col border rounded-l-xl bg-card ${selected ? "hidden lg:flex" : "flex"}`}>
             <div className="p-2 border-b flex gap-1 overflow-x-auto">
-              {[{ id: "all", label: "All" }, { id: "interested", label: "Applicants" }, { id: "matched", label: "Matched" }, { id: "interviewing", label: "Interview" }].map((f) => (
+              {[{ id: "all", label: "All" }, { id: "interested", label: "Applicants" }, { id: "matched", label: "Matches" }, { id: "offer_sent", label: "Offers" }].map((f) => (
                 <button key={f.id} onClick={() => setFilter(f.id)} data-testid={`filter-${f.id}`} className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${filter === f.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                   {f.label}
                 </button>
@@ -344,7 +357,7 @@ const EmployerMessagingPage = () => {
                           <p className="text-[10px] text-muted-foreground truncate">{c.specialty || "Healthcare Professional"}</p>
                           {c.last_message && <p className="text-[9px] text-muted-foreground truncate mt-0.5">{c.last_message.content}</p>}
                         </div>
-                        <Badge variant="outline" className={`text-[8px] shrink-0 ${STAGE_BADGE[c.stage] || ""}`}>{c.stage?.replace(/_/g, " ")}</Badge>
+                        <Badge variant="outline" className={`text-[8px] shrink-0 ${STAGE_BADGE[c.stage] || ""}`}>{STAGE_LABEL[c.stage] || c.stage}</Badge>
                       </div>
                     </button>
                   );
@@ -368,7 +381,7 @@ const EmployerMessagingPage = () => {
                   <p className="text-sm font-medium text-foreground truncate">{selected.name}</p>
                   <p className="text-[10px] text-muted-foreground">{selected.specialty}</p>
                 </div>
-                <Badge variant="outline" className={`text-[9px] ${STAGE_BADGE[selected.stage] || ""}`}>{selected.stage?.replace(/_/g, " ")}</Badge>
+                <Badge variant="outline" className={`text-[9px] ${STAGE_BADGE[selected.stage] || ""}`}>{STAGE_LABEL[selected.stage] || selected.stage}</Badge>
                 <Button variant="ghost" size="icon" className="hidden lg:flex h-8 w-8" onClick={() => setShowContext(!showContext)} data-testid="toggle-context-btn">
                   {showContext ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                 </Button>
@@ -424,7 +437,7 @@ const EmployerMessagingPage = () => {
                   </button>
                 ))}
                 {selected.stage !== "hired" && (
-                  <button onClick={() => moveStage(selected.stage === "interested" ? "matched" : selected.stage === "matched" ? "interviewing" : "offer_sent")} data-testid="advance-stage-btn" className="px-2 py-1 rounded-full bg-primary/10 text-[9px] font-medium text-primary whitespace-nowrap shrink-0">
+                  <button onClick={() => moveStage(selected.stage === "interested" ? "matched" : (selected.stage === "matched" || selected.stage === "interviewing") ? "offer_sent" : "hired")} data-testid="advance-stage-btn" className="px-2 py-1 rounded-full bg-primary/10 text-[9px] font-medium text-primary whitespace-nowrap shrink-0">
                     Advance Stage <ChevronRight className="w-2.5 h-2.5 inline" />
                   </button>
                 )}
