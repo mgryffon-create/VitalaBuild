@@ -182,7 +182,7 @@ const SwipePage = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="swipe-page" className="max-w-lg mx-auto">
+      <div data-testid="swipe-page" className="max-w-lg lg:max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
@@ -222,10 +222,10 @@ const SwipePage = () => {
         ) : (
           <>
             {/* Card Stack */}
-            <div className="relative w-full pb-28 sm:pb-4" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 320px))" }}>
+            <div className="relative w-full pb-28 sm:pb-4 lg:pb-2" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 320px))" }}>
               <AnimatePresence>
-                {cards.slice(currentIndex, currentIndex + 2).reverse().map((card, idx) => {
-                  const stackLen = Math.min(2, cards.length - currentIndex);
+                {cards.slice(currentIndex, currentIndex + 3).reverse().map((card, idx) => {
+                  const stackLen = Math.min(3, cards.length - currentIndex);
                   const isTop = idx === stackLen - 1;
                   return (
                     <JobCard
@@ -244,62 +244,62 @@ const SwipePage = () => {
             </div>
 
             {/* Action Buttons */}
-            <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto">
-              <div className="flex justify-center items-center gap-3 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
+            <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto sm:mt-6">
+              <div className="flex justify-center items-center gap-3 lg:gap-5 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
                 {/* Rewind */}
                 <div className="flex flex-col items-center">
                   <Button
                     data-testid="rewind-btn"
                     size="lg"
                     variant="outline"
-                    className={`w-10 h-10 rounded-full border-2 transition-all ${lastSwipedIndex !== null ? "border-blue-400 text-blue-500 hover:bg-blue-50" : "border-muted-foreground/20 text-muted-foreground/30 cursor-not-allowed"}`}
+                    className={`w-10 h-10 lg:w-12 lg:h-12 rounded-full border-2 transition-all ${lastSwipedIndex !== null ? "border-blue-400 text-blue-500 hover:bg-blue-50" : "border-muted-foreground/20 text-muted-foreground/30 cursor-not-allowed"}`}
                     onClick={handleRewind}
                     disabled={lastSwipedIndex === null || expanded}
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <RotateCcw className="w-4 h-4 lg:w-5 lg:h-5" />
                   </Button>
-                  <span className="text-[10px] text-muted-foreground mt-1">Undo</span>
+                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1">Undo</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <Button
                     data-testid="pass-btn"
                     size="lg"
                     variant="outline"
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white active:scale-90 transition-all"
+                    className="w-14 h-14 sm:w-16 sm:h-16 lg:w-[4.5rem] lg:h-[4.5rem] rounded-full border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-white active:scale-90 transition-all"
                     onClick={() => handleAction("pass")}
                     disabled={expanded}
                   >
-                    <X className="w-6 h-6 sm:w-7 sm:h-7" />
+                    <X className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" />
                   </Button>
-                  <span className="text-[10px] text-muted-foreground mt-1">Pass</span>
+                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1">Pass</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <Button
                     data-testid="expand-btn"
                     size="lg"
                     variant="outline"
-                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all ${
+                    className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-full border-2 transition-all ${
                       expanded
                         ? "border-primary bg-primary text-white"
                         : "border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary"
                     }`}
                     onClick={() => setExpanded(!expanded)}
                   >
-                    <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform ${expanded ? "" : "rotate-180"}`} />
+                    <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 transition-transform ${expanded ? "" : "rotate-180"}`} />
                   </Button>
-                  <span className="text-[10px] text-muted-foreground mt-1">Details</span>
+                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1">Details</span>
                 </div>
                 <div className="flex flex-col items-center">
                   <Button
                     data-testid="interested-btn"
                     size="lg"
-                    className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-full bg-green-500 hover:bg-green-600 text-white active:scale-90 transition-all shadow-xl shadow-green-500/30"
+                    className="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] lg:w-20 lg:h-20 rounded-full bg-green-500 hover:bg-green-600 text-white active:scale-90 transition-all shadow-xl shadow-green-500/30"
                     onClick={() => handleAction("like")}
                     disabled={expanded}
                   >
-                    <Heart className="w-7 h-7" />
+                    <Heart className="w-7 h-7 lg:w-9 lg:h-9" />
                   </Button>
-                  <span className="text-[10px] font-semibold text-green-600 mt-1">Interested</span>
+                  <span className="text-[10px] lg:text-xs font-semibold text-green-600 mt-1">Interested</span>
                 </div>
               </div>
             </div>
@@ -357,9 +357,10 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       style={{
         x: isTop && !expanded ? x : 0,
         rotate: isTop && !expanded ? rotate : 0,
-        scale: 1 - stackOffset * 0.04,
-        y: expanded ? 0 : stackOffset * 8,
+        scale: 1 - stackOffset * 0.035,
+        y: expanded ? 0 : stackOffset * 10,
         zIndex: 10 - stackOffset,
+        opacity: stackOffset >= 2 ? 0.5 : 1,
       }}
       drag={isTop && !expanded}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
@@ -367,7 +368,7 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       layout
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(420px,calc(100vh-320px))] sm:h-[440px]"}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${stackOffset > 0 ? "shadow-md" : "shadow-xl lg:shadow-2xl"} ${expanded ? "" : "h-[min(420px,calc(100vh-320px))] sm:h-[440px] lg:h-[min(480px,calc(100vh-300px))]"}`}>
         {/* Swipe indicators */}
         {isTop && !expanded && (
           <>
@@ -413,27 +414,27 @@ const SeekerViewContent = ({ card, expanded }) => {
   return (
     <div>
       {/* Top tinted section */}
-      <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-green-50/60 to-transparent dark:from-green-900/10 dark:to-transparent">
+      <div className="px-5 pt-5 pb-4 lg:px-7 lg:pt-7 lg:pb-5 bg-gradient-to-b from-green-50/60 to-transparent dark:from-green-900/10 dark:to-transparent">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             {weeklyPay && (
-              <p data-testid="job-pay" className="text-2xl sm:text-3xl font-extrabold text-green-600 tracking-tight leading-none">{weeklyPay}</p>
+              <p data-testid="job-pay" className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-green-600 tracking-tight leading-none">{weeklyPay}</p>
             )}
-            {breakdown && <p className="text-xs text-muted-foreground mt-0.5">{breakdown}</p>}
-            <h2 data-testid="job-title" className={`font-bold text-foreground leading-tight ${weeklyPay ? "text-base mt-2" : "text-xl"}`}>{title}</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
+            {breakdown && <p className="text-xs lg:text-sm text-muted-foreground mt-0.5">{breakdown}</p>}
+            <h2 data-testid="job-title" className={`font-bold text-foreground leading-tight ${weeklyPay ? "text-base lg:text-lg mt-2" : "text-xl lg:text-2xl"}`}>{title}</h2>
+            <p className="text-sm lg:text-base text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
           </div>
           {match && (
-            <div data-testid="match-tier-badge" className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-center ${match.cls}`}>
-              <span className="text-xs font-bold">{match.text}</span>
+            <div data-testid="match-tier-badge" className={`shrink-0 px-2.5 py-1.5 lg:px-3 lg:py-2 rounded-lg border text-center ${match.cls}`}>
+              <span className="text-xs lg:text-sm font-bold">{match.text}</span>
             </div>
           )}
         </div>
         {/* Why this job — reason line */}
         {reasons.length > 0 && (
-          <div data-testid="match-reasons" className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+          <div data-testid="match-reasons" className="mt-2 lg:mt-3 flex flex-wrap gap-x-3 gap-y-0.5">
             {reasons.map((r, i) => (
-              <span key={i} className="text-xs text-muted-foreground flex items-center gap-1">
+              <span key={i} className="text-xs lg:text-sm text-muted-foreground flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-primary/60 shrink-0" />{r}
               </span>
             ))}
@@ -441,7 +442,7 @@ const SeekerViewContent = ({ card, expanded }) => {
         )}
       </div>
 
-      <div className="px-5 pb-5">
+      <div className="px-5 pb-5 lg:px-7 lg:pb-6">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <MapPin className="w-3.5 h-3.5 shrink-0" /><span>{card.location || "Location TBD"}</span>
         </div>
