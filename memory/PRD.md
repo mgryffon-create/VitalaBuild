@@ -9,30 +9,21 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Desktop Swipe Layout Fix (April 2025)
+- Flex column layout on desktop: `lg:flex lg:flex-col lg:h-[calc(100vh-160px)]`
+- Card stack uses `lg:flex-1 lg:overflow-hidden` to constrain height within flex
+- Action bar uses `lg:shrink-0 lg:pt-5 lg:pb-2` — guaranteed visible, never clipped
+- Card height: `lg:h-[min(440px,calc(100vh-300px))]` — substantial but leaves room for buttons
+- Verified: all 4 buttons + labels bottom < 742px in 800px viewport
+
 ### Phase 2: Desktop Swipe Experience (April 2025)
-- Container widened to max-w-2xl (672px) on desktop via `lg:` breakpoint
-- Card height increased: `lg:h-[min(480px,calc(100vh-300px))]`
-- 3-card visible stack (from 2) with 10px offset, 0.035 scale, 0.5 opacity on 3rd card
-- Action buttons enlarged: Interested 80px, Pass 72px, Details 56px, Undo 48px
-- Card content text scales up: pay lg:text-4xl, title lg:text-lg, badge lg:text-sm
-- Top card shadow-2xl on desktop, background cards shadow-md
-- Mobile layout completely unchanged (all desktop-only via `lg:` prefix)
+- Container max-w-2xl on desktop, 3-card stack, enlarged buttons, scaled text, shadow depth
 
 ### Phase 2: Offer Acceptance Guardrails (April 2025)
-- Conflict detection engine, hard blocks + soft warnings, 409 acceptance blocking
-- Enriched employment records with end_date, shift_type, location, job_type
+- Conflict detection, hard blocks + soft warnings, 409 acceptance blocking, enriched employment records
 
-### Phase 2: Card Polish (April 2025)
-- Confident reason lines, description de-emphasis, chip hierarchy, human date formatting
-
-### Phase 2: Tiered Matching (April 2025)
-- 3-tier classification, 7-dimension scoring, Expand Search
-
-### Phase 2: Structured Pay (April 2025)
-- Structured pay fields, auto-calculated weekly pay, pay range validation
-
-### Phase 2: All Prior Features
-- Job posting quality gate, job card redesign, document vault, global autocomplete, work history editing, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
+### Phase 2: Card Polish, Tiered Matching, Structured Pay, Quality Gates, Prior Features
+- (See previous versions for full detail)
 
 ## Test Accounts
 | Role | Email | Password |
