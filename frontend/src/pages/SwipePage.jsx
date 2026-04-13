@@ -112,7 +112,7 @@ const SwipePage = () => {
         ) : (
           <>
             {/* Card Stack */}
-            <div className="relative w-full mb-4 sm:mb-6" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 280px))" }}>
+            <div className="relative w-full pb-28 sm:pb-4" style={{ minHeight: expanded ? "auto" : "min(380px, calc(100vh - 340px))" }}>
               <AnimatePresence>
                 {cards.slice(currentIndex, currentIndex + 2).reverse().map((card, idx) => {
                   const stackLen = Math.min(2, cards.length - currentIndex);
@@ -133,47 +133,48 @@ const SwipePage = () => {
               </AnimatePresence>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-6">
-              <Button
-                data-testid="pass-btn"
-                size="lg"
-                variant="outline"
-                className="w-16 h-16 rounded-full border-2 border-destructive/60 text-destructive hover:bg-destructive hover:text-white transition-all"
-                onClick={() => handleAction("pass")}
-                disabled={expanded}
-              >
-                <X className="w-7 h-7" />
-              </Button>
-              <Button
-                data-testid="expand-btn"
-                size="lg"
-                variant="outline"
-                className={`w-12 h-12 rounded-full border-2 self-center transition-all ${
-                  expanded
-                    ? "border-primary bg-primary text-white"
-                    : "border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary"
-                }`}
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-              </Button>
-              <Button
-                data-testid="interested-btn"
-                size="lg"
-                className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 text-white transition-all shadow-lg shadow-green-500/20"
-                onClick={() => handleAction("like")}
-                disabled={expanded}
-              >
-                <Heart className="w-7 h-7" />
-              </Button>
-            </div>
-
-            {/* Labels */}
-            <div className="flex justify-center gap-6 mt-2">
-              <span className="text-xs text-muted-foreground w-16 text-center">Pass</span>
-              <span className="text-xs text-muted-foreground w-12 text-center">Details</span>
-              <span className="text-xs text-muted-foreground w-16 text-center">Interested</span>
+            {/* Action Buttons — fixed on mobile, inline on desktop */}
+            <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto">
+              <div className="flex justify-center items-center gap-5 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
+                <Button
+                  data-testid="pass-btn"
+                  size="lg"
+                  variant="outline"
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-destructive/50 text-destructive hover:bg-destructive hover:text-white active:scale-90 transition-all"
+                  onClick={() => handleAction("pass")}
+                  disabled={expanded}
+                >
+                  <X className="w-6 h-6 sm:w-7 sm:h-7" />
+                </Button>
+                <Button
+                  data-testid="expand-btn"
+                  size="lg"
+                  variant="outline"
+                  className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all ${
+                    expanded
+                      ? "border-primary bg-primary text-white"
+                      : "border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary"
+                  }`}
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expanded ? <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5" /> : <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5" />}
+                </Button>
+                <Button
+                  data-testid="interested-btn"
+                  size="lg"
+                  className="w-[4.5rem] h-[4.5rem] sm:w-16 sm:h-16 rounded-full bg-green-500 hover:bg-green-600 text-white active:scale-90 transition-all shadow-xl shadow-green-500/30"
+                  onClick={() => handleAction("like")}
+                  disabled={expanded}
+                >
+                  <Heart className="w-7 h-7 sm:w-7 sm:h-7" />
+                </Button>
+              </div>
+              {/* Labels */}
+              <div className="flex justify-center items-center gap-5 px-6 sm:mt-2">
+                <span className="text-[10px] text-muted-foreground w-14 sm:w-16 text-center">Pass</span>
+                <span className="text-[10px] text-muted-foreground w-10 sm:w-12 text-center">Details</span>
+                <span className="text-[10px] text-muted-foreground w-[4.5rem] sm:w-16 text-center font-semibold text-green-600">Interested</span>
+              </div>
             </div>
           </>
         )}
@@ -247,7 +248,7 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       layout
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(420px,calc(100vh-280px))] sm:h-[520px]"}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${expanded ? "" : "h-[min(380px,calc(100vh-340px))] sm:h-[400px]"}`}>
         {/* Swipe indicators */}
         {isTop && !expanded && (
           <>
