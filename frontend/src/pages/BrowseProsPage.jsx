@@ -98,13 +98,54 @@ const getHighlights = (pro) => {
 
 const CLINICAL_CERTS_SET = new Set(["bls", "acls", "pals", "nrp", "tncc", "ccrn", "cen", "cnl"]);
 
+// Filter bio: remove generic filler, return clean text or null
+const cleanBio = (bio) => {
+  if (!bio) return null;
+  const lines = bio.split(/[.\n]/).map(s => s.trim()).filter(s => s.length > 5);
+  const filtered = lines.filter(s => {
+    const l = s.toLowerCase();
+    return !l.match(/^(rn|lpn|cna|nurse|healthcare)\s+(with|having)\s+\d/) &&
+      !l.match(/^\d+\s*years?\s*(of\s+)?experience/) &&
+      !l.match(/^seeking\s/) && !l.match(/^looking\s+for\s/);
+  });
+  return filtered.length > 0 ? filtered.join(". ").trim() + (filtered[filtered.length - 1].endsWith(".") ? "" : ".") : null;
+};
+
+// Filter highlights: remove role/experience duplicates
+const cleanHighlights = (highlights, specialty, years) => {
+  if (!highlights?.length) return [];
+  const role = (specialty || "").toLowerCase();
+  return highlights.filter(h => {
+    const l = h.toLowerCase();
+    return !l.match(/^(rn|lpn|cna|nurse)\s+(with|having)\s+\d/) &&
+      !l.match(/^\d+\s*years?\s*(of\s+)?experience/) &&
+      !l.match(/^seeking\s/) && l.length > 3;
+  }).slice(0, 5);
+};
+
 const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) => {
   if (!pro) return null;
   const tier = TIER_BADGE[pro.match_tier] || TIER_BADGE.none;
-  const certs = (pro.certifications || []).map(c => typeof c === "string" ? { name: c } : c).filter(c => c?.name);
+
+  // Clean data
+  const filteredBio = cleanBio(pro.bio);
+  const rawHighlights = pro.experience_highlights?.length > 0 ? pro.experience_highlights : getHighlights(pro);
+  const highlights = cleanHighlights(rawHighlights, pro.specialty, pro.years_experience);
+
+  // Licenses: only from structured licenses array
   const profileLicenses = (pro.licenses || []).filter(l => l?.name);
-  const clinicalCerts = certs.filter(c => CLINICAL_CERTS_SET.has(c.name?.toLowerCase()));
-  const otherCerts = certs.filter(c => !CLINICAL_CERTS_SET.has(c.name?.toLowerCase()) && !profileLicenses.some(l => l.name === c.name));
+  // Certifications: only clinical, from certifications array
+  const allCerts = (pro.certifications || []).map(c => typeof c === "string" ? { name: c } : c).filter(c => c?.name);
+  const clinicalCerts = allCerts.filter(c => CLINICAL_CERTS_SET.has(c.name?.toLowerCase()));
+
+  // Work preferences: only show fields that have values
+  const hasPrefs = pro.preferred_locations?.length > 0 || pro.preferred_shift || pro.travel_readiness || pro.job_type_preference;
+  const hasSkills = pro.skills?.length > 0;
+
+  // Verification: only show if positive
+  const isVerified = pro.verified_references > 0;
+  const isCompliant = pro.vault_documents >= 3;
+  const hasVerification = isVerified || isCompliant;
 
   return (
     <div data-testid="pro-profile-view" className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -120,7 +161,7 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
       {/* Scrollable content */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-5 pb-28">
-          {/* Identity */}
+          {/* 1. Identity */}
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
               {pro.full_name?.charAt(0) || "?"}
@@ -141,38 +182,33 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
             </div>
           </div>
 
-          {/* Professional Summary */}
-          {pro.bio && (
+          {/* 2. Key Highlights (always first after identity) */}
+          {highlights.length > 0 && (
             <section>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Professional Summary</h3>
-              <p className="text-sm text-foreground/80 leading-relaxed">{pro.bio}</p>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Highlights</h3>
+              <ul className="space-y-1">
+                {highlights.map((b, i) => (
+                  <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
+                    <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
-          {/* Experience Highlights — prefer structured data */}
-          {(() => {
-            const highlights = pro.experience_highlights?.length > 0
-              ? [...pro.experience_highlights]
-              : getHighlights(pro);
-            return highlights.length > 0 ? (
-              <section>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Experience Highlights</h3>
-                <ul className="space-y-1">
-                  {highlights.slice(0, 5).map((b, i) => (
-                    <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
-                      <span className="text-primary mt-0.5 shrink-0">&bull;</span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null;
-          })()}
-
-          {/* Licenses & Certifications */}
-          {(profileLicenses.length > 0 || certs.length > 0) && (
+          {/* 3. Professional Summary — only if meaningful after filtering */}
+          {filteredBio && (
             <section>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Licenses & Certifications</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">About</h3>
+              <p className="text-sm text-foreground/80 leading-relaxed">{filteredBio}</p>
+            </section>
+          )}
+
+          {/* 4. Licenses & Certifications — only if data exists */}
+          {(profileLicenses.length > 0 || clinicalCerts.length > 0) && (
+            <section>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Credentials</h3>
               <div className="space-y-2">
                 {profileLicenses.length > 0 && (
                   <div>
@@ -181,7 +217,6 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
                       {profileLicenses.map((l, i) => (
                         <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-medium">
                           {l.name}{l.state ? ` (${l.state})` : ""}
-                          {l.expiration && <span className="text-[9px] text-muted-foreground ml-1">exp {l.expiration}</span>}
                         </span>
                       ))}
                     </div>
@@ -189,7 +224,7 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
                 )}
                 {clinicalCerts.length > 0 && (
                   <div>
-                    <p className="text-[10px] text-muted-foreground mb-1">Clinical Certifications</p>
+                    <p className="text-[10px] text-muted-foreground mb-1">Certifications</p>
                     <div className="flex flex-wrap gap-1.5">
                       {clinicalCerts.map((c, i) => (
                         <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 font-medium">
@@ -203,63 +238,38 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
             </section>
           )}
 
-          {/* Verification & Compliance */}
-          <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Verification & Compliance</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${pro.verified_references > 0 ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" : "bg-muted/50 border-transparent"}`}>
-                <BadgeCheck className={`w-4 h-4 ${pro.verified_references > 0 ? "text-green-600" : "text-muted-foreground"}`} />
-                <div>
-                  <p className="text-[11px] font-medium text-foreground">{pro.verified_references > 0 ? "Verified Pro" : "Not Yet Verified"}</p>
-                  <p className="text-[9px] text-muted-foreground">{pro.verified_references} verified ref{pro.verified_references !== 1 ? "s" : ""}</p>
-                </div>
+          {/* 5. Work Preferences — only show populated fields */}
+          {(hasPrefs || hasSkills) && (
+            <section>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Work Preferences</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {pro.preferred_locations?.length > 0 && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div><p className="text-[10px] text-muted-foreground">Location</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_locations.join(", ")}</p></div>
+                  </div>
+                )}
+                {pro.preferred_shift && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                    <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div><p className="text-[10px] text-muted-foreground">Shift</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_shift}</p></div>
+                  </div>
+                )}
+                {pro.travel_readiness && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div><p className="text-[10px] text-muted-foreground">Travel</p><p className="text-[11px] font-medium text-foreground">{pro.travel_readiness}</p></div>
+                  </div>
+                )}
+                {pro.job_type_preference && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                    <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div><p className="text-[10px] text-muted-foreground">Job Type</p><p className="text-[11px] font-medium text-foreground">{pro.job_type_preference}</p></div>
+                  </div>
+                )}
               </div>
-              <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${pro.vault_documents >= 3 ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800" : "bg-muted/50 border-transparent"}`}>
-                <CircleCheck className={`w-4 h-4 ${pro.vault_documents >= 3 ? "text-blue-600" : "text-muted-foreground"}`} />
-                <div>
-                  <p className="text-[11px] font-medium text-foreground">{pro.vault_documents >= 3 ? "Compliance Ready" : "Docs In Progress"}</p>
-                  <p className="text-[9px] text-muted-foreground">{pro.vault_documents} document{pro.vault_documents !== 1 ? "s" : ""} uploaded</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Work Preferences */}
-          <section>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Work Preferences</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {pro.preferred_locations?.length > 0 && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
-                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Location</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_locations.join(", ")}</p></div>
-                </div>
-              )}
-              {pro.preferred_shift && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
-                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Shift</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_shift}</p></div>
-                </div>
-              )}
-              {pro.years_experience && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
-                  <Award className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Experience</p><p className="text-[11px] font-medium text-foreground">{pro.years_experience} years</p></div>
-                </div>
-              )}
-              {pro.travel_readiness && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
-                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Travel</p><p className="text-[11px] font-medium text-foreground">{pro.travel_readiness}</p></div>
-                </div>
-              )}
-              {pro.job_type_preference && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
-                  <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Job Type</p><p className="text-[11px] font-medium text-foreground">{pro.job_type_preference}</p></div>
-                </div>
-              )}
-              {pro.skills?.length > 0 && (
-                <div className="col-span-2">
+              {hasSkills && (
+                <div className="mt-2">
                   <p className="text-[10px] text-muted-foreground mb-1.5">Clinical Skills</p>
                   <div className="flex flex-wrap gap-1.5">
                     {pro.skills.slice(0, 4).map((s, i) => (
@@ -273,11 +283,26 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
                   </div>
                 </div>
               )}
-            </div>
-            {!pro.preferred_locations?.length && !pro.preferred_shift && !pro.travel_readiness && !pro.job_type_preference && (
-              <p className="text-[11px] text-muted-foreground mt-1">No preferences specified yet</p>
-            )}
-          </section>
+            </section>
+          )}
+
+          {/* 6. Verification — only show positive signals */}
+          {hasVerification && (
+            <section>
+              <div className="flex items-center gap-2">
+                {isVerified && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-[11px] font-medium text-green-700 dark:text-green-400">
+                    <BadgeCheck className="w-4 h-4" /> Verified Pro — {pro.verified_references} ref{pro.verified_references !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {isCompliant && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-[11px] font-medium text-blue-700 dark:text-blue-400">
+                    <CircleCheck className="w-4 h-4" /> Compliance Ready
+                  </span>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Context line */}
           {pro.context_reasons?.length > 0 && (
