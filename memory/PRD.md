@@ -9,26 +9,27 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Human-Centered Vault (April 2025)
+- **Phase A — Language**: "Your Documents" (not "Secure Document Vault"), user-first copy throughout
+- **Phase B — Organization**: Sort by expiration (expired→expiring→active→none), category counts on active docs, archived docs hidden by default with toggle
+- **Phase C — Expiration Visibility**: Active/Xd left/Expired badges, attention banner with count ("2 documents need attention")
+- **Phase D — Document Replacement**: Replace button (↻) on each card → opens upload with category+type preselected + metadata prefilled → archives old version (verification_status="archived")
+- **Phase E — Skipped**: No new parsing system built (constraint: "hook into existing only" — no existing vault-level metadata extraction exists)
+- **Phase F/G — Preserved**: Upload flow unchanged, profile routing preserved
+
 ### Phase 2: Work History Editing (April 2025)
-- **Edit mode**: Click gear icon on any work entry → form prefills with entry data → modify → "Save Changes" updates in-place
-- **Delete**: Trash icon removes entries, auto-cancels edit mode if editing that entry
-- **Field normalization**: Handles both standard (facility_name, position) and resume-parsed (primary_employer, role_title) field names
-- **No re-upload required**: All changes happen inline on the Work History tab
+- Edit/delete buttons on each entry, form prefill, in-place update
 
 ### Phase 2: Global Autocomplete System (April 2025)
-- InlineAutocomplete for: Certifications, License Type, State, Position/Title, Department/Unit
-- SpecialtyAutocomplete, SuggestionInput (Skills, Highlights), LocationAutocomplete
+- InlineAutocomplete for certs, licenses, positions, departments
 
 ### Phase 2: Document Vault as Single Source of Truth (April 2025)
-- Vault routing from profile, deep-linking, guidance banners
+- Medical Records tab → vault routing, Credentials tab → vault CTAs
 
-### Phase 2: Resume Upload + UX Polish (April 2025)
-- Auth fix, review dialog, AI language removed, specialty autocomplete
-
-### Phase 2: Matching, Onboarding, Navigation
+### Phase 2: UX Polish, Resume Upload, Matching, Onboarding
 - All prior Phase 2 features
 
-### Phase 1: Core Features (March-April 2025)
+### Phase 1: Core Features
 - Stripe Billing, OpenAI Resume Parser, Portable References, Document Vault, Compliance
 
 ## Test Accounts
@@ -41,8 +42,8 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ## Prioritized Backlog
 ### P1
 - Interview Scheduling Integration
-- Pipeline Analytics Dashboard for Employers
-- Integrate facility signals into seeker job cards
+- Pipeline Analytics Dashboard
+- Facility signals in seeker job cards
 ### P2
 - Post-assignment feedback UI, Facility accountability dashboard
 ### Refactoring
