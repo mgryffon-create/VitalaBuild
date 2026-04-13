@@ -9,27 +9,22 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Global UX Cleanup — Structured Autocomplete (April 2025)
+- **InlineAutocomplete component**: Shared single-value typeahead replacing raw text inputs
+- **Fields converted**:
+  - Certification name → autocomplete (30+ standard certs: BLS, ACLS, PALS, CCRN, etc.)
+  - License Type → autocomplete (20+ types: RN, LPN, CNA, NP, etc.)
+  - License State → autocomplete (50 US states + DC + Compact)
+  - Work History Position/Title → autocomplete (35+ titles: ICU RN, Travel RN, etc.)
+  - Work History Department/Unit → autocomplete (50+ departments: ICU, ED, Med-Surg, etc.)
+- **Previously converted** (unchanged): Specialty, Clinical Skills, Experience Highlights, Preferred Locations
+- **Suggestion data**: `/app/frontend/src/config/fieldSuggestions.js`
+
 ### Phase 2: Document Vault as Single Source of Truth (April 2025)
-- **Medical Records tab**: Removed all upload forms. Now shows vault routing CTA ("Go to Document Vault") + required documents checklist (TB, Physical, COVID-19, Flu, Hep B, MMR). Each item clicks through to vault with correct type preselected.
-- **Credentials tab**: Kept metadata entry fields (cert name/expiration, license type/state/number). Added "Upload in Vault" CTA buttons routing to vault with correct category.
-- **Vault deep-linking**: Query params `?category=medical&type=TB%20Skin%20Test%20(PPD)&from=profile` auto-open upload dialog with correct type preselected.
-- **Vault guidance banner**: Shows contextual message when routed from profile/completion.
-- **OnboardingGate**: Each checklist item is now clickable — profile fields route to profile, document items route to vault with context.
-- **Backend**: `GET /api/profile/completion` now queries vault_documents + documents collections for doc_checks (tb_clearance, bls_certification, medical_document, license_document).
+- Medical Records tab → vault routing + required docs checklist
+- Vault deep-linking with category/type/from params
 
-### Phase 2: UX Polish (April 2025)
-- AI language removed, specialty autocomplete, resume review hierarchy, "What did you do?" label
-
-### Phase 2: Resume Upload Auth Fix + Review (April 2025)
-- Fixed auth bug, AI parser with review dialog
-
-### Phase 2: Experience Highlights & Skills Autocomplete (April 2025)
-- SuggestionInput with specialty-based suggestions
-
-### Phase 2: ResizeObserver Fix (April 2025)
-- SelectContent `position="item-aligned"`
-
-### Phase 2: Location Autocomplete, Document Upload, Routing, Onboarding, Matching
+### Phase 2: UX Polish, Resume Upload, Matching, Onboarding
 - All prior Phase 2 features
 
 ### Phase 1: Core Features (March-April 2025)
