@@ -223,7 +223,7 @@ const PosterDashboard = () => {
 
         {/* Hiring Pipeline Flow */}
         <section data-testid="section-hiring-flow">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hiring Pipeline</h2>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hiring Flow</h2>
           <div className="flex items-stretch rounded-xl border bg-card overflow-hidden">
             <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 hover:bg-muted/40 transition-colors border-r">
               <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">1</div>

@@ -194,7 +194,7 @@ const HiringPipelinePage = () => {
       <div data-testid="hiring-pipeline-page" className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Hiring Pipeline</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Hiring Flow</h1>
             <p className="text-xs sm:text-sm text-muted-foreground">{stats.total || 0} applicants across all stages</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
