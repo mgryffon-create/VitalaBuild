@@ -23,6 +23,7 @@ import VerificationAdminPage from "@/pages/VerificationAdminPage";
 import SwipeBinsPage from "@/pages/SwipeBinsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
 import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
+import BrowseProsPage from "@/pages/BrowseProsPage";
 import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
@@ -322,6 +323,14 @@ function App() {
           />
           <Route
             path="/poster/candidates"
+            element={
+              <ProtectedRoute allowedRoles={["poster"]}>
+                <BrowseProsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/poster/candidates/list"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
                 <EmployerCandidatesPage />

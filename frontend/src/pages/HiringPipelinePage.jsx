@@ -91,7 +91,7 @@ const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds, showSubBadge }) 
             {c.seeker?.skills?.length > 0 && (
               <div className="flex flex-wrap gap-0.5 mt-1">
                 {c.seeker.skills.slice(0, 3).map((s, i) => (
-                  <span key={i} className="text-[8px] px-1 py-0 rounded bg-muted text-muted-foreground">{s}</span>
+                  <span key={i} className="text-[8px] px-1 py-0 rounded bg-muted text-muted-foreground">{typeof s === 'string' ? s : s?.skill || s?.name || ''}</span>
                 ))}
               </div>
             )}

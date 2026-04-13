@@ -1564,6 +1564,150 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
     return candidates
 
 
+
+@api_router.get("/employer/browse-pros")
+async def browse_pros(current_user: dict = Depends(get_current_user)):
+    """Get all seekers available for employer to browse (not already connected)"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can browse pros")
+
+    # Get employer's active jobs
+    employer_jobs = await db.jobs.find(
+        {"poster_id": current_user["id"], "status": {"$ne": "closed"}},
+        {"_id": 0, "id": 1, "title": 1}
+    ).to_list(100)
+
+    # Get all seeker IDs already connected to this employer (via swipes or employer interest)
+    job_ids = [j["id"] for j in employer_jobs]
+    existing_swipes = await db.swipes.find(
+        {"target_id": {"$in": job_ids}, "action": "like"},
+        {"user_id": 1}
+    ).to_list(1000)
+    connected_seeker_ids = set(s["user_id"] for s in existing_swipes)
+
+    # Also exclude seekers the employer has already browsed/passed
+    employer_browse_actions = await db.employer_browse_actions.find(
+        {"employer_id": current_user["id"]},
+        {"seeker_id": 1}
+    ).to_list(1000)
+    browsed_seeker_ids = set(a["seeker_id"] for a in employer_browse_actions)
+
+    exclude_ids = connected_seeker_ids | browsed_seeker_ids
+    exclude_ids.add(current_user["id"])
+
+    # Get all seekers with profiles
+    all_seekers = await db.users.find(
+        {"role": "seeker", "id": {"$nin": list(exclude_ids)}},
+        {"_id": 0, "password": 0}
+    ).to_list(200)
+
+    pros = []
+    for seeker in all_seekers:
+        profile = await db.seeker_profiles.find_one({"user_id": seeker["id"]}, {"_id": 0})
+        if not profile:
+            continue
+        # Count verified references
+        ref_count = await db.portable_references.count_documents(
+            {"candidate_id": seeker["id"], "verification_status": "verified"}
+        )
+        vault_count = await db.vault_documents.count_documents({"candidate_id": seeker["id"]})
+        pros.append({
+            "id": seeker["id"],
+            "full_name": seeker.get("full_name"),
+            "email": seeker.get("email"),
+            "specialty": profile.get("specialty"),
+            "years_experience": profile.get("years_experience"),
+            "bio": profile.get("bio"),
+            "skills": profile.get("skills", []),
+            "preferred_locations": profile.get("preferred_locations", []),
+            "preferred_shift": profile.get("preferred_shift"),
+            "certifications": profile.get("certifications", []),
+            "verified_references": ref_count,
+            "vault_documents": vault_count,
+            "profile_complete": seeker.get("profile_complete", False),
+        })
+
+    return {"pros": pros, "jobs": employer_jobs}
+
+
+class EmployerInterestBody(BaseModel):
+    seeker_id: str
+    job_id: str
+
+
+@api_router.post("/employer/express-interest")
+async def employer_express_interest(body: EmployerInterestBody, current_user: dict = Depends(get_current_user)):
+    """Employer expresses interest in a Pro — creates applicant record for that job"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can express interest")
+
+    # Verify job belongs to employer
+    job = await db.jobs.find_one({"id": body.job_id, "poster_id": current_user["id"]}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or doesn't belong to you")
+
+    # Check seeker exists
+    seeker = await db.users.find_one({"id": body.seeker_id, "role": "seeker"}, {"_id": 0, "password": 0})
+    if not seeker:
+        raise HTTPException(status_code=404, detail="Pro not found")
+
+    # Check for duplicate
+    existing = await db.swipes.find_one({
+        "user_id": body.seeker_id, "target_id": body.job_id, "action": "like"
+    })
+    if existing:
+        raise HTTPException(status_code=409, detail="This pro is already an applicant for this job")
+
+    # Create a swipe record as if the seeker expressed interest (employer-initiated)
+    swipe_data = {
+        "id": str(uuid.uuid4()),
+        "user_id": body.seeker_id,
+        "target_id": body.job_id,
+        "action": "like",
+        "source": "employer_browse",
+        "employer_id": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.swipes.insert_one(swipe_data)
+
+    # Record the browse action to prevent showing this pro again
+    await db.employer_browse_actions.insert_one({
+        "id": str(uuid.uuid4()),
+        "employer_id": current_user["id"],
+        "seeker_id": body.seeker_id,
+        "job_id": body.job_id,
+        "action": "interested",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    await log_audit(db, current_user["id"], "employer_express_interest",
+                    details={"seeker_id": body.seeker_id, "job_id": body.job_id})
+
+    return {"message": "Added to Applicants", "swipe_id": swipe_data["id"]}
+
+
+class EmployerPassBody(BaseModel):
+    seeker_id: str
+
+
+@api_router.post("/employer/browse-pass")
+async def employer_browse_pass(body: EmployerPassBody, current_user: dict = Depends(get_current_user)):
+    """Employer passes on a Pro — removes from browse feed only"""
+    if current_user["role"] != "poster":
+        raise HTTPException(status_code=403, detail="Only employers can pass")
+
+    await db.employer_browse_actions.insert_one({
+        "id": str(uuid.uuid4()),
+        "employer_id": current_user["id"],
+        "seeker_id": body.seeker_id,
+        "action": "pass",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": "Passed"}
+
+
+
 @api_router.post("/employer/candidates/{seeker_id}/accept")
 async def accept_candidate(seeker_id: str, job_id: str, current_user: dict = Depends(get_current_user)):
     """Employer accepts a candidate — creates a mutual match"""

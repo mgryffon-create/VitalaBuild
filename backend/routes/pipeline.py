@@ -40,7 +40,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
         raise HTTPException(status_code=403, detail="Not authorized")
 
     # Get candidates from swipes (interested in employer's jobs)
-    jobs = await db.jobs.find({"employer_id": current_user["id"]}, {"_id": 0}).to_list(100)
+    jobs = await db.jobs.find({"poster_id": current_user["id"]}, {"_id": 0}).to_list(100)
     job_ids = [j["id"] for j in jobs]
     job_map = {j["id"]: j for j in jobs}
 
@@ -171,7 +171,7 @@ async def get_nudges(current_user: dict = Depends(get_current_user)):
     if current_user["role"] not in ("poster", "admin"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    jobs = await db.jobs.find({"employer_id": current_user["id"]}, {"_id": 0, "id": 1, "title": 1}).to_list(100)
+    jobs = await db.jobs.find({"poster_id": current_user["id"]}, {"_id": 0, "id": 1, "title": 1}).to_list(100)
     job_ids = [j["id"] for j in jobs]
     job_map = {j["id"]: j for j in jobs}
 
