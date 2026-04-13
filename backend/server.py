@@ -1653,6 +1653,21 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
             elif profile.get("years_experience", 0) >= 3:
                 match_reasons.append(f"{profile['years_experience']}+ years experience")
 
+        # Always generate a job-specific context line
+        best_job_context = None
+        if best_job_id:
+            best_job = next((j for j in employer_jobs_full if j["id"] == best_job_id), {})
+            job_label = best_job.get("title", "").split(" - ")[0].strip()
+            if not job_label:
+                job_label = best_job.get("specialty", "").replace("Registered Nurse (RN)", "RN").replace("Licensed Practical Nurse (LPN)", "LPN").split(" - ")[-1].strip()
+            if job_label:
+                if best_score >= 70:
+                    best_job_context = f"Strong fit for your {job_label[:35]} role"
+                elif best_score >= 45:
+                    best_job_context = f"Good fit for your {job_label[:35]} role"
+                else:
+                    best_job_context = f"Potential fit for your {job_label[:35]} role"
+
         pros.append({
             "id": seeker["id"],
             "full_name": seeker.get("full_name"),
@@ -1671,6 +1686,7 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
             "best_job_id": best_job_id,
             "best_job_title": best_job_title,
             "match_reasons": match_reasons[:2],
+            "best_job_context": best_job_context,
         })
 
     # Sort by match score descending — best matches first

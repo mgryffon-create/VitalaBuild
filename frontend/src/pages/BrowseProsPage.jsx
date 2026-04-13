@@ -264,23 +264,14 @@ const BrowseProsPage = () => {
                   </div>
                 )}
 
-                {/* Context: why this pro — job match reasons only */}
-                {(() => {
-                  const reasons = (current.match_reasons || []).filter(r =>
-                    !r.match(/^\d+\+?\s*years?\s*(experience|exp)/i) &&
-                    !r.toLowerCase().includes("complete profile") &&
-                    !r.toLowerCase().includes("compliance docs")
-                  );
-                  return reasons.length > 0 ? (
-                    <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
-                      {reasons.slice(0, 1).map((r, i) => (
-                        <p key={i} data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                          <Star className="w-3 h-3 shrink-0" /> {r}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null;
-                })()}
+                {/* Context: job-specific fit line */}
+                {current.best_job_context && (
+                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+                    <p data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                      <Star className="w-3 h-3 shrink-0" /> {current.best_job_context}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
