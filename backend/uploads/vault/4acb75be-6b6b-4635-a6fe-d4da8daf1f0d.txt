@@ -1,0 +1,12 @@
+
+    Sarah Johnson, RN
+    ICU Registered Nurse
+    Email: sarah@test.com
+
+    Work Experience:
+    ICU Staff Nurse at Memorial Hospital, 2020-Present
+    - Critical care nursing
+
+    Certifications: BLS, ACLS
+    Skills: Ventilator Management, Critical Care
+    

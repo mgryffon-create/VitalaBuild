@@ -19,6 +19,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import SuggestionInput from "@/components/SuggestionInput";
+import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
 import { getSkillSuggestions, getHighlightSuggestions } from "@/config/specialtySuggestions";
 
 // Custom hook for debounced auto-save
@@ -190,7 +191,7 @@ const ProfileBuilder = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      // Use the AI-powered resume parser endpoint — NO explicit Content-Type (let axios set boundary)
+      // Use the resume parser endpoint — NO explicit Content-Type (let axios set boundary)
       const response = await axios.post(`${API}/resume/parse/upload`, formData);
       const parsed = response.data?.parsed_profile;
       const parseId = response.data?.parse_id;
@@ -366,7 +367,7 @@ const ProfileBuilder = () => {
                     {parsingResume ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Parsing...
+                        Reading...
                       </>
                     ) : (
                       <>
@@ -381,7 +382,7 @@ const ProfileBuilder = () => {
                 <Alert className="mt-4 bg-primary/10 border-primary/20">
                   <Sparkles className="h-4 w-4" />
                   <AlertDescription>
-                    Analyzing your resume with AI... This may take a moment.
+                    Getting your profile ready... This may take a moment.
                   </AlertDescription>
                 </Alert>
               )}
@@ -393,59 +394,89 @@ const ProfileBuilder = () => {
         <Dialog open={!!resumeReview} onOpenChange={(open) => { if (!open) setResumeReview(null); }}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Resume Parsed — Review Extracted Data</DialogTitle>
+              <DialogTitle>We found this from your resume</DialogTitle>
               <DialogDescription>
-                We found the following from your resume. Confirm to add to your profile.
+                Review what we found. You can always edit after adding.
               </DialogDescription>
             </DialogHeader>
             {resumeReview?.parsed && (() => {
               const p = resumeReview.parsed;
-              const sections = [];
-              if (p.full_name) sections.push({ label: "Name", value: p.full_name, icon: "user" });
-              if (p.specialties?.length) sections.push({ label: "Specialty", value: p.specialties.map(s => typeof s === 'string' ? s : s?.name || '').filter(Boolean).join(", "), icon: "specialty" });
-              if (p.employment_groups?.length) sections.push({ label: "Work History", value: `${p.employment_groups.length} position${p.employment_groups.length > 1 ? "s" : ""}`, icon: "work" });
-              if (p.skills?.length) sections.push({ label: "Skills", value: `${p.skills.length} skills`, icon: "skills" });
-              if (p.certifications?.length) sections.push({ label: "Certifications", value: p.certifications.map(c => c.name || c).join(", "), icon: "cert" });
-              if (p.education?.length) sections.push({ label: "Education", value: `${p.education.length} entry`, icon: "edu" });
-              if (p.licenses?.length) sections.push({ label: "Licenses", value: p.licenses.map(l => `${l.license_type || ""} ${l.state || ""}`).join(", "), icon: "license" });
-              if (p.professional_summary) sections.push({ label: "Bio/Summary", value: p.professional_summary.slice(0, 120) + (p.professional_summary.length > 120 ? "..." : ""), icon: "bio" });
+              const hasData = p.full_name || p.specialties?.length || p.employment_groups?.length || p.skills?.length || p.certifications?.length;
               return (
-                <div data-testid="resume-review-content" className="space-y-2 py-2">
-                  {sections.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No structured data could be extracted. Try a different file format.</p>
+                <div data-testid="resume-review-content" className="space-y-3 py-2">
+                  {!hasData ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">We couldn&apos;t find structured data. Try a different file format.</p>
                   ) : (
-                    sections.map((s) => (
-                      <div key={s.label} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/50">
-                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
-                          <p className="text-sm text-foreground mt-0.5">{s.value}</p>
+                    <>
+                      {/* Name + Specialty — compact row */}
+                      {(p.full_name || p.specialties?.length > 0) && (
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30 text-sm">
+                          {p.full_name && <span className="font-medium text-foreground">{p.full_name}</span>}
+                          {p.specialties?.length > 0 && (
+                            <span className="text-muted-foreground">{p.specialties.map(s => typeof s === 'string' ? s : s?.name || '').filter(Boolean).join(", ")}</span>
+                          )}
                         </div>
-                      </div>
-                    ))
-                  )}
-                  {/* Work History detail */}
-                  {p.employment_groups?.length > 0 && (
-                    <div className="mt-2 space-y-1.5">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Work History Detail</p>
-                      {p.employment_groups.map((g, i) => (
-                        <div key={i} className="px-3 py-2 rounded-lg border text-sm">
-                          <p className="font-medium text-foreground">{g.role_title || g.display_title || "Position"}</p>
-                          <p className="text-xs text-muted-foreground">{g.primary_employer || ""} {g.start_date ? `| ${g.start_date}` : ""}{g.end_date ? ` — ${g.end_date}` : g.currently_working ? " — Present" : ""}</p>
-                          {g.specialties?.length > 0 && <p className="text-xs text-muted-foreground mt-0.5">{g.specialties.join(", ")}</p>}
+                      )}
+
+                      {/* Work History — emphasized */}
+                      {p.employment_groups?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                            {p.employment_groups.length} position{p.employment_groups.length > 1 ? "s" : ""} found
+                          </p>
+                          <div className="space-y-1.5">
+                            {p.employment_groups.map((g, i) => (
+                              <div key={i} className="px-3 py-2.5 rounded-lg border bg-card text-sm">
+                                <p className="font-medium text-foreground">{g.role_title || g.display_title || "Position"}</p>
+                                <p className="text-xs text-muted-foreground">{g.primary_employer || ""}{g.start_date ? ` | ${g.start_date}` : ""}{g.end_date ? ` — ${g.end_date}` : g.currently_working ? " — Present" : ""}</p>
+                                {g.specialties?.length > 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{g.specialties.join(", ")}</p>}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Skills list */}
-                  {p.skills?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {p.skills.slice(0, 12).map((s, idx) => {
-                        const label = typeof s === 'string' ? s : s?.name || '';
-                        return <Badge key={`${label}-${idx}`} variant="outline" className="text-[10px]">{label}</Badge>;
-                      })}
-                      {p.skills.length > 12 && <Badge variant="outline" className="text-[10px]">+{p.skills.length - 12} more</Badge>}
-                    </div>
+                      )}
+
+                      {/* Skills */}
+                      {p.skills?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                            {p.skills.length} skill{p.skills.length > 1 ? "s" : ""}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {p.skills.slice(0, 12).map((s, idx) => {
+                              const label = typeof s === 'string' ? s : s?.name || '';
+                              return <Badge key={`${label}-${idx}`} variant="outline" className="text-[10px]">{label}</Badge>;
+                            })}
+                            {p.skills.length > 12 && <Badge variant="outline" className="text-[10px]">+{p.skills.length - 12} more</Badge>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Certifications + Licenses — compact */}
+                      {(p.certifications?.length > 0 || p.licenses?.length > 0) && (
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          {p.certifications?.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                              <span className="text-foreground">{p.certifications.map(c => c.name || c).join(", ")}</span>
+                            </div>
+                          )}
+                          {p.licenses?.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                              <span className="text-foreground">{p.licenses.map(l => `${l.license_type || ""} ${l.state || ""}`.trim()).join(", ")}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Bio — de-emphasized */}
+                      {p.professional_summary && (
+                        <p className="text-xs text-muted-foreground italic px-1">{p.professional_summary.slice(0, 150)}{p.professional_summary.length > 150 ? "..." : ""}</p>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -455,7 +486,7 @@ const ProfileBuilder = () => {
                 Discard
               </Button>
               <Button onClick={applyResumeData} data-testid="resume-review-apply">
-                <CheckCircle className="w-4 h-4 mr-1.5" /> Apply to Profile
+                <CheckCircle className="w-4 h-4 mr-1.5" /> Add to Profile
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -685,24 +716,12 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="specialty">Specialty</Label>
-                <Select
+                <SpecialtyAutocomplete
                   value={profile.specialty || ""}
-                  onValueChange={(value) => updateField("specialty", value)}
-                >
-                  <SelectTrigger data-testid="specialty-select">
-                    <SelectValue placeholder="Select specialty" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 py-1.5 text-sm font-semibold text-primary">Nursing</div>
-                    {specialties.nursing?.map((spec) => (
-                      <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                    ))}
-                    <div className="px-2 py-1.5 text-sm font-semibold text-secondary border-t mt-2 pt-2">Allied Health</div>
-                    {specialties.allied_health?.map((spec) => (
-                      <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  allSpecialties={[...(specialties.nursing || []), ...(specialties.allied_health || [])]}
+                  onChange={(value) => updateField("specialty", value)}
+                  testId="specialty-autocomplete"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="experience">Years of Experience</Label>
@@ -929,7 +948,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Key Responsibilities</Label>
+                <Label>What did you do?</Label>
                 <Textarea
                   data-testid="work-responsibilities-input"
                   value={newWorkHistory.responsibilities}

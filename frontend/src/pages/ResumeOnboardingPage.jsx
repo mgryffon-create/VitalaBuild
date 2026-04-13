@@ -243,8 +243,8 @@ const ResumeOnboardingPage = () => {
         {step === "parsing" && (
           <div data-testid="onboarding-parsing-step" className="text-center py-16">
             <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
-            <h2 className="text-xl font-bold text-foreground mb-2">Analyzing your resume...</h2>
-            <p className="text-sm text-muted-foreground">Extracting work history, certifications, and skills</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">Reading your resume...</h2>
+            <p className="text-sm text-muted-foreground">Finding work history, certifications, and skills</p>
             {uploadProgress > 0 && uploadProgress < 100 && (
               <Progress value={uploadProgress} className="h-1.5 max-w-xs mx-auto mt-4" />
             )}
