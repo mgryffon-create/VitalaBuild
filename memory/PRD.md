@@ -9,28 +9,24 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Resume Upload Auth Fix + Review Step (April 2025)
+- **Auth bug root cause**: Explicit `Content-Type: multipart/form-data` header in axios replaced the headers config, preventing the interceptor from adding the Authorization bearer token. Fix: removed explicit Content-Type (axios auto-detects from FormData).
+- **Endpoint switch**: Changed from `/api/profile/parse-resume` (regex-only) to `/api/resume/parse/upload` (GPT-4.1 AI parser with structured extraction)
+- **Review step**: After AI parsing, shows review dialog with extracted Name, Specialty, Work History (with detail), Skills (as chips), Certifications, Licenses, Bio. User clicks "Apply to Profile" or "Discard"
+- **Parsing architecture**: Hybrid — PyMuPDF/python-docx for text extraction → GPT-4.1 for structured JSON extraction (employment_groups, skills with confidence, certifications, licenses, education)
+- **Fields prefilled**: full_name, specialty, work_history, skills, certifications, licenses, bio, education, contact_info, experience_highlights
+
 ### Phase 2: Experience Highlights & Clinical Skills Autocomplete (April 2025)
-- **SuggestionInput component**: Reusable typeahead with quick-tap specialty chips, search dropdown, custom entry, duplicate prevention
-- **Specialty-based suggestions**: `specialtySuggestions.js` maps 30+ specialty keywords to relevant highlights and skills
-- **Experience Highlights**: Max 5, suggested from specialty, searchable, custom entry allowed
-- **Clinical Skills**: Max 15, suggested from specialty, searchable, custom entry allowed
-- Quick-tap chips show "Suggested for your specialty" when input is empty; hide when typing
+- SuggestionInput with specialty-based suggestions, search typeahead, custom entry, duplicate prevention
 
 ### Phase 2: ResizeObserver Root Cause Fix (April 2025)
-- Changed SelectContent from `position="popper"` (floating-ui + ResizeObserver) to `position="item-aligned"` (native Radix, no ResizeObserver)
-- Removed global error suppression from index.js
+- SelectContent changed to `position="item-aligned"` (no floating-ui/ResizeObserver)
 
 ### Phase 2: Preferences Tab — Location Autocomplete (April 2025)
-- LocationAutocomplete with ~200 US cities in "City, ST" format
+- LocationAutocomplete with ~200 US cities
 
-### Phase 2: Single-Type Document Upload (April 2025)
-- One upload = one type, medical exception for related sibling types
-
-### Phase 2: Structured Document Upload System (April 2025)
-- 3-step category-first wizard, 5 categories, Medical split into Vaccinations + TB/Clearance
-
-### Phase 2: Post-Login Routing, Onboarding Flow, Matching, UX (April 2025)
-- RedirectIfAuth, OnboardingGate, Tiered matching, Browse Pros, Hiring Flow terminology
+### Phase 2: Document Upload, Routing, Onboarding, Matching, UX
+- Single-type document upload, structured categories, RedirectIfAuth, OnboardingGate, tiered matching
 
 ### Phase 1: Core Features (March-April 2025)
 - Stripe Billing, OpenAI Resume Parser, Portable References, Document Vault, Compliance
@@ -49,13 +45,13 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 - Pipeline Analytics Dashboard for Employers
 - Integrate facility signals into seeker job cards
 
-### P2 — Phase C-D
+### P2
 - Post-assignment feedback UI
 - Facility accountability dashboard UI
 
-### Refactoring (Low Priority)
-- Extract heavy logic from server.py into service modules
-- Break down ProfileBuilder.jsx into sub-components
+### Refactoring
+- Extract heavy logic from server.py
+- Break down ProfileBuilder.jsx
 
 ### Mocked
 - SendGrid (logged to DB), Twilio SMS (disabled), Nursys API (disabled)
