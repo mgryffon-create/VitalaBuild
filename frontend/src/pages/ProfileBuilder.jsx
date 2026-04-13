@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
@@ -98,6 +99,7 @@ const ProfileBuilder = () => {
   const [profile, setProfile] = useState({});
   const [specialties, setSpecialties] = useState({ nursing: [], allied_health: [], all: [] });
   const [parsingResume, setParsingResume] = useState(false);
+  const [resumeReview, setResumeReview] = useState(null); // parsed data for review
   const resumeInputRef = useRef(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
@@ -172,7 +174,6 @@ const ProfileBuilder = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Please upload a PDF, DOC, DOCX, or TXT file");
@@ -189,23 +190,19 @@ const ProfileBuilder = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await axios.post(`${API}/profile/parse-resume`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      // Use the AI-powered resume parser endpoint — NO explicit Content-Type (let axios set boundary)
+      const response = await axios.post(`${API}/resume/parse/upload`, formData);
+      const parsed = response.data?.parsed_profile;
+      const parseId = response.data?.parse_id;
 
-      const parsedData = response.data;
-      
-      // Merge parsed data with existing profile
-      setProfile(prev => ({
-        ...prev,
-        ...parsedData,
-        contact_info: { ...prev.contact_info, ...parsedData.contact_info },
-        work_history: [...(prev.work_history || []), ...(parsedData.work_history || [])],
-        certifications: [...(prev.certifications || []), ...(parsedData.certifications || [])],
-        skills: [...new Set([...(prev.skills || []), ...(parsedData.skills || [])])]
-      }));
+      if (!parsed || parsed.error) {
+        toast.error(parsed?.error || "Failed to parse resume. Try a different format.");
+        return;
+      }
 
-      toast.success("Resume parsed successfully! Please review and save your profile.");
+      // Show review dialog instead of silently merging
+      setResumeReview({ parsed, parseId });
+      toast.success("Resume analyzed! Review the extracted data below.");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to parse resume. Please fill in your details manually.");
     } finally {
@@ -214,6 +211,74 @@ const ProfileBuilder = () => {
         resumeInputRef.current.value = '';
       }
     }
+  };
+
+  const applyResumeData = () => {
+    if (!resumeReview?.parsed) return;
+    const p = resumeReview.parsed;
+
+    setProfile(prev => {
+      const updated = { ...prev };
+
+      // Basic fields — only set if parsed and not already filled
+      if (p.full_name && !prev.full_name) updated.full_name = p.full_name;
+      if (p.professional_summary && !prev.bio) updated.bio = p.professional_summary;
+      if (p.specialties?.length && !prev.specialty) updated.specialty = p.specialties[0];
+      if (p.phone && !prev.contact_info?.phone) {
+        updated.contact_info = { ...prev.contact_info, phone: p.phone };
+      }
+      if (p.email && !prev.contact_info?.email) {
+        updated.contact_info = { ...prev.contact_info, ...updated.contact_info, email: p.email };
+      }
+
+      // Skills — normalize from objects/strings, merge without duplicates
+      if (p.skills?.length) {
+        const normalizeSkill = (s) => typeof s === 'string' ? s : s?.name || '';
+        const existingSkills = (prev.skills || []).map(s => normalizeSkill(s).toLowerCase());
+        const parsedSkills = p.skills.map(normalizeSkill).filter(Boolean);
+        const newSkills = parsedSkills.filter(s => !existingSkills.includes(s.toLowerCase()));
+        updated.skills = [...(prev.skills || []), ...newSkills];
+      }
+
+      // Certifications — merge
+      if (p.certifications?.length) {
+        const existingCerts = (prev.certifications || []).map(c => (typeof c === 'string' ? c : c?.name || '').toLowerCase());
+        const newCerts = p.certifications
+          .map(c => c.name || c)
+          .filter(c => !existingCerts.includes((typeof c === 'string' ? c : '').toLowerCase()));
+        updated.certifications = [...(prev.certifications || []), ...newCerts];
+      }
+
+      // Work history — append
+      if (p.employment_groups?.length) {
+        const workEntries = p.employment_groups.map(g => ({
+          facility_name: g.primary_employer || g.display_title || "",
+          position: g.role_title || g.display_title || "",
+          department: g.specialties?.join(", ") || "",
+          start_date: g.start_date || "",
+          end_date: g.end_date || "",
+          is_current: g.currently_working || false,
+          responsibilities: g.responsibilities?.join(". ") || g.description_summary || "",
+        }));
+        updated.work_history = [...(prev.work_history || []), ...workEntries];
+        updated.work_history_mode = p.work_history_mode || "condensed";
+      }
+
+      // Education
+      if (p.education?.length && !(prev.education?.length)) {
+        updated.education = p.education;
+      }
+
+      // Experience highlights from parsed summary
+      if (p.specialties?.length && !(prev.experience_highlights?.length)) {
+        updated.experience_highlights = p.specialties.slice(0, 3).map(s => `${s} experience`);
+      }
+
+      return updated;
+    });
+
+    setResumeReview(null);
+    toast.success("Resume data applied to your profile. Review and save.");
   };
 
   const updateField = (field, value) => {
@@ -323,6 +388,78 @@ const ProfileBuilder = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Resume Review Dialog */}
+        <Dialog open={!!resumeReview} onOpenChange={(open) => { if (!open) setResumeReview(null); }}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Resume Parsed — Review Extracted Data</DialogTitle>
+              <DialogDescription>
+                We found the following from your resume. Confirm to add to your profile.
+              </DialogDescription>
+            </DialogHeader>
+            {resumeReview?.parsed && (() => {
+              const p = resumeReview.parsed;
+              const sections = [];
+              if (p.full_name) sections.push({ label: "Name", value: p.full_name, icon: "user" });
+              if (p.specialties?.length) sections.push({ label: "Specialty", value: p.specialties.map(s => typeof s === 'string' ? s : s?.name || '').filter(Boolean).join(", "), icon: "specialty" });
+              if (p.employment_groups?.length) sections.push({ label: "Work History", value: `${p.employment_groups.length} position${p.employment_groups.length > 1 ? "s" : ""}`, icon: "work" });
+              if (p.skills?.length) sections.push({ label: "Skills", value: `${p.skills.length} skills`, icon: "skills" });
+              if (p.certifications?.length) sections.push({ label: "Certifications", value: p.certifications.map(c => c.name || c).join(", "), icon: "cert" });
+              if (p.education?.length) sections.push({ label: "Education", value: `${p.education.length} entry`, icon: "edu" });
+              if (p.licenses?.length) sections.push({ label: "Licenses", value: p.licenses.map(l => `${l.license_type || ""} ${l.state || ""}`).join(", "), icon: "license" });
+              if (p.professional_summary) sections.push({ label: "Bio/Summary", value: p.professional_summary.slice(0, 120) + (p.professional_summary.length > 120 ? "..." : ""), icon: "bio" });
+              return (
+                <div data-testid="resume-review-content" className="space-y-2 py-2">
+                  {sections.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No structured data could be extracted. Try a different file format.</p>
+                  ) : (
+                    sections.map((s) => (
+                      <div key={s.label} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/50">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                          <p className="text-sm text-foreground mt-0.5">{s.value}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {/* Work History detail */}
+                  {p.employment_groups?.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Work History Detail</p>
+                      {p.employment_groups.map((g, i) => (
+                        <div key={i} className="px-3 py-2 rounded-lg border text-sm">
+                          <p className="font-medium text-foreground">{g.role_title || g.display_title || "Position"}</p>
+                          <p className="text-xs text-muted-foreground">{g.primary_employer || ""} {g.start_date ? `| ${g.start_date}` : ""}{g.end_date ? ` — ${g.end_date}` : g.currently_working ? " — Present" : ""}</p>
+                          {g.specialties?.length > 0 && <p className="text-xs text-muted-foreground mt-0.5">{g.specialties.join(", ")}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Skills list */}
+                  {p.skills?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {p.skills.slice(0, 12).map((s, idx) => {
+                        const label = typeof s === 'string' ? s : s?.name || '';
+                        return <Badge key={`${label}-${idx}`} variant="outline" className="text-[10px]">{label}</Badge>;
+                      })}
+                      {p.skills.length > 12 && <Badge variant="outline" className="text-[10px]">+{p.skills.length - 12} more</Badge>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setResumeReview(null)} data-testid="resume-review-cancel">
+                Discard
+              </Button>
+              <Button onClick={applyResumeData} data-testid="resume-review-apply">
+                <CheckCircle className="w-4 h-4 mr-1.5" /> Apply to Profile
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {isSeeker ? (
           <>
