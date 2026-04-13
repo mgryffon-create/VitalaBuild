@@ -169,21 +169,21 @@ const NavContent = ({
   </div>
 );
 
-// Bottom nav items — seeker (5 tabs, mirrors sidebar)
+// Bottom nav items — seeker (5 tabs, one-word labels)
 const seekerBottomNav = [
-  { label: "Dashboard", icon: Home, path: "/seeker" },
+  { label: "Home", icon: Home, path: "/seeker" },
   { label: "Jobs", icon: Stethoscope, path: "/seeker/swipe" },
   { label: "Matches", icon: MessageCircle, path: "/matches" },
   { label: "Offers", icon: Briefcase, path: "/seeker/offers" },
   { label: "Profile", icon: User, path: "/seeker/profile" },
 ];
 
-// Bottom nav items — employer (5 primary tabs for mobile)
+// Bottom nav items — employer (5 tabs, one-word labels)
 const posterBottomNav = [
-  { label: "Dashboard", icon: Home, path: "/poster" },
+  { label: "Home", icon: Home, path: "/poster" },
   { label: "Pros", icon: Search, path: "/poster/candidates" },
-  { label: "Applicants", icon: Users, path: "/poster/pipeline" },
-  { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
+  { label: "Flow", icon: Users, path: "/poster/pipeline" },
+  { label: "Jobs", icon: Briefcase, path: "/poster/jobs/new" },
   { label: "Profile", icon: User, path: "/poster/profile" },
 ];
 
