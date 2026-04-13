@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   X, Heart, MapPin, Clock, DollarSign, Briefcase, CheckCircle, Sparkles,
-  ChevronDown, Award, Star, User, ExternalLink, Calendar, Home, Zap
+  ChevronDown, Award, Star, User, ExternalLink, Calendar, Home, Zap, RotateCcw
 } from "lucide-react";
 
 // ── Smart title generation ───────────────────────────────
@@ -44,20 +44,35 @@ function smartTitle(card) {
 }
 
 // ── Format pay for display ───────────────────────────────
-function formatPay(payRange) {
-  if (!payRange) return null;
-  const { min, max } = payRange;
+function formatWeeklyPay(card) {
+  // Prefer structured weekly_pay if available
+  if (card.weekly_pay > 0) return `$${card.weekly_pay.toLocaleString()}/week`;
+  // Fallback to pay_range (backward compat)
+  const { min, max } = card.pay_range || {};
   if (!min && !max) return null;
-  if (min === max || !max) return `$${min.toLocaleString()}/week`;
-  return `$${min.toLocaleString()}–$${max.toLocaleString()}/week`;
+  if (min > 200) return `$${min.toLocaleString()}/week`; // Already weekly
+  if (min > 0) return `$${(min * 36).toLocaleString()}/week`; // Hourly → weekly estimate
+  return null;
 }
 
-function formatHourlyPay(payRange) {
-  if (!payRange) return null;
-  const { min, max } = payRange;
-  if (!min && !max) return null;
-  if (min === max || !max) return `$${min}/hr`;
-  return `$${min}–$${max}/hr`;
+function formatPayBreakdown(card) {
+  const parts = [];
+  if (card.base_rate > 0) parts.push(`$${card.base_rate}/hr`);
+  if (card.weekly_stipend > 0) parts.push(`$${card.weekly_stipend} stipend`);
+  if (card.overtime_rate > 0) parts.push(`OT: $${card.overtime_rate}/hr`);
+  if (parts.length > 0) return parts.join(" + ");
+  // Fallback
+  const { min } = card.pay_range || {};
+  if (min > 0 && min <= 200) return `$${min}/hr base`;
+  return null;
+}
+
+function matchLabel(score) {
+  if (!score || score <= 0) return null;
+  if (score >= 80) return { text: "Strong Match", cls: "text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" };
+  if (score >= 60) return { text: "Good Match", cls: "text-primary bg-primary/5 border-primary/20" };
+  if (score >= 40) return { text: "Possible Match", cls: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" };
+  return null;
 }
 
 const SwipePage = () => {
@@ -70,6 +85,7 @@ const SwipePage = () => {
   const [showMatchDialog, setShowMatchDialog] = useState(false);
   const [matchData, setMatchData] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [lastSwipedIndex, setLastSwipedIndex] = useState(null); // For rewind
 
   const isSeeker = user?.role === "seeker";
 
@@ -104,10 +120,19 @@ const SwipePage = () => {
           description: isSeeker ? `${smartTitle(card)} — ${card.company_name || "Facility"}` : card.full_name,
         });
       }
+      setLastSwipedIndex(currentIndex);
       setCurrentIndex((prev) => prev + 1);
       setExpanded(false);
     } catch {
       toast.error("Failed to record action");
+    }
+  };
+
+  const handleRewind = () => {
+    if (lastSwipedIndex !== null && currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setLastSwipedIndex(null);
+      toast("Rewound to previous card", { description: "Take another look" });
     }
   };
 
@@ -176,7 +201,21 @@ const SwipePage = () => {
 
             {/* Action Buttons */}
             <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto">
-              <div className="flex justify-center items-center gap-4 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
+              <div className="flex justify-center items-center gap-3 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
+                {/* Rewind */}
+                <div className="flex flex-col items-center">
+                  <Button
+                    data-testid="rewind-btn"
+                    size="lg"
+                    variant="outline"
+                    className={`w-10 h-10 rounded-full border-2 transition-all ${lastSwipedIndex !== null ? "border-blue-400 text-blue-500 hover:bg-blue-50" : "border-muted-foreground/20 text-muted-foreground/30 cursor-not-allowed"}`}
+                    onClick={handleRewind}
+                    disabled={lastSwipedIndex === null || expanded}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground mt-1">Undo</span>
+                </div>
                 <div className="flex flex-col items-center">
                   <Button
                     data-testid="pass-btn"
@@ -321,141 +360,65 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
 /* ── Card content: seeker sees a job (DECISION-FIRST) ──────── */
 const SeekerViewContent = ({ card, expanded }) => {
   const title = smartTitle(card);
-  const pay = formatPay(card.pay_range) || formatHourlyPay(card.pay_range);
+  const weeklyPay = formatWeeklyPay(card);
+  const breakdown = formatPayBreakdown(card);
+  const match = matchLabel(card.compatibility_score);
   const hasExp = card.experience_required > 0;
 
   return (
-    <div className="p-5">
-      {/* ── Hero section: Pay + Title + Location ── */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          {/* Pay — MOST PROMINENT */}
-          {pay && (
-            <p data-testid="job-pay" className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-none">
-              {pay}
-            </p>
+    <div>
+      {/* Top tinted section */}
+      <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-green-50/60 to-transparent dark:from-green-900/10 dark:to-transparent">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {weeklyPay && (
+              <p data-testid="job-pay" className="text-2xl sm:text-3xl font-extrabold text-green-600 tracking-tight leading-none">{weeklyPay}</p>
+            )}
+            {breakdown && <p className="text-xs text-muted-foreground mt-0.5">{breakdown}</p>}
+            <h2 data-testid="job-title" className={`font-bold text-foreground leading-tight ${weeklyPay ? "text-base mt-2" : "text-xl"}`}>{title}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
+          </div>
+          {match && (
+            <div data-testid="match-score" className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-center ${match.cls}`}>
+              <span className="text-xs font-bold">{match.text}</span>
+              <p className="text-[10px] opacity-70">{card.compatibility_score}%</p>
+            </div>
           )}
-          {/* Title */}
-          <h2 data-testid="job-title" className={`font-bold text-foreground leading-tight ${pay ? "text-base mt-1.5" : "text-xl"}`}>
-            {title}
-          </h2>
-          {/* Facility */}
-          <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
         </div>
-        {/* Match score badge */}
-        {card.compatibility_score > 0 && (
-          <div data-testid="match-score" className="shrink-0 flex flex-col items-center rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="text-sm font-bold text-amber-700 dark:text-amber-400">{card.compatibility_score}%</span>
-            <span className="text-[9px] text-amber-600/70">match</span>
+      </div>
+
+      <div className="px-5 pb-5">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <MapPin className="w-3.5 h-3.5 shrink-0" /><span>{card.location || "Location TBD"}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {card.shift_type && <Badge className="text-xs gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0"><Clock className="w-3 h-3" /> {card.shift_type}</Badge>}
+          {card.duration && <Badge variant="secondary" className="text-xs gap-1"><Calendar className="w-3 h-3" /> {card.duration}</Badge>}
+          {card.start_date && <Badge variant="secondary" className="text-xs gap-1">Start {card.start_date}</Badge>}
+          {card.weekly_hours && <Badge variant="outline" className="text-xs">{card.weekly_hours}hrs/week</Badge>}
+          {card.stipend && card.stipend !== "Not included" && <Badge className="text-xs gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0"><Home className="w-3 h-3" /> {card.stipend}</Badge>}
+          {hasExp && <Badge variant="outline" className="text-xs">{card.experience_required}+ yrs</Badge>}
+          {card.certifications_required?.length > 0 && <Badge variant="outline" className="text-xs gap-1"><Award className="w-3 h-3" /> {card.certifications_required.join(", ")}</Badge>}
+        </div>
+        {card.description && <p className={`text-sm text-muted-foreground mt-3 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>{card.description}</p>}
+        {expanded && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
+            {card.benefits?.length > 0 && (<div><p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Benefits</p><div className="flex flex-wrap gap-1.5">{card.benefits.map((b, i) => <Badge key={i} variant="secondary" className="text-xs"><CheckCircle className="w-3 h-3 mr-1" />{b}</Badge>)}</div></div>)}
+            {card.requirements?.length > 0 && (<div><p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Requirements</p><ul className="space-y-1">{card.requirements.map((r, i) => <li key={i} className="text-sm text-muted-foreground flex items-start gap-2"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {r}</li>)}</ul></div>)}
+            {card.time_off_policy && (<div className="px-3 py-2 bg-muted/50 rounded-lg"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">Time Off</p><p className="text-sm font-medium text-foreground">{card.time_off_policy}</p></div>)}
+          </motion.div>
+        )}
+        {card.application_workflow_type && card.application_workflow_type !== "in_platform_only" && (
+          <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              {card.application_workflow_type === "external_required_immediately" && "External application required"}
+              {card.application_workflow_type === "external_required_after_match" && "External application after match"}
+              {card.application_workflow_type === "external_optional" && "External application optional"}
+            </p>
           </div>
         )}
       </div>
-
-      {/* ── Location row ── */}
-      <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
-        <MapPin className="w-3.5 h-3.5 shrink-0" />
-        <span>{card.location || "Location TBD"}</span>
-      </div>
-
-      {/* ── Quick detail chips — visible without expand ── */}
-      <div className="flex flex-wrap gap-1.5 mt-3">
-        {card.shift_type && (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Clock className="w-3 h-3" /> {card.shift_type}
-          </Badge>
-        )}
-        {card.duration && (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Calendar className="w-3 h-3" /> {card.duration}
-          </Badge>
-        )}
-        {card.start_date && (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Zap className="w-3 h-3" /> Start {card.start_date}
-          </Badge>
-        )}
-        {card.stipend && (
-          <Badge variant="outline" className="text-xs gap-1">
-            <Home className="w-3 h-3" /> {card.stipend}
-          </Badge>
-        )}
-        {hasExp && (
-          <Badge variant="outline" className="text-xs gap-1">
-            {card.experience_required}+ yrs required
-          </Badge>
-        )}
-        {card.certifications_required?.length > 0 && (
-          <Badge variant="outline" className="text-xs gap-1">
-            <Award className="w-3 h-3" /> {card.certifications_required.join(", ")}
-          </Badge>
-        )}
-      </div>
-
-      {/* ── Specialty + key info grid ── */}
-      {card.specialty && (
-        <div className="mt-3 px-3 py-2 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">{card.specialty}</p>
-        </div>
-      )}
-
-      {/* ── Description preview ── */}
-      {card.description && (
-        <p className={`text-sm text-muted-foreground mt-3 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
-          {card.description}
-        </p>
-      )}
-
-      {/* ── Expanded details ── */}
-      {expanded && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
-          {card.benefits?.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Benefits</p>
-              <div className="flex flex-wrap gap-1.5">
-                {card.benefits.map((b, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs"><CheckCircle className="w-3 h-3 mr-1" />{b}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          {card.requirements?.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Requirements</p>
-              <ul className="space-y-1">
-                {card.requirements.map((r, i) => (
-                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {card.time_off_policy && (
-            <div className="px-3 py-2 bg-muted/50 rounded-lg">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Time Off</p>
-              <p className="text-sm font-medium text-foreground">{card.time_off_policy}</p>
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* External application notice */}
-      {card.application_workflow_type && card.application_workflow_type !== "in_platform_only" && (
-        <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
-          <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            {card.application_workflow_type === "external_required_immediately" && "External application required"}
-            {card.application_workflow_type === "external_required_after_match" && "External application required after match"}
-            {card.application_workflow_type === "external_optional" && "External application may be requested"}
-          </p>
-          {card.application_workflow_type === "external_required_immediately" && card.external_application_url && (
-            <a href={card.external_application_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">
-              Apply externally
-            </a>
-          )}
-        </div>
-      )}
     </div>
   );
 };

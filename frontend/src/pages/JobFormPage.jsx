@@ -136,8 +136,9 @@ const JobFormPage = () => {
   const [job, setJob] = useState({
     title: "", description: "", location: "", duration: "", job_type: "",
     pay_range: { min: "", max: "" }, stipend: "",
+    base_rate: "", guaranteed_hours: "36", weekly_stipend: "", overtime_rate: "",
     benefits: [], time_off_policy: "", requirements: [], certifications_required: [],
-    experience_required: "", specialty: "", shift_type: "", start_date: "",
+    experience_required: "", specialty: "", shift_type: "", start_date: "", weekly_hours: "",
     application_workflow_type: "in_platform_only", external_application_url: "",
     external_application_stage: "", profile_sufficient_for_initial_review: true, required_additional_fields: "",
   });
@@ -145,24 +146,49 @@ const JobFormPage = () => {
   const [newBenefit, setNewBenefit] = useState("");
   const [newRequirement, setNewRequirement] = useState("");
   const [newCert, setNewCert] = useState("");
+  const [payWarningAcknowledged, setPayWarningAcknowledged] = useState(false);
   const isEdit = !!jobId;
+
+  // ── Pay calculation ───────────────────────────────────
+  const baseRate = parseFloat(job.base_rate) || 0;
+  const guaranteedHrs = parseFloat(job.guaranteed_hours) || 0;
+  const weeklyStipend = parseFloat(job.weekly_stipend) || 0;
+  const overtimeRate = parseFloat(job.overtime_rate) || 0;
+  const calculatedWeeklyPay = Math.round(baseRate * guaranteedHrs + weeklyStipend);
+  const hasStructuredPay = baseRate > 0 && guaranteedHrs > 0;
+
+  // Pay range validation by role
+  const getPayRange = (specialty) => {
+    if (!specialty) return { min: 800, max: 5500 };
+    const lower = specialty.toLowerCase();
+    if (lower.includes("cna") || lower.includes("pct") || lower.includes("aide")) return { min: 600, max: 2500 };
+    if (lower.includes("lpn") || lower.includes("lvn")) return { min: 800, max: 3000 };
+    if (lower.includes("rn") || lower.includes("nurse")) return { min: 1200, max: 5500 };
+    if (lower.includes("np") || lower.includes("practitioner") || lower.includes("crna")) return { min: 2000, max: 7000 };
+    return { min: 800, max: 5500 };
+  };
+  const expectedRange = getPayRange(job.specialty);
+  const payOutOfRange = hasStructuredPay && (calculatedWeeklyPay < expectedRange.min || calculatedWeeklyPay > expectedRange.max);
+
+  // ── Description validation ────────────────────────────
+  const PLACEHOLDER_PATTERNS = /^(tbd|n\/a|see details|to be determined|coming soon|details|lorem|test)/i;
+  const descriptionValid = !!job.description && job.description.length >= 150 && !PLACEHOLDER_PATTERNS.test(job.description.trim());
 
   // ── Validation ────────────────────────────────────────
   const isTravelContract = ["Travel Contract", "Local Contract"].includes(job.job_type);
   const isWeakTitle = (t) => !t || /test|posting|job\s*\d|^\d+$/i.test(t) || t.length < 5;
-  const hasPay = parseInt(job.pay_range.min) > 0 || parseInt(job.pay_range.max) > 0;
 
   const requiredFields = {
     title: !isWeakTitle(job.title),
     specialty: !!job.specialty,
     location: !!job.location,
-    description: !!job.description && job.description.length >= 20,
+    description: descriptionValid,
     shift_type: !!job.shift_type,
-    pay: hasPay,
+    pay: hasStructuredPay,
     job_type: !!job.job_type,
     experience: job.experience_required !== "" && job.experience_required !== undefined,
     start_date: !!job.start_date,
-    // Travel-specific
+    pay_confirmed: !payOutOfRange || payWarningAcknowledged,
     ...(isTravelContract ? {
       duration: !!job.duration,
       stipend: !!job.stipend,
@@ -177,13 +203,13 @@ const JobFormPage = () => {
   const sectionErrors = new Set();
   if (!requiredFields.title || !requiredFields.specialty || !requiredFields.location || !requiredFields.description) sectionErrors.add("basic");
   if (!requiredFields.shift_type || !requiredFields.start_date || (isTravelContract && !requiredFields.duration)) sectionErrors.add("schedule");
-  if (!requiredFields.pay || (isTravelContract && !requiredFields.stipend)) sectionErrors.add("compensation");
+  if (!requiredFields.pay || !requiredFields.pay_confirmed || (isTravelContract && !requiredFields.stipend)) sectionErrors.add("compensation");
 
   // Section-level completeness
   const completedSections = new Set();
   if (requiredFields.title && requiredFields.specialty && requiredFields.location && requiredFields.description) completedSections.add("basic");
   if (requiredFields.shift_type && requiredFields.start_date && (!isTravelContract || requiredFields.duration)) completedSections.add("schedule");
-  if (requiredFields.pay && (!isTravelContract || requiredFields.stipend)) completedSections.add("compensation");
+  if (requiredFields.pay && requiredFields.pay_confirmed && (!isTravelContract || requiredFields.stipend)) completedSections.add("compensation");
   if (requiredFields.experience) completedSections.add("requirements");
   if (job.application_workflow_type) completedSections.add("workflow");
   if (canPublish) completedSections.add("review");
@@ -221,7 +247,7 @@ const JobFormPage = () => {
       if (!job.title || !job.description || !job.location || !job.specialty) return;
       setAutoSaveStatus("saving");
       try {
-        const payload = { ...job, pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 }, experience_required: parseInt(job.experience_required) || 0 };
+        const payload = { ...job, pay_range: { min: baseRate, max: baseRate }, weekly_pay: calculatedWeeklyPay, base_rate: baseRate, guaranteed_hours: guaranteedHrs, weekly_stipend: weeklyStipend, overtime_rate: overtimeRate, experience_required: parseInt(job.experience_required) || 0 };
         await axios.put(`${API}/jobs/${jobId}`, payload);
         lastSavedRef.current = JSON.stringify(job);
         setAutoSaveStatus("saved");
@@ -240,7 +266,7 @@ const JobFormPage = () => {
     setSaving(true);
     try {
       const title = isWeakTitle(job.title) && generatedTitle ? generatedTitle : job.title;
-      const payload = { ...job, title, pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 }, experience_required: parseInt(job.experience_required) || 0 };
+      const payload = { ...job, title, pay_range: { min: baseRate, max: baseRate }, weekly_pay: calculatedWeeklyPay, base_rate: baseRate, guaranteed_hours: guaranteedHrs, weekly_stipend: weeklyStipend, overtime_rate: overtimeRate, experience_required: parseInt(job.experience_required) || 0 };
       if (isEdit) { await axios.put(`${API}/jobs/${jobId}`, payload); toast.success("Job updated"); }
       else { await axios.post(`${API}/jobs`, payload); toast.success("Job posted"); }
       navigate("/poster");
@@ -317,7 +343,8 @@ const JobFormPage = () => {
               <div className="space-y-1.5">
                 <Label>Job Description *</Label>
                 <Textarea data-testid="description-input" value={job.description} onChange={(e) => setJob((p) => ({ ...p, description: e.target.value }))} placeholder="Describe the role, responsibilities, and ideal candidate..." rows={4} />
-                {job.description && job.description.length < 20 && <p className="text-xs text-amber-500">Please write at least 20 characters</p>}
+                {job.description && job.description.length < 150 && <p className="text-xs text-amber-500">{150 - job.description.length} more characters needed (minimum 150)</p>}
+                {job.description && PLACEHOLDER_PATTERNS.test(job.description.trim()) && <p className="text-xs text-amber-500">Please write a real description — placeholder text is not allowed</p>}
               </div>
             </div>
           </CollapsibleSection>
@@ -349,33 +376,77 @@ const JobFormPage = () => {
           {/* === COMPENSATION === */}
           <CollapsibleSection id="compensation" title="Compensation & Benefits" icon={DollarSign} isActive={activeSection === "compensation"} hasErrors={sectionErrors.has("compensation") && activeSection !== "compensation"}>
             <div className="space-y-5">
+              {/* Structured Pay */}
               <div>
-                <Label className="text-sm font-semibold mb-2 block">Hourly Rate *</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <Label className="text-sm font-semibold mb-3 block">Pay Structure *</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Minimum</Label>
+                    <Label className="text-xs text-muted-foreground">Base Rate ($/hr) *</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input data-testid="min-pay-input" type="number" value={job.pay_range.min} onChange={(e) => setJob((p) => ({ ...p, pay_range: { ...p.pay_range, min: e.target.value } }))} className="pl-10" placeholder="25" />
+                      <Input data-testid="base-rate-input" type="number" min="0" step="0.5" value={job.base_rate} onChange={(e) => setJob((p) => ({ ...p, base_rate: e.target.value }))} className="pl-10" placeholder="52" />
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Maximum</Label>
+                    <Label className="text-xs text-muted-foreground">Hours/Week *</Label>
+                    <Input data-testid="guaranteed-hours-input" type="number" min="0" value={job.guaranteed_hours} onChange={(e) => setJob((p) => ({ ...p, guaranteed_hours: e.target.value }))} placeholder="36" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Weekly Stipend ($)</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input data-testid="max-pay-input" type="number" value={job.pay_range.max} onChange={(e) => setJob((p) => ({ ...p, pay_range: { ...p.pay_range, max: e.target.value } }))} className="pl-10" placeholder="55" />
+                      <Input data-testid="weekly-stipend-input" type="number" min="0" value={job.weekly_stipend} onChange={(e) => setJob((p) => ({ ...p, weekly_stipend: e.target.value }))} className="pl-10" placeholder="900" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">OT Rate ($/hr)</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input data-testid="overtime-rate-input" type="number" min="0" step="0.5" value={job.overtime_rate} onChange={(e) => setJob((p) => ({ ...p, overtime_rate: e.target.value }))} className="pl-10" placeholder="78" />
                     </div>
                   </div>
                 </div>
-                {!hasPay && <p className="text-xs text-amber-500 mt-1">Compensation is required — jobs without pay are skipped by seekers</p>}
+
+                {/* Auto-calculated weekly pay */}
+                {hasStructuredPay && (
+                  <div data-testid="weekly-pay-preview" className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Calculated Weekly Pay</span>
+                      <span className="text-xl font-bold text-green-600">${calculatedWeeklyPay.toLocaleString()}/week</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ${baseRate}/hr x {guaranteedHrs}hrs{weeklyStipend > 0 ? ` + $${weeklyStipend} stipend` : ""}
+                      {overtimeRate > 0 ? ` | OT: $${overtimeRate}/hr` : ""}
+                    </p>
+                  </div>
+                )}
+
+                {!hasStructuredPay && <p className="text-xs text-amber-500 mt-2">Base rate and hours are required — seekers skip jobs without clear pay</p>}
+
+                {/* Pay range warning */}
+                {payOutOfRange && (
+                  <div data-testid="pay-range-warning" className="mt-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-300">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-700">This pay appears outside the typical range for this role</p>
+                        <p className="text-xs text-amber-600 mt-0.5">Expected: ${expectedRange.min.toLocaleString()}–${expectedRange.max.toLocaleString()}/week. Please verify before posting.</p>
+                        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                          <input type="checkbox" checked={payWarningAcknowledged} onChange={(e) => setPayWarningAcknowledged(e.target.checked)} className="rounded" data-testid="pay-confirm-checkbox" />
+                          <span className="text-xs text-amber-700">I confirm this pay is correct</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Stipend (required for travel) */}
+              {/* Stipend type (required for travel) */}
               {isTravelContract && (
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5"><Home className="w-4 h-4 text-primary" /> Stipend / Housing *</Label>
+                  <Label className="flex items-center gap-1.5"><Home className="w-4 h-4 text-primary" /> Stipend Type *</Label>
                   <Select value={job.stipend} onValueChange={(v) => setJob((p) => ({ ...p, stipend: v }))}>
-                    <SelectTrigger data-testid="stipend-select"><SelectValue placeholder="Select stipend info" /></SelectTrigger>
+                    <SelectTrigger data-testid="stipend-select"><SelectValue placeholder="Select stipend type" /></SelectTrigger>
                     <SelectContent>{STIPEND_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -499,8 +570,9 @@ const JobFormPage = () => {
               </div>
               <div>
                 <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Compensation</h4>
-                <ReviewField label="Pay Range" value={hasPay ? `$${job.pay_range.min}–$${job.pay_range.max}/hr` : null} required missing={!requiredFields.pay} />
-                {isTravelContract && <ReviewField label="Stipend/Housing" value={job.stipend} required missing={!requiredFields.stipend} />}
+                <ReviewField label="Pay" value={hasStructuredPay ? `$${calculatedWeeklyPay.toLocaleString()}/week ($${baseRate}/hr x ${guaranteedHrs}hrs${weeklyStipend > 0 ? ` + $${weeklyStipend}` : ""})` : null} required missing={!requiredFields.pay} />
+                {payOutOfRange && <ReviewField label="Pay Confirmed" value={payWarningAcknowledged ? "Yes" : null} required missing={!payWarningAcknowledged} />}
+                {isTravelContract && <ReviewField label="Stipend Type" value={job.stipend} required missing={!requiredFields.stipend} />}
                 <ReviewField label="Benefits" value={job.benefits.length > 0 ? job.benefits.join(", ") : null} />
               </div>
               <div>
