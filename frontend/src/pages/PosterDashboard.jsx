@@ -242,33 +242,6 @@ const PosterDashboard = () => {
           </div>
         </section>
 
-        {/* Stats — subdued, smaller */}
-        <section data-testid="section-employer-stats">
-          <div className="grid grid-cols-3 gap-2">
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/jobs/new")}>
-              <Briefcase className="w-4 h-4 text-primary shrink-0" />
-              <div>
-                <p className="text-base font-bold text-foreground leading-none">{stats?.active_jobs || 0}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Jobs</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/pipeline")}>
-              <Users className="w-4 h-4 text-green-600 shrink-0" />
-              <div>
-                <p className="text-base font-bold text-foreground leading-none">{candidateCount}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Candidates</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/offers-sent")}>
-              <Send className="w-4 h-4 text-blue-600 shrink-0" />
-              <div>
-                <p className="text-base font-bold text-foreground leading-none">{offerCount}</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Offers</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Onboarding Progress */}
         {onboardingCases.length > 0 && (
           <section data-testid="section-onboarding">
