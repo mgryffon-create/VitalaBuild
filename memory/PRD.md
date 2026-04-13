@@ -1,7 +1,7 @@
 # VitalaMatch — Product Requirements Document
 
 ## Original Problem Statement
-Build a healthcare hiring platform matching pros (healthcare workers) with employers, featuring swipe-based job matching, credential management, and a structured hiring pipeline.
+Healthcare hiring platform matching pros with employers, featuring bidirectional matching, worker protection, and structured hiring pipeline.
 
 ## Architecture
 - **Backend:** FastAPI + MongoDB (motor) + JWT auth, modular routers
@@ -9,30 +9,27 @@ Build a healthcare hiring platform matching pros (healthcare workers) with emplo
 
 ## What's Been Implemented
 
-### Phase 2: Structured Profile Data (April 2025)
-- **New seeker profile fields**: availability, preferred_shift, travel_readiness, job_type_preference, experience_highlights (list), skills (list)
-- **Seeker profile form**: New sections — Availability & Shift (dropdowns), Experience Highlights (bullet input, 3-5 items), Clinical Skills (tag input), Work Type & Travel (dropdowns)
-- **Browse Pros**: Uses structured data for availability badges, highlights, licenses vs certifications, work preferences
-- **Pro Profile View**: Full-screen profile with structured sections — Identity, Summary, Highlights, Licenses & Certs, Verification, Work Preferences
+### Phase 2: Bidirectional Matching & Worker Protection — Phase A (April 2025)
+- **Worker Preferences (7 fields)**: schedule_stability_importance, overtime_preference, overtime_pressure_tolerance, shift_cancellation_tolerance, staffing_tolerance, floating_tolerance, pay_transparency_importance
+- **Facility Profile (6 fields)**: staffing_expectation, floating_expectation, schedule_structure, overtime_policy, cancellation_policy, contract_accuracy_confidence
+- **Assignment Feedback**: 9-metric structured review system (staffing, cancellation, schedule, overtime, pay, contract, management, floating)
+- **Aggregated Metrics**: Trust score (0-100, weighted composite), per-dimension scores
+- **Signal System**: Auto-generated positive (>=70) and caution (<=40) signals
+- **Trust Badges**: Dynamic badges from verified data (requires 3+ feedbacks, >=75 threshold)
+- **Bidirectional Matching**: Candidate Fit Score (preference-weighted) + Facility Fit Score (qualifications-based)
+- **Facility Dashboard**: Trust score, signals, badges, improvement suggestions, response system
+- **Post-Assignment Feedback**: Pending feedback detection for completed/active assignments
+- Backend: `/app/backend/routes/matching.py`
 
 ### Phase 2: Browse Pros & Tiered Matching (April 2025)
-- Tiered matching: Strong Match / Possible Match / Hidden
-- Job-based ranking with context reasons
-- Filter refinement layer (specialty, location, experience, shift, certification)
-- Express interest → Applicants pipeline integration
-- Job picker dialog for multi-job employers
+- Tiered matching (Strong/Possible/Hidden), job-based ranking, filter refinement
+- Pro Profile View, Express interest → Applicants pipeline
 
 ### Phase 2: UX Overhaul (April 2025)
-- Navigation grouped: Home, Source Talent, Hiring Flow, Job Management, Account
-- Hiring Flow: Applicants → Matches → Offers → Onboarding
-- Dashboard: Jobs Snapshot + Hiring Flow metrics (exclusive stage counts)
-- Terminology: Pros, Applicants, Matches, Offers, Onboarding
-- Mobile: Bottom nav, sticky actions, sign-out button
+- Navigation, Hiring Flow (Applicants→Matches→Offers→Onboarding), terminology, mobile UX
 
 ### Phase 1: Core Features (March-April 2025)
-- Stripe Billing, OpenAI Resume Parser, Portable References
-- Document Vault, Compliance Scores, Training & Compliance
-- Conditional Offers/Onboarding, Legal pages, Admin panel
+- Stripe Billing, OpenAI Resume Parser, Portable References, Document Vault, Compliance
 
 ## Test Accounts
 | Role | Email | Password |
@@ -42,15 +39,22 @@ Build a healthcare hiring platform matching pros (healthcare workers) with emplo
 | Admin | admin@vitalamatch.com | admin123 |
 
 ## Prioritized Backlog
-### P0
-- Enforce strict user onboarding flow (block seekers until profile complete)
 
-### P1
-- Interview scheduling
-- Pipeline analytics dashboard
+### P0 — Phase B (Matching System)
+- Integrate facility signals into seeker job cards ("What Travelers Report")
+- Integrate candidate fit score into job swipe page
+- Worker protection warnings on job cards
+- Facility profile completion gating (block viewing full profiles / sending offers)
+
+### P1 — Phase C-D
+- Post-assignment feedback UI (midpoint check-in + completion review)
+- Facility accountability dashboard UI
+- Feedback loop: flag mismatches for admin review
 
 ### P2
-- Live SendGrid, Calendly/Zoom integration
+- Enforce strict user onboarding flow
+- Interview scheduling
+- Pipeline analytics dashboard
 
 ### Mocked
 - SendGrid (logged to DB), Twilio SMS (disabled), Nursys API (disabled)
