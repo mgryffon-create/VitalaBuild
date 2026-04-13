@@ -67,10 +67,15 @@ function formatPayBreakdown(card) {
   return null;
 }
 
-function matchLabel(score) {
+function matchLabel(card) {
+  const tier = card.match_tier;
+  if (tier === "strong") return { text: "Strong Match", cls: "text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" };
+  if (tier === "possible") return { text: "Possible Match", cls: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" };
+  if (tier === "expanded") return { text: "Expanded", cls: "text-muted-foreground bg-muted/50 border-muted-foreground/20" };
+  // Fallback for poster-side cards (no tier)
+  const score = card.compatibility_score;
   if (!score || score <= 0) return null;
-  if (score >= 80) return { text: "Strong Match", cls: "text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" };
-  if (score >= 60) return { text: "Good Match", cls: "text-primary bg-primary/5 border-primary/20" };
+  if (score >= 70) return { text: "Strong Match", cls: "text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" };
   if (score >= 40) return { text: "Possible Match", cls: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800" };
   return null;
 }
@@ -85,16 +90,23 @@ const SwipePage = () => {
   const [showMatchDialog, setShowMatchDialog] = useState(false);
   const [matchData, setMatchData] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [lastSwipedIndex, setLastSwipedIndex] = useState(null); // For rewind
+  const [lastSwipedIndex, setLastSwipedIndex] = useState(null);
+  const [hasHidden, setHasHidden] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const isSeeker = user?.role === "seeker";
 
-  const fetchCards = useCallback(async () => {
+  const fetchCards = useCallback(async (expand = false) => {
     try {
-      const response = isSeeker
-        ? await axios.get(`${API}/swipe/jobs`)
-        : await axios.get(`${API}/swipe/seekers?job_id=${jobId}`);
-      setCards(response.data);
+      if (isSeeker) {
+        const response = await axios.get(`${API}/swipe/jobs${expand ? "?expand=true" : ""}`);
+        const data = response.data;
+        setCards(data.jobs || []);
+        setHasHidden(data.has_hidden || false);
+      } else {
+        const response = await axios.get(`${API}/swipe/seekers?job_id=${jobId}`);
+        setCards(response.data);
+      }
     } catch {
       toast.error("Failed to load cards");
     } finally {
@@ -103,6 +115,12 @@ const SwipePage = () => {
   }, [isSeeker, jobId]);
 
   useEffect(() => { fetchCards(); }, [fetchCards]);
+
+  const handleExpandSearch = async () => {
+    setIsExpanded(true);
+    setLoading(true);
+    await fetchCards(true);
+  };
 
   const handleAction = async (action) => {
     if (currentIndex >= cards.length) return;
@@ -168,12 +186,25 @@ const SwipePage = () => {
           <div className="text-center py-20">
             <Briefcase className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
             <h2 className="text-xl font-semibold text-foreground mb-2">
-              {isSeeker ? "No more jobs right now" : "No candidates to review"}
+              {isSeeker
+                ? (hasHidden && !isExpanded ? "No more top matches" : "No more jobs right now")
+                : "No candidates to review"}
             </h2>
-            <p className="text-muted-foreground mb-6">Check back later for new opportunities.</p>
-            <Button data-testid="back-to-dashboard-btn" variant="outline" onClick={() => navigate(isSeeker ? "/seeker" : "/poster")}>
-              Back to Dashboard
-            </Button>
+            <p className="text-muted-foreground mb-6">
+              {isSeeker && hasHidden && !isExpanded
+                ? "We've shown your strongest results. Expand to see more options."
+                : "Check back later for new opportunities."}
+            </p>
+            <div className="flex flex-col items-center gap-3">
+              {isSeeker && hasHidden && !isExpanded && (
+                <Button data-testid="expand-search-btn" onClick={handleExpandSearch} variant="default">
+                  Expand Search
+                </Button>
+              )}
+              <Button data-testid="back-to-dashboard-btn" variant="outline" onClick={() => navigate(isSeeker ? "/seeker" : "/poster")}>
+                Back to Dashboard
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -362,8 +393,9 @@ const SeekerViewContent = ({ card, expanded }) => {
   const title = smartTitle(card);
   const weeklyPay = formatWeeklyPay(card);
   const breakdown = formatPayBreakdown(card);
-  const match = matchLabel(card.compatibility_score);
+  const match = matchLabel(card);
   const hasExp = card.experience_required > 0;
+  const reasons = card.match_reasons || [];
 
   return (
     <div>
@@ -379,12 +411,21 @@ const SeekerViewContent = ({ card, expanded }) => {
             <p className="text-sm text-muted-foreground mt-0.5">{card.company_name || "Healthcare Facility"}</p>
           </div>
           {match && (
-            <div data-testid="match-score" className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-center ${match.cls}`}>
+            <div data-testid="match-tier-badge" className={`shrink-0 px-2.5 py-1.5 rounded-lg border text-center ${match.cls}`}>
               <span className="text-xs font-bold">{match.text}</span>
-              <p className="text-[10px] opacity-70">{card.compatibility_score}%</p>
             </div>
           )}
         </div>
+        {/* Why this job — reason line */}
+        {reasons.length > 0 && (
+          <div data-testid="match-reasons" className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+            {reasons.map((r, i) => (
+              <span key={i} className="text-xs text-muted-foreground flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-primary/60 shrink-0" />{r}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="px-5 pb-5">

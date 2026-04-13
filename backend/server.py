@@ -821,61 +821,241 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def calculate_compatibility(seeker_profile: dict, job: dict) -> int:
-    """Calculate compatibility score between seeker and job posting"""
-    score = 0
-    max_score = 0
-    
-    # Specialty match (30 points)
-    max_score += 30
-    if seeker_profile.get('specialty', '').lower() == job.get('specialty', '').lower():
-        score += 30
-    elif seeker_profile.get('specialty', '').lower() in job.get('specialty', '').lower():
-        score += 15
-    
-    # Experience match (25 points)
-    max_score += 25
-    seeker_exp = seeker_profile.get('years_experience', 0)
-    required_exp = job.get('experience_required', 0)
-    if seeker_exp >= required_exp:
-        score += 25
+    """Legacy wrapper — returns numeric score for backward compat (poster swipe, browse pros)"""
+    result = calculate_match(seeker_profile, job)
+    return result["compatibility_score"]
+
+
+def _extract_role_category(specialty: str) -> str:
+    """Extract broad role category from specialty string, e.g. 'RN', 'LPN', 'CNA'."""
+    if not specialty:
+        return ""
+    s = specialty.upper()
+    for cat in ["CRNA", "NP", "RN", "LPN", "LVN", "CNA", "PCT", "RT", "OT", "PT", "ST", "PA"]:
+        if cat in s:
+            return cat
+    return specialty.split("-")[0].strip().split("(")[0].strip().upper()[:10]
+
+
+def _extract_sub_specialty(specialty: str) -> str:
+    """Extract sub-specialty from formatted string like 'Registered Nurse (RN) - ICU/Critical Care'."""
+    if not specialty:
+        return ""
+    parts = specialty.split("-", 1)
+    return parts[1].strip().lower() if len(parts) > 1 else ""
+
+
+def _job_has_quality_issues(job: dict) -> list:
+    """Check if a job has data quality problems that should downgrade it."""
+    issues = []
+    base = job.get("base_rate") or 0
+    wp = job.get("weekly_pay") or 0
+    pr = job.get("pay_range") or {}
+    has_pay = base > 0 or wp > 0 or (pr.get("min") or 0) > 0
+    if not has_pay:
+        issues.append("missing_pay")
+    if not job.get("shift_type"):
+        issues.append("missing_shift")
+    loc = (job.get("location") or "").strip()
+    if not loc or len(loc) < 3:
+        issues.append("vague_location")
+    desc = (job.get("description") or "").strip()
+    if len(desc) < 50:
+        issues.append("poor_description")
+    return issues
+
+
+def calculate_match(seeker_profile: dict, job: dict) -> dict:
+    """
+    Tiered matching: returns {compatibility_score, match_tier, match_reasons, quality_issues}.
+    Tiers: 'strong', 'possible', 'hidden'.
+    """
+    signals = {}  # dimension → (points_earned, max_points, reason_if_positive, reason_if_conflict)
+
+    seeker_spec = (seeker_profile.get("specialty") or "").strip()
+    job_spec = (job.get("specialty") or "").strip()
+    seeker_cat = _extract_role_category(seeker_spec)
+    job_cat = _extract_role_category(job_spec)
+    seeker_sub = _extract_sub_specialty(seeker_spec)
+    job_sub = _extract_sub_specialty(job_spec)
+
+    # 1. Specialty alignment (30 pts)
+    spec_score = 0
+    spec_reason = None
+    if seeker_spec.lower() == job_spec.lower():
+        spec_score = 30
+        short = job_sub.title() if job_sub else job_cat
+        spec_reason = f"Matches your {short} specialty" if short else None
+    elif seeker_cat and job_cat and seeker_cat == job_cat:
+        spec_score = 18
+        spec_reason = f"Related {job_cat} role" + (f" in {job_sub.title()}" if job_sub else "")
+    elif seeker_cat and job_cat:
+        spec_score = 5
+    signals["specialty"] = (spec_score, 30, spec_reason)
+
+    # 2. Experience alignment (25 pts)
+    seeker_exp = seeker_profile.get("years_experience") or 0
+    required_exp = job.get("experience_required") or 0
+    exp_score = 0
+    exp_reason = None
+    if required_exp == 0 or seeker_exp >= required_exp:
+        exp_score = 25
+        if required_exp > 0:
+            exp_reason = f"Meets the {required_exp}+ year experience requirement"
     elif seeker_exp >= required_exp - 1:
-        score += 15
-    
-    # Location preference (20 points)
-    max_score += 20
-    preferred_locations = seeker_profile.get('preferred_locations', [])
-    job_location = job.get('location', '')
-    if any(loc.lower() in job_location.lower() for loc in preferred_locations):
-        score += 20
-    
-    # Certifications match (15 points)
-    max_score += 15
-    # Handle certifications as either list of strings or list of objects with 'name' key
-    raw_certs = seeker_profile.get('certifications', [])
-    seeker_certs = []
+        exp_score = 15
+        exp_reason = f"Close to the {required_exp}+ year experience level"
+    else:
+        exp_score = 5
+    signals["experience"] = (exp_score, 25, exp_reason)
+
+    # 3. License / Certification alignment (15 pts)
+    raw_certs = seeker_profile.get("certifications", [])
+    seeker_certs = set()
     for c in raw_certs:
-        if isinstance(c, str):
-            seeker_certs.append(c.lower())
-        elif isinstance(c, dict):
-            seeker_certs.append(c.get('name', '').lower())
-    required_certs = [c.lower() for c in job.get('certifications_required', [])]
+        name = c if isinstance(c, str) else (c.get("name") or "")
+        if name:
+            seeker_certs.add(name.lower().strip())
+    raw_licenses = seeker_profile.get("licenses", [])
+    for lic in raw_licenses:
+        if isinstance(lic, dict) and lic.get("name"):
+            seeker_certs.add(lic["name"].lower().strip())
+    required_certs = [c.lower().strip() for c in (job.get("certifications_required") or [])]
+    cert_score = 0
+    cert_reason = None
     if required_certs:
-        matched_certs = sum(1 for rc in required_certs if any(rc in sc for sc in seeker_certs))
-        score += int(15 * (matched_certs / len(required_certs)))
+        matched = sum(1 for rc in required_certs if any(rc in sc for sc in seeker_certs))
+        ratio = matched / len(required_certs)
+        cert_score = int(15 * ratio)
+        if ratio >= 1.0:
+            cert_reason = f"Has all required certifications ({', '.join(c.upper() for c in required_certs[:3])})"
+        elif ratio > 0:
+            cert_reason = f"Has some required certifications"
     else:
-        score += 15
-    
-    # Benefits match (10 points)
-    max_score += 10
-    desired_benefits = [b.lower() for b in seeker_profile.get('desired_benefits', [])]
-    offered_benefits = [b.lower() for b in job.get('benefits', [])]
-    if desired_benefits and offered_benefits:
-        matched_benefits = sum(1 for db in desired_benefits if any(db in ob for ob in offered_benefits))
-        score += int(10 * (matched_benefits / len(desired_benefits)))
+        cert_score = 15  # no certs required = full points
+    signals["certifications"] = (cert_score, 15, cert_reason)
+
+    # 4. Shift alignment (10 pts)
+    pref_shift = (seeker_profile.get("preferred_shift") or "").lower()
+    job_shift = (job.get("shift_type") or "").lower()
+    shift_score = 5  # neutral default
+    shift_reason = None
+    shift_conflict = False
+    if pref_shift and job_shift:
+        if pref_shift.split()[0] in job_shift:
+            shift_score = 10
+            shift_label = job.get("shift_type", "").split("(")[0].strip()
+            shift_reason = f"Aligns with your {shift_label.lower()} preference"
+        elif "flexible" in job_shift or "rotating" in job_shift:
+            shift_score = 7
+        else:
+            shift_score = 2
+            shift_conflict = True
+    signals["shift"] = (shift_score, 10, shift_reason)
+
+    # 5. Location alignment (10 pts)
+    preferred_locs = [loc.lower().strip() for loc in (seeker_profile.get("preferred_locations") or [])]
+    job_loc = (job.get("location") or "").lower().strip()
+    loc_score = 3  # baseline
+    loc_reason = None
+    loc_conflict = False
+    if preferred_locs and job_loc:
+        if any(pl in job_loc or job_loc in pl for pl in preferred_locs):
+            loc_score = 10
+            loc_reason = f"In your preferred area ({job.get('location', '')})"
+        else:
+            travel = (seeker_profile.get("travel_readiness") or "").lower()
+            if "open" in travel or "willing" in travel:
+                loc_score = 6
+            else:
+                loc_score = 1
+                loc_conflict = True
+    signals["location"] = (loc_score, 10, loc_reason)
+
+    # 6. Job type alignment (5 pts)
+    pref_type = (seeker_profile.get("job_type_preference") or "").lower()
+    job_type = (job.get("job_type") or "").lower()
+    type_score = 3
+    type_reason = None
+    type_conflict = False
+    if pref_type and job_type:
+        if pref_type in job_type or job_type in pref_type:
+            type_score = 5
+        elif ("travel" in pref_type and "travel" in job_type) or ("contract" in pref_type and "contract" in job_type):
+            type_score = 4
+        else:
+            type_score = 1
+            type_conflict = True
+    signals["job_type"] = (type_score, 5, type_reason)
+
+    # 7. Start timing alignment (5 pts)
+    avail = (seeker_profile.get("availability") or "").lower()
+    start = job.get("start_date") or ""
+    timing_score = 3
+    if avail and "now" in avail and start:
+        try:
+            start_dt = datetime.fromisoformat(start) if "T" in start else datetime.strptime(start, "%Y-%m-%d")
+            days_out = (start_dt - datetime.now()).days
+            if days_out <= 14:
+                timing_score = 5
+            elif days_out <= 45:
+                timing_score = 4
+        except (ValueError, TypeError):
+            pass
+    signals["timing"] = (timing_score, 5, None)
+
+    # --- Aggregate ---
+    total_earned = sum(v[0] for v in signals.values())
+    total_max = sum(v[1] for v in signals.values())
+    raw_pct = int((total_earned / total_max) * 100) if total_max > 0 else 50
+
+    # --- Quality filtering ---
+    quality_issues = _job_has_quality_issues(job)
+    if quality_issues:
+        raw_pct = max(0, raw_pct - len(quality_issues) * 10)
+
+    # --- Tier determination ---
+    spec_earned = signals["specialty"][0]
+    exp_earned = signals["experience"][0]
+    # Only shift + location conflicts are "major" (hard to overcome);
+    # job type mismatch is a soft preference that lowers score but doesn't block strong tier
+    major_conflicts = sum([shift_conflict, loc_conflict])
+
+    if spec_earned >= 18 and exp_earned >= 15 and major_conflicts == 0 and len(quality_issues) == 0:
+        tier = "strong"
+    elif spec_earned >= 5 and (exp_earned >= 5 or required_exp == 0) and len(quality_issues) <= 1:
+        tier = "possible"
     else:
-        score += 5
-    
-    return int((score / max_score) * 100) if max_score > 0 else 50
+        tier = "hidden"
+
+    # Force hidden for truly unrelated + many conflicts
+    if spec_earned <= 5 and major_conflicts >= 2:
+        tier = "hidden"
+
+    # --- Reason generation (1-2 plain-language lines) ---
+    reasons = []
+    # Collect positive reasons in priority order
+    priority_order = ["specialty", "experience", "certifications", "shift", "location", "job_type"]
+    for dim in priority_order:
+        r = signals[dim][2]
+        if r:
+            reasons.append(r)
+        if len(reasons) >= 2:
+            break
+
+    # If we have no positive reasons for possible tier, generate contextual ones
+    if tier == "possible" and len(reasons) == 0:
+        if seeker_cat == job_cat and seeker_sub != job_sub:
+            reasons.append(f"Related {job_cat} position outside your usual department")
+        if exp_earned >= 15 and exp_earned < 25:
+            reasons.append("Building toward the required experience level")
+
+    return {
+        "compatibility_score": max(0, min(100, raw_pct)),
+        "match_tier": tier,
+        "match_reasons": reasons[:2],
+        "quality_issues": quality_issues,
+    }
 
 # ==================== AUTH ROUTES (moved to routes/auth.py) ====================
 
@@ -1394,8 +1574,8 @@ async def delete_job(job_id: str, current_user: dict = Depends(get_current_user)
 # ==================== SWIPE/MATCHING ROUTES ====================
 
 @api_router.get("/swipe/jobs")
-async def get_swipeable_jobs(current_user: dict = Depends(get_current_user)):
-    """Get jobs for seeker to swipe on"""
+async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), expand: bool = False):
+    """Get jobs for seeker to swipe on, with tiered matching."""
     if current_user["role"] != "seeker":
         raise HTTPException(status_code=403, detail="Only seekers can swipe on jobs")
     
@@ -1407,16 +1587,43 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user)):
     seeker_profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
     
     # Get active jobs not yet swiped
-    jobs = await db.jobs.find({"id": {"$nin": swiped_ids}, "is_active": True}, {"_id": 0}).to_list(50)
+    jobs = await db.jobs.find({"id": {"$nin": swiped_ids}, "is_active": True}, {"_id": 0}).to_list(100)
     
-    # Add compatibility scores
+    # Calculate tiered match for each job
+    strong = []
+    possible = []
+    hidden = []
     for job in jobs:
-        job["compatibility_score"] = calculate_compatibility(seeker_profile, job)
+        result = calculate_match(seeker_profile, job)
+        job["compatibility_score"] = result["compatibility_score"]
+        job["match_tier"] = result["match_tier"]
+        job["match_reasons"] = result["match_reasons"]
+        if result["match_tier"] == "strong":
+            strong.append(job)
+        elif result["match_tier"] == "possible":
+            possible.append(job)
+        else:
+            hidden.append(job)
     
-    # Sort by compatibility score
-    jobs.sort(key=lambda x: x["compatibility_score"], reverse=True)
+    # Sort within tiers by score
+    strong.sort(key=lambda x: x["compatibility_score"], reverse=True)
+    possible.sort(key=lambda x: x["compatibility_score"], reverse=True)
+    hidden.sort(key=lambda x: x["compatibility_score"], reverse=True)
     
-    return jobs
+    # Return strong + possible by default; include hidden only if expand=true
+    result_jobs = strong + possible
+    has_hidden = len(hidden) > 0
+    
+    if expand:
+        for h in hidden:
+            h["match_tier"] = "expanded"
+        result_jobs += hidden
+    
+    return {
+        "jobs": result_jobs,
+        "counts": {"strong": len(strong), "possible": len(possible), "hidden": len(hidden)},
+        "has_hidden": has_hidden,
+    }
 
 @api_router.get("/swipe/seekers")
 async def get_swipeable_seekers(job_id: str, current_user: dict = Depends(get_current_user)):

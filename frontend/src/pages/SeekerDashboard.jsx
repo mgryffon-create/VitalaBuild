@@ -49,7 +49,7 @@ const SeekerDashboard = () => {
       setExpiringDocs(docsRes.data);
       setRecentMatches(matchesRes.data.slice(0, 3));
       setProfile(profileRes.data);
-      setJobsAvailable(Array.isArray(jobsRes.data) ? jobsRes.data.length : 0);
+      setJobsAvailable(Array.isArray(jobsRes.data) ? jobsRes.data.length : (jobsRes.data?.jobs?.length || 0));
       setProfileCompletion(completionRes.data);
     } catch (error) {
       toast.error("Failed to load dashboard data");
