@@ -221,8 +221,14 @@ const SwipePage = () => {
           </div>
         ) : (
           <>
+            {/* Wrapper: on desktop, flex column with reserved action bar space */}
+            <div className="lg:flex lg:flex-col lg:h-[calc(100vh-160px)]">
+
             {/* Card Stack */}
-            <div className="relative w-full pb-28 sm:pb-4 lg:pb-2" style={{ minHeight: expanded ? "auto" : "min(420px, calc(100vh - 320px))" }}>
+            <div
+              className="relative w-full pb-28 sm:pb-4 lg:pb-0 lg:flex-1 lg:overflow-hidden"
+              style={{ minHeight: expanded ? "auto" : "min(380px, calc(100vh - 320px))" }}
+            >
               <AnimatePresence>
                 {cards.slice(currentIndex, currentIndex + 3).reverse().map((card, idx) => {
                   const stackLen = Math.min(3, cards.length - currentIndex);
@@ -243,8 +249,8 @@ const SwipePage = () => {
               </AnimatePresence>
             </div>
 
-            {/* Action Buttons */}
-            <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto sm:mt-6">
+            {/* Action Buttons — shrink-0 on desktop to guarantee visibility */}
+            <div data-testid="swipe-actions" className="fixed bottom-20 left-0 right-0 z-50 sm:static sm:bottom-auto sm:z-auto sm:mt-6 lg:mt-0 lg:shrink-0 lg:pt-5 lg:pb-2">
               <div className="flex justify-center items-center gap-3 lg:gap-5 px-6 py-3 sm:py-0 bg-background/90 backdrop-blur-md sm:bg-transparent sm:backdrop-blur-none">
                 {/* Rewind */}
                 <div className="flex flex-col items-center">
@@ -303,6 +309,7 @@ const SwipePage = () => {
                 </div>
               </div>
             </div>
+            </div>{/* Close lg:flex wrapper */}
           </>
         )}
 
@@ -368,7 +375,7 @@ const JobCard = ({ card, isSeeker, isTop, expanded, onExpand, onSwipe, stackOffs
       layout
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${stackOffset > 0 ? "shadow-md" : "shadow-xl lg:shadow-2xl"} ${expanded ? "" : "h-[min(420px,calc(100vh-320px))] sm:h-[440px] lg:h-[min(480px,calc(100vh-300px))]"}`}>
+      <div className={`bg-card rounded-2xl shadow-lg border border-border overflow-hidden ${stackOffset > 0 ? "shadow-md" : "shadow-xl lg:shadow-2xl"} ${expanded ? "" : "h-[min(420px,calc(100vh-320px))] sm:h-[440px] lg:h-[min(440px,calc(100vh-300px))]"}`}>
         {/* Swipe indicators */}
         {isTop && !expanded && (
           <>
