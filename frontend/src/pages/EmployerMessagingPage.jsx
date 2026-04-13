@@ -357,7 +357,10 @@ const EmployerMessagingPage = () => {
                           <p className="text-[10px] text-muted-foreground truncate">{c.specialty || "Healthcare Professional"}</p>
                           {c.last_message && <p className="text-[9px] text-muted-foreground truncate mt-0.5">{c.last_message.content}</p>}
                         </div>
-                        <Badge variant="outline" className={`text-[8px] shrink-0 ${STAGE_BADGE[c.stage] || ""}`}>{STAGE_LABEL[c.stage] || c.stage}</Badge>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          <Badge variant="outline" className={`text-[8px] ${STAGE_BADGE[c.stage] || ""}`}>{STAGE_LABEL[c.stage] || c.stage}</Badge>
+                          {c.stage === "interviewing" && <span className="text-[7px] text-amber-600 dark:text-amber-400">Interviewing</span>}
+                        </div>
                       </div>
                     </button>
                   );
@@ -381,7 +384,10 @@ const EmployerMessagingPage = () => {
                   <p className="text-sm font-medium text-foreground truncate">{selected.name}</p>
                   <p className="text-[10px] text-muted-foreground">{selected.specialty}</p>
                 </div>
-                <Badge variant="outline" className={`text-[9px] ${STAGE_BADGE[selected.stage] || ""}`}>{STAGE_LABEL[selected.stage] || selected.stage}</Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Badge variant="outline" className={`text-[9px] ${STAGE_BADGE[selected.stage] || ""}`}>{STAGE_LABEL[selected.stage] || selected.stage}</Badge>
+                  {selected.stage === "interviewing" && <span className="text-[8px] text-amber-600 dark:text-amber-400">Interviewing</span>}
+                </div>
                 <Button variant="ghost" size="icon" className="hidden lg:flex h-8 w-8" onClick={() => setShowContext(!showContext)} data-testid="toggle-context-btn">
                   {showContext ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                 </Button>

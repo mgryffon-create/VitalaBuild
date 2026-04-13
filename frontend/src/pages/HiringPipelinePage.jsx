@@ -17,7 +17,7 @@ import {
 // UI stages — "interviewing" is hidden, merged visually into "Matches"
 const STAGES = [
   { id: "interested", label: "Applicants", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-  { id: "matched", label: "Matches", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", merges: ["interviewing"] },
+  { id: "matched", label: "Matches", subtitle: "Accepted + Interviewing", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", merges: ["interviewing"] },
   { id: "offer_sent", label: "Offers", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
   { id: "hired", label: "Onboarding", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
 ];
@@ -25,6 +25,12 @@ const STAGES = [
 // Backend stages still flow through "interviewing" — UI skips it visually
 const NEXT_STAGE = { interested: "matched", matched: "offer_sent", offer_sent: "hired" };
 const NEXT_LABEL = { interested: "Match", matched: "Send Offer", offer_sent: "Onboard" };
+
+// Sub-stage badges shown on cards within the Matches column
+const SUB_BADGE = {
+  matched: { label: "Accepted", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  interviewing: { label: "Interviewing", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+};
 
 const NudgeBanner = ({ nudges, onAction }) => {
   if (!nudges?.length) return null;
@@ -60,9 +66,10 @@ const NudgeBanner = ({ nudges, onAction }) => {
   );
 };
 
-const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds }) => {
+const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds, showSubBadge }) => {
   const c = candidate;
   const isNudged = nudgeIds.has(c.candidate_id);
+  const sub = showSubBadge ? SUB_BADGE[c.stage] : null;
   return (
     <Card
       data-testid={`pipeline-card-${c.id}`}
@@ -78,6 +85,7 @@ const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds }) => {
               <p className="font-medium text-xs text-foreground truncate">{c.seeker?.full_name || "Applicant"}</p>
               {c.has_verified_refs && <ShieldCheck className="w-3 h-3 text-green-600 shrink-0" />}
               {isNudged && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
+              {sub && <span className={`text-[8px] px-1.5 py-0 rounded-full font-medium shrink-0 ${sub.className}`}>{sub.label}</span>}
             </div>
             <p className="text-[10px] text-muted-foreground truncate">{c.seeker?.specialty || c.job?.title}</p>
             {c.seeker?.skills?.length > 0 && (
@@ -219,7 +227,10 @@ const HiringPipelinePage = () => {
               >
                 <div className={`px-3 py-2.5 border-b ${stage.bg}`}>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-foreground">{stage.label}</p>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{stage.label}</p>
+                      {stage.subtitle && <p className="text-[9px] text-muted-foreground">{stage.subtitle}</p>}
+                    </div>
                     <Badge variant="secondary" className="text-[9px] h-5 px-1.5">{cards.length}</Badge>
                   </div>
                 </div>
@@ -230,7 +241,7 @@ const HiringPipelinePage = () => {
                     </div>
                   ) : (
                     cards.map((c) => (
-                      <PipelineCard key={c.id} candidate={c} onMove={moveCandidate} onMessage={openMessage} nudgeIds={nudgeIds} />
+                      <PipelineCard key={c.id} candidate={c} onMove={moveCandidate} onMessage={openMessage} nudgeIds={nudgeIds} showSubBadge={!!stage.merges} />
                     ))
                   )}
                 </ScrollArea>
