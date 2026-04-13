@@ -62,8 +62,13 @@ const TIER_BADGE = {
 // Known clinical certifications worth showing
 const CLINICAL_CERTS = new Set(["bls", "acls", "pals", "nrp", "tncc", "ccrn", "cen", "cnl", "np", "rn", "lpn", "cna"]);
 
-// Build 2-3 specific highlights — no generic filler
+// Build 2-3 specific highlights — prefer structured, fallback to derived
 const getHighlights = (pro) => {
+  // Prefer structured experience_highlights if available
+  if (pro.experience_highlights?.length > 0) {
+    return pro.experience_highlights.slice(0, 3);
+  }
+
   const bullets = [];
 
   // 1. Specialty-derived experience highlight
@@ -72,7 +77,7 @@ const getHighlights = (pro) => {
     if (sub && sub.length > 2) bullets.push(`${sub} experience`);
   }
 
-  // 2. Individual clinical certifications as separate items
+  // 2. Individual clinical certifications
   const certs = (pro.certifications || [])
     .map(c => typeof c === "string" ? c : c?.name || c?.title || "")
     .filter(c => c && CLINICAL_CERTS.has(c.toLowerCase()) && !["rn", "lpn", "cna"].includes(c.toLowerCase()));
@@ -80,19 +85,7 @@ const getHighlights = (pro) => {
     if (bullets.length < 3) bullets.push(`${cert.toUpperCase()} certified`);
   }
 
-  // 3. Bio snippet — only meaningful, specific content
-  if (pro.bio && bullets.length < 3) {
-    const sentences = pro.bio.split(/[.\n]/).map(s => s.trim()).filter(s => s.length > 10 && s.length < 80);
-    const useful = sentences.find(s => {
-      const low = s.toLowerCase();
-      return !low.match(/^(rn|lpn|cna|nurse|healthcare)\s+(with|having)\s+\d/) &&
-        !low.startsWith("seeking") && !low.startsWith("looking for") &&
-        !low.match(/^\d+\s*years?\s*(of\s+)?experience/);
-    });
-    if (useful) bullets.push(useful);
-  }
-
-  // 4. Skills as fallback
+  // 3. Skills as fallback
   if (bullets.length < 2 && pro.skills?.length > 0) {
     const realSkills = pro.skills.slice(0, 2)
       .map(s => typeof s === "string" ? s : s?.skill || s?.name || "")
@@ -109,8 +102,9 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
   if (!pro) return null;
   const tier = TIER_BADGE[pro.match_tier] || TIER_BADGE.none;
   const certs = (pro.certifications || []).map(c => typeof c === "string" ? { name: c } : c).filter(c => c?.name);
+  const profileLicenses = (pro.licenses || []).filter(l => l?.name);
   const clinicalCerts = certs.filter(c => CLINICAL_CERTS_SET.has(c.name?.toLowerCase()));
-  const licenses = certs.filter(c => !CLINICAL_CERTS_SET.has(c.name?.toLowerCase()) && c.name?.length <= 5);
+  const otherCerts = certs.filter(c => !CLINICAL_CERTS_SET.has(c.name?.toLowerCase()) && !profileLicenses.some(l => l.name === c.name));
 
   return (
     <div data-testid="pro-profile-view" className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -134,8 +128,15 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
             <div>
               <h2 className="text-lg font-semibold text-foreground">{formatName(pro.full_name)}</h2>
               <p className="text-sm text-muted-foreground">{formatRole(pro.specialty, pro.years_experience)}</p>
-              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Available Now
+              <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                !pro.availability || pro.availability === "Available Now"
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+                  : pro.availability === "Not Available"
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+              }`}>
+                {(!pro.availability || pro.availability === "Available Now") && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                {pro.availability || "Available Now"}
               </span>
             </div>
           </div>
@@ -148,17 +149,11 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
             </section>
           )}
 
-          {/* Experience Highlights */}
+          {/* Experience Highlights — prefer structured data */}
           {(() => {
-            const highlights = getHighlights(pro);
-            // Add more from bio if available
-            if (pro.bio) {
-              const extra = pro.bio.split(/[.\n]/)
-                .map(s => s.trim())
-                .filter(s => s.length > 10 && s.length < 80 && !highlights.includes(s))
-                .slice(0, 5 - highlights.length);
-              highlights.push(...extra);
-            }
+            const highlights = pro.experience_highlights?.length > 0
+              ? [...pro.experience_highlights]
+              : getHighlights(pro);
             return highlights.length > 0 ? (
               <section>
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Experience Highlights</h3>
@@ -175,18 +170,18 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
           })()}
 
           {/* Licenses & Certifications */}
-          {certs.length > 0 && (
+          {(profileLicenses.length > 0 || certs.length > 0) && (
             <section>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Licenses & Certifications</h3>
               <div className="space-y-2">
-                {licenses.length > 0 && (
+                {profileLicenses.length > 0 && (
                   <div>
                     <p className="text-[10px] text-muted-foreground mb-1">Licenses</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {licenses.map((c, i) => (
+                      {profileLicenses.map((l, i) => (
                         <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-medium">
-                          {c.name}
-                          {c.expiration && <span className="text-[9px] text-muted-foreground ml-1">exp {c.expiration}</span>}
+                          {l.name}{l.state ? ` (${l.state})` : ""}
+                          {l.expiration && <span className="text-[9px] text-muted-foreground ml-1">exp {l.expiration}</span>}
                         </span>
                       ))}
                     </div>
@@ -236,42 +231,42 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
               {pro.preferred_locations?.length > 0 && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
                   <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Location</p>
-                    <p className="text-[11px] font-medium text-foreground">{pro.preferred_locations.join(", ")}</p>
-                  </div>
+                  <div><p className="text-[10px] text-muted-foreground">Location</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_locations.join(", ")}</p></div>
                 </div>
               )}
               {pro.preferred_shift && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
                   <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Shift</p>
-                    <p className="text-[11px] font-medium text-foreground">{pro.preferred_shift}</p>
-                  </div>
+                  <div><p className="text-[10px] text-muted-foreground">Shift</p><p className="text-[11px] font-medium text-foreground">{pro.preferred_shift}</p></div>
                 </div>
               )}
               {pro.years_experience && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
                   <Award className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Experience</p>
-                    <p className="text-[11px] font-medium text-foreground">{pro.years_experience} years</p>
-                  </div>
+                  <div><p className="text-[10px] text-muted-foreground">Experience</p><p className="text-[11px] font-medium text-foreground">{pro.years_experience} years</p></div>
+                </div>
+              )}
+              {pro.travel_readiness && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div><p className="text-[10px] text-muted-foreground">Travel</p><p className="text-[11px] font-medium text-foreground">{pro.travel_readiness}</p></div>
+                </div>
+              )}
+              {pro.job_type_preference && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div><p className="text-[10px] text-muted-foreground">Job Type</p><p className="text-[11px] font-medium text-foreground">{pro.job_type_preference}</p></div>
                 </div>
               )}
               {pro.skills?.length > 0 && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 col-span-2">
                   <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Skills</p>
-                    <p className="text-[11px] font-medium text-foreground truncate">{pro.skills.slice(0, 3).map(s => typeof s === "string" ? s : s?.name || "").join(", ")}</p>
-                  </div>
+                  <div><p className="text-[10px] text-muted-foreground">Skills</p><p className="text-[11px] font-medium text-foreground">{pro.skills.slice(0, 5).map(s => typeof s === "string" ? s : s?.name || "").join(", ")}</p></div>
                 </div>
               )}
             </div>
-            {!pro.preferred_locations?.length && !pro.preferred_shift && (
-              <p className="text-[11px] text-muted-foreground mt-1">No preferences specified</p>
+            {!pro.preferred_locations?.length && !pro.preferred_shift && !pro.travel_readiness && !pro.job_type_preference && (
+              <p className="text-[11px] text-muted-foreground mt-1">No preferences specified yet</p>
             )}
           </section>
 
@@ -523,10 +518,17 @@ const BrowseProsPage = () => {
                   )}
                 </div>
 
-                {/* Availability — prominent */}
-                <div className="px-4 pb-2 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Available Now
+                {/* Availability — prominent, from structured data */}
+                <div className="px-4 pb-2 flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                    !current.availability || current.availability === "Available Now"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+                      : current.availability === "Not Available"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                  }`}>
+                    {(!current.availability || current.availability === "Available Now") && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+                    {current.availability || "Available Now"}
                   </span>
                   {current.preferred_locations?.length > 0 && (
                     <span className="text-[11px] text-muted-foreground flex items-center gap-0.5"><MapPin className="w-3 h-3" /> {current.preferred_locations[0]}</span>

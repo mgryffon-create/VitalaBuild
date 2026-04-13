@@ -483,6 +483,13 @@ class SeekerProfile(BaseModel):
     years_experience: Optional[int] = None
     preferred_locations: Optional[List[str]] = None
     profile_image: Optional[str] = None
+    # Phase 2: Structured employer-facing fields
+    preferred_shift: Optional[str] = None
+    availability: Optional[str] = None  # "Available Now", "Available in 2 weeks", "Available in 1 month", "Not Available"
+    travel_readiness: Optional[str] = None  # "Open to travel", "Local only", "Will relocate"
+    job_type_preference: Optional[str] = None  # "Travel Contract", "Per Diem", "Staff/Permanent", "Any"
+    experience_highlights: Optional[List[str]] = None  # 3-5 concise bullets
+    skills: Optional[List[str]] = None  # Structured skills list
 
 class PosterProfile(BaseModel):
     company_name: Optional[str] = None
@@ -1723,9 +1730,15 @@ async def browse_pros(
             "preferred_locations": profile.get("preferred_locations", []),
             "preferred_shift": profile.get("preferred_shift"),
             "certifications": profile.get("certifications", []),
+            "licenses": profile.get("licenses", []),
             "verified_references": ref_count,
             "vault_documents": vault_count,
             "profile_complete": seeker.get("profile_complete", False),
+            "availability": profile.get("availability"),
+            "travel_readiness": profile.get("travel_readiness"),
+            "job_type_preference": profile.get("job_type_preference"),
+            "experience_highlights": profile.get("experience_highlights", []),
+            "medical_records_count": len(profile.get("medical_records", [])),
             "match_score": best_score,
             "match_tier": tier,
             "best_job_id": best_job_id,

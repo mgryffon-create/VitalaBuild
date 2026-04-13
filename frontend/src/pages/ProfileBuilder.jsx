@@ -428,6 +428,8 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     expiration_date: "",
     result: ""
   });
+  const [newHighlight, setNewHighlight] = useState("");
+  const [newSkill, setNewSkill] = useState("");
 
   const benefitOptions = [
     "Health Insurance",
@@ -587,6 +589,100 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 placeholder="Tell employers about yourself, your experience, and what you're looking for..."
                 rows={4}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Availability & Shift */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              Availability & Shift
+            </CardTitle>
+            <CardDescription>When can you start and what shifts do you prefer?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Availability</Label>
+                <Select value={profile.availability || ""} onValueChange={(v) => updateField("availability", v)}>
+                  <SelectTrigger data-testid="availability-select"><SelectValue placeholder="Select availability" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Available Now">Available Now</SelectItem>
+                    <SelectItem value="Available in 2 weeks">Available in 2 weeks</SelectItem>
+                    <SelectItem value="Available in 1 month">Available in 1 month</SelectItem>
+                    <SelectItem value="Not Available">Not Available</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Shift Preference</Label>
+                <Select value={profile.preferred_shift || ""} onValueChange={(v) => updateField("preferred_shift", v)}>
+                  <SelectTrigger data-testid="shift-select"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Day Shift">Day Shift</SelectItem>
+                    <SelectItem value="Night Shift">Night Shift</SelectItem>
+                    <SelectItem value="Rotating">Rotating</SelectItem>
+                    <SelectItem value="Flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Experience Highlights */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-primary" />
+              Experience Highlights
+            </CardTitle>
+            <CardDescription>Add 3-5 concise highlights employers will see (e.g., "ICU + Trauma experience")</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(profile.experience_highlights || []).length > 0 && (
+              <div className="space-y-1.5">
+                {profile.experience_highlights.map((h, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <span className="text-primary text-sm">&bull;</span>
+                    <span className="text-sm flex-1">{h}</span>
+                    <button type="button" onClick={() => removeFromArray("experience_highlights", i)} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(profile.experience_highlights || []).length < 5 && (
+              <div className="flex gap-2">
+                <Input data-testid="new-highlight-input" placeholder="e.g., Wound care + post-op patients" value={newHighlight} onChange={(e) => setNewHighlight(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newHighlight.trim()) { e.preventDefault(); addToArray("experience_highlights", newHighlight.trim()); setNewHighlight(""); }}} />
+                <Button type="button" variant="outline" onClick={() => { if (newHighlight.trim()) { addToArray("experience_highlights", newHighlight.trim()); setNewHighlight(""); }}}><Plus className="w-4 h-4" /></Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Skills */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Stethoscope className="w-5 h-5 text-primary" />
+              Clinical Skills
+            </CardTitle>
+            <CardDescription>Specific skills relevant to your practice</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-1.5">
+              {(profile.skills || []).map((s, i) => (
+                <Badge key={i} variant="outline" className="flex items-center gap-1">
+                  {typeof s === "string" ? s : s?.name || ""}
+                  <button type="button" onClick={() => removeFromArray("skills", i)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button>
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input data-testid="new-skill-input" placeholder="e.g., IV Therapy, Wound Assessment" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSkill.trim()) { e.preventDefault(); addToArray("skills", newSkill.trim()); setNewSkill(""); }}} />
+              <Button type="button" variant="outline" onClick={() => { if (newSkill.trim()) { addToArray("skills", newSkill.trim()); setNewSkill(""); }}}><Plus className="w-4 h-4" /></Button>
             </div>
           </CardContent>
         </Card>
@@ -1126,6 +1222,44 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                   </button>
                 </Badge>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Work Type & Travel */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
+              Work Type & Travel
+            </CardTitle>
+            <CardDescription>What type of work are you looking for?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Job Type Preference</Label>
+                <Select value={profile.job_type_preference || ""} onValueChange={(v) => updateField("job_type_preference", v)}>
+                  <SelectTrigger data-testid="job-type-select"><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Travel Contract">Travel Contract</SelectItem>
+                    <SelectItem value="Per Diem">Per Diem</SelectItem>
+                    <SelectItem value="Staff/Permanent">Staff/Permanent</SelectItem>
+                    <SelectItem value="Any">Any</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Travel Readiness</Label>
+                <Select value={profile.travel_readiness || ""} onValueChange={(v) => updateField("travel_readiness", v)}>
+                  <SelectTrigger data-testid="travel-select"><SelectValue placeholder="Select readiness" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open to travel">Open to travel</SelectItem>
+                    <SelectItem value="Local only">Local only</SelectItem>
+                    <SelectItem value="Will relocate">Will relocate</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
