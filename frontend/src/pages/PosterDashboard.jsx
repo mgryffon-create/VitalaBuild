@@ -221,6 +221,27 @@ const PosterDashboard = () => {
           </p>
         )}
 
+        {/* Profile Completion Bar */}
+        {profileCompletion && !profileCompletion.complete && (
+          <div data-testid="profile-completion-bar" className="flex items-center gap-3 p-3 rounded-xl border bg-card">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="font-medium text-foreground">Profile {profileCompletion.percentage}% complete</span>
+                <span className="text-muted-foreground">{profileCompletion.filled}/{profileCompletion.total}</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${profileCompletion.percentage >= 80 ? "bg-green-500" : profileCompletion.percentage >= 50 ? "bg-amber-500" : "bg-primary"}`}
+                  style={{ width: `${profileCompletion.percentage}%` }}
+                />
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => navigate("/poster/profile")} data-testid="complete-profile-dash-btn">
+              Complete
+            </Button>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <section data-testid="section-employer-quick-actions">
           <div className="grid grid-cols-3 gap-3">

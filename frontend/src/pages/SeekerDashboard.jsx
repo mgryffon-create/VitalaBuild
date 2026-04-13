@@ -13,6 +13,17 @@ import {
   CheckCircle, Upload, MessageCircle, Shield, Stethoscope, XCircle, Sparkles
 } from "lucide-react";
 
+const SEEKER_CHECK_LABELS = {
+  specialty: "Role & Specialty",
+  years_experience: "Years of Experience",
+  availability: "Availability",
+  preferred_shift: "Shift Preference",
+  travel_readiness: "Travel Readiness",
+  job_type_preference: "Job Type Preference",
+  experience_highlights: "Experience Highlights (2+)",
+  certifications_or_licenses: "Certification or License",
+};
+
 const SeekerDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -51,29 +62,9 @@ const SeekerDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const profileFields = [
-    { key: "specialty", label: "Specialty" },
-    { key: "years_experience", label: "Experience" },
-    { key: "phone", label: "Phone", nested: "contact_info" },
-    { key: "bio", label: "Bio" },
-    { key: "desired_locations", label: "Preferred Locations", isArray: true },
-  ];
-
-  const getFieldValue = (field) => {
-    if (field.nested) return profile?.[field.nested]?.[field.key];
-    return profile?.[field.key];
-  };
-
-  const isFieldComplete = (field) => {
-    const val = getFieldValue(field);
-    if (field.isArray) return Array.isArray(val) && val.length > 0;
-    return !!val;
-  };
-
-  const completedCount = profileFields.filter(isFieldComplete).length;
-  const profileCompletion = profile
-    ? Math.round((completedCount / profileFields.length) * 100)
-    : 0;
+  // Derive numeric percentage from API-based profileCompletion state
+  const completionPct = profileCompletion?.percentage ?? 0;
+  const completionDone = profileCompletion?.complete ?? false;
 
   if (loading) {
     return (
@@ -109,7 +100,7 @@ const SeekerDashboard = () => {
         </div>
 
         {/* ── Resume Upload Prompt ─────────────────────── */}
-        {profileCompletion < 50 && (
+        {completionPct < 50 && (
           <Card data-testid="resume-upload-prompt" className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -127,15 +118,15 @@ const SeekerDashboard = () => {
         )}
 
         {/* Profile Completion */}
-        {profileCompletion && !profileCompletion.complete && (
+        {profileCompletion && !completionDone && (
           <div data-testid="profile-completion-bar" className="flex items-center gap-3 p-3 rounded-xl border bg-card">
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between text-xs mb-1">
-                <span className="font-medium text-foreground">Profile {profileCompletion.percentage}% complete</span>
+                <span className="font-medium text-foreground">Profile {completionPct}% complete</span>
                 <span className="text-muted-foreground">{profileCompletion.filled}/{profileCompletion.total}</span>
               </div>
               <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${profileCompletion.percentage >= 80 ? "bg-green-500" : profileCompletion.percentage >= 50 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${profileCompletion.percentage}%` }} />
+                <div className={`h-full rounded-full transition-all ${completionPct >= 80 ? "bg-green-500" : completionPct >= 50 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${completionPct}%` }} />
               </div>
             </div>
             <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => navigate("/seeker/profile")} data-testid="complete-profile-dash-btn">
@@ -186,7 +177,7 @@ const SeekerDashboard = () => {
             <button
               data-testid="qa-complete-profile"
               className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-                profileCompletion < 100
+                completionPct < 100
                   ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800 hover:border-amber-400"
                   : "bg-card border-border hover:border-primary/40 hover:bg-muted/50"
               }`}
@@ -199,7 +190,7 @@ const SeekerDashboard = () => {
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm text-foreground">
-                  {profileCompletion < 100 ? "Complete Profile" : "Edit Profile"}
+                  {completionPct < 100 ? "Complete Profile" : "Edit Profile"}
                 </p>
               </div>
             </button>
@@ -213,51 +204,48 @@ const SeekerDashboard = () => {
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm text-muted-foreground">
-                  {completedCount} of {profileFields.length} fields complete
+                  {profileCompletion?.filled ?? 0} of {profileCompletion?.total ?? 0} fields complete
                 </span>
                 <Badge
                   className={
-                    profileCompletion === 100
+                    completionDone
                       ? "bg-green-500/10 text-green-600 border-green-200"
                       : "bg-amber-500/10 text-amber-600 border-amber-200"
                   }
                   variant="outline"
                 >
-                  {profileCompletion}%
+                  {completionPct}%
                 </Badge>
               </div>
-              <Progress value={profileCompletion} className="h-2 mb-4" />
+              <Progress value={completionPct} className="h-2 mb-4" />
 
-              {profileCompletion < 100 && (
+              {!completionDone && profileCompletion?.checks && (
                 <div className="grid sm:grid-cols-2 gap-2 mb-4">
-                  {profileFields.map((f) => {
-                    const done = isFieldComplete(f);
-                    return (
-                      <div
-                        key={f.key}
-                        className={`flex items-center gap-2 text-sm rounded-md px-3 py-2 ${
-                          done ? "text-muted-foreground" : "bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400"
-                        }`}
-                      >
-                        {done ? (
-                          <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                        )}
-                        {f.label}
-                      </div>
-                    );
-                  })}
+                  {Object.entries(profileCompletion.checks).map(([key, done]) => (
+                    <div
+                      key={key}
+                      className={`flex items-center gap-2 text-sm rounded-md px-3 py-2 ${
+                        done ? "text-muted-foreground" : "bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400"
+                      }`}
+                    >
+                      {done ? (
+                        <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                      )}
+                      {SEEKER_CHECK_LABELS[key] || key}
+                    </div>
+                  ))}
                 </div>
               )}
 
               <Button
                 data-testid="edit-profile-btn"
-                variant={profileCompletion === 100 ? "outline" : "default"}
+                variant={completionDone ? "outline" : "default"}
                 onClick={() => navigate("/seeker/profile")}
                 className="w-full sm:w-auto"
               >
-                {profileCompletion === 100 ? "Edit Profile" : "Complete Profile"}
+                {completionDone ? "Edit Profile" : "Complete Profile"}
               </Button>
             </CardContent>
           </Card>
