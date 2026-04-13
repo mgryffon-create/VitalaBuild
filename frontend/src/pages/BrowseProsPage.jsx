@@ -5,6 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth, API } from "@/App";
 import axios from "axios";
@@ -12,7 +15,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Search, Heart, X, ChevronRight, MapPin, Clock,
-  Star, Briefcase, ArrowRight, BadgeCheck, CircleCheck, Eye
+  Star, Briefcase, ArrowRight, BadgeCheck, CircleCheck, Eye, SlidersHorizontal, RotateCcw
 } from "lucide-react";
 
 // Format name as "First L."
@@ -110,10 +113,23 @@ const BrowseProsPage = () => {
   const [pendingSeekerId, setPendingSeekerId] = useState(null);
   const [acting, setActing] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({ specialty: "", location: "", minExp: "", maxExp: "", shift: "", certification: "" });
+  const [activeFilterCount, setActiveFilterCount] = useState(0);
 
-  const fetchPros = useCallback(async (includeAll = false) => {
+  const fetchPros = useCallback(async (includeAll = false, filterParams = null) => {
     try {
-      const res = await axios.get(`${API}/employer/browse-pros${includeAll ? "?include_all=true" : ""}`);
+      const params = new URLSearchParams();
+      if (includeAll) params.set("include_all", "true");
+      const f = filterParams || filters;
+      if (f.specialty) params.set("specialty", f.specialty);
+      if (f.location) params.set("location", f.location);
+      if (f.minExp) params.set("min_experience", f.minExp);
+      if (f.maxExp) params.set("max_experience", f.maxExp);
+      if (f.shift) params.set("shift", f.shift);
+      if (f.certification) params.set("certification", f.certification);
+      const qs = params.toString();
+      const res = await axios.get(`${API}/employer/browse-pros${qs ? `?${qs}` : ""}`);
       setPros(res.data.pros || []);
       setJobs(res.data.jobs || []);
       setCurrentIndex(0);
@@ -122,9 +138,26 @@ const BrowseProsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => { fetchPros(); }, [fetchPros]);
+
+  const applyFilters = () => {
+    const count = [filters.specialty, filters.location, filters.minExp, filters.maxExp, filters.shift, filters.certification].filter(Boolean).length;
+    setActiveFilterCount(count);
+    setLoading(true);
+    fetchPros(expanded, filters);
+    setFilterOpen(false);
+  };
+
+  const clearFilters = () => {
+    const empty = { specialty: "", location: "", minExp: "", maxExp: "", shift: "", certification: "" };
+    setFilters(empty);
+    setActiveFilterCount(0);
+    setLoading(true);
+    fetchPros(expanded, empty);
+    setFilterOpen(false);
+  };
 
   const handleInterested = (seekerId) => {
     if (jobs.length === 0) {
@@ -185,9 +218,65 @@ const BrowseProsPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="browse-pros-page" className="max-w-lg mx-auto space-y-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Top Pros for Your Jobs</h1>
-          <p className="text-xs text-muted-foreground">{remaining > 0 ? `${remaining} pros ranked by role, location & availability` : "No more pros to browse"}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Top Pros for Your Jobs</h1>
+            <p className="text-xs text-muted-foreground">{remaining > 0 ? `${remaining} pros ranked by role, location & availability` : "No more pros to browse"}</p>
+          </div>
+          <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="shrink-0 h-8 gap-1.5" data-testid="filter-btn">
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[8px] bg-primary text-primary-foreground rounded-full">{activeFilterCount}</Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh]">
+              <SheetHeader>
+                <SheetTitle className="text-base">Filter Pros</SheetTitle>
+              </SheetHeader>
+              <ScrollArea className="py-4 space-y-4 max-h-[60vh]">
+                <div className="space-y-4 pr-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Specialty</Label>
+                    <Input data-testid="filter-specialty" placeholder="e.g. ICU, Wound Care" value={filters.specialty} onChange={(e) => setFilters(f => ({ ...f, specialty: e.target.value }))} className="h-9 text-sm mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Location</Label>
+                    <Input data-testid="filter-location" placeholder="e.g. Houston, TX" value={filters.location} onChange={(e) => setFilters(f => ({ ...f, location: e.target.value }))} className="h-9 text-sm mt-1" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Min Experience (yrs)</Label>
+                      <Input data-testid="filter-min-exp" type="number" min="0" placeholder="0" value={filters.minExp} onChange={(e) => setFilters(f => ({ ...f, minExp: e.target.value }))} className="h-9 text-sm mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Max Experience (yrs)</Label>
+                      <Input data-testid="filter-max-exp" type="number" min="0" placeholder="30" value={filters.maxExp} onChange={(e) => setFilters(f => ({ ...f, maxExp: e.target.value }))} className="h-9 text-sm mt-1" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Shift Preference</Label>
+                    <Input data-testid="filter-shift" placeholder="e.g. Night, Day" value={filters.shift} onChange={(e) => setFilters(f => ({ ...f, shift: e.target.value }))} className="h-9 text-sm mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Certification</Label>
+                    <Input data-testid="filter-cert" placeholder="e.g. BLS, ACLS" value={filters.certification} onChange={(e) => setFilters(f => ({ ...f, certification: e.target.value }))} className="h-9 text-sm mt-1" />
+                  </div>
+                </div>
+              </ScrollArea>
+              <div className="flex gap-2 pt-2 border-t">
+                <Button variant="ghost" size="sm" className="flex-1" onClick={clearFilters} data-testid="clear-filters-btn">
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> Clear
+                </Button>
+                <Button size="sm" className="flex-1" onClick={applyFilters} data-testid="apply-filters-btn">
+                  Apply Filters
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         {!current ? (

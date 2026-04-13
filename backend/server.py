@@ -1566,7 +1566,16 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
 
 
 @api_router.get("/employer/browse-pros")
-async def browse_pros(include_all: bool = False, current_user: dict = Depends(get_current_user)):
+async def browse_pros(
+    include_all: bool = False,
+    specialty: Optional[str] = None,
+    location: Optional[str] = None,
+    min_experience: Optional[int] = None,
+    max_experience: Optional[int] = None,
+    shift: Optional[str] = None,
+    certification: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
     """Get all seekers available for employer to browse, ranked by job compatibility"""
     if current_user["role"] != "poster":
         raise HTTPException(status_code=403, detail="Only employers can browse pros")
@@ -1732,7 +1741,31 @@ async def browse_pros(include_all: bool = False, current_user: dict = Depends(ge
     if not include_all:
         pros = [p for p in pros if p["match_tier"] != "none"]
 
-    return {"pros": pros, "jobs": employer_jobs}
+    # Apply user filters (narrow within ranked results)
+    if specialty:
+        sl = specialty.lower()
+        pros = [p for p in pros if p.get("specialty") and sl in p["specialty"].lower()]
+    if location:
+        ll = location.lower()
+        pros = [p for p in pros if any(ll in l.lower() for l in (p.get("preferred_locations") or []))]
+    if min_experience is not None:
+        pros = [p for p in pros if (p.get("years_experience") or 0) >= min_experience]
+    if max_experience is not None:
+        pros = [p for p in pros if (p.get("years_experience") or 0) <= max_experience]
+    if shift:
+        sl = shift.lower()
+        pros = [p for p in pros if p.get("preferred_shift") and sl in p["preferred_shift"].lower()]
+    if certification:
+        cl = certification.lower()
+        pros = [p for p in pros if any(
+            cl in (c.lower() if isinstance(c, str) else (c.get("name", "") or "").lower())
+            for c in (p.get("certifications") or [])
+        )]
+
+    # Build filter options from all unfiltered pros for the UI dropdowns
+    all_specialties = sorted(set(p.get("specialty") for p in pros if p.get("specialty")))
+
+    return {"pros": pros, "jobs": employer_jobs, "filter_options": {"specialties": all_specialties}}
 
 
 class EmployerInterestBody(BaseModel):
