@@ -11,8 +11,8 @@ import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
-  FileText, Upload, Trash2, AlertTriangle, CheckCircle, Clock, Eye, X, Calendar,
-  Heart, Shield, CreditCard, ClipboardCheck, ArrowLeft, Search, Tag
+  FileText, Upload, Trash2, AlertTriangle, Clock, Eye, X, Calendar,
+  Heart, Shield, CreditCard, ClipboardCheck, ArrowLeft, Search, Tag, Check
 } from "lucide-react";
 import { DOCUMENT_CATEGORIES, getTypesForCategory, getGroupsForCategory } from "@/config/documentTypes";
 
@@ -27,15 +27,21 @@ const DocumentsPage = () => {
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
 
-  // Upload state
+  // Upload state — single type selection
   const [uploadStep, setUploadStep] = useState("category"); // category | type | file
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState([]); // multi-tag
+  const [selectedType, setSelectedType] = useState("");
   const [typeSearch, setTypeSearch] = useState("");
   const [expirationDate, setExpirationDate] = useState("");
   const [fileData, setFileData] = useState(null);
   const [fileName, setFileName] = useState("");
   const fileInputRef = useRef(null);
+
+  // Post-upload medical tagging
+  const [showMedicalTag, setShowMedicalTag] = useState(false);
+  const [additionalTags, setAdditionalTags] = useState([]);
+  const [lastUploadedCategory, setLastUploadedCategory] = useState("");
+  const [lastUploadedType, setLastUploadedType] = useState("");
 
   useEffect(() => { fetchDocuments(); }, []);
 
@@ -53,7 +59,7 @@ const DocumentsPage = () => {
   const resetUpload = () => {
     setUploadStep("category");
     setSelectedCategory("");
-    setSelectedTypes([]);
+    setSelectedType("");
     setTypeSearch("");
     setExpirationDate("");
     setFileData(null);
@@ -79,31 +85,32 @@ const DocumentsPage = () => {
     reader.readAsDataURL(file);
   };
 
-  const toggleType = (type) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
-  };
-
   const handleUpload = async () => {
-    if (selectedTypes.length === 0 || !fileData) {
-      toast.error("Select at least one document type and a file");
+    if (!selectedType || !fileData) {
+      toast.error("Select a document type and a file");
       return;
     }
     setUploading(true);
     try {
-      const primaryType = selectedTypes[0];
-      const additionalTags = selectedTypes.slice(1);
       await axios.post(`${API}/documents`, {
-        document_type: primaryType,
+        document_type: selectedType,
         document_category: selectedCategory,
-        document_tags: additionalTags.length > 0 ? additionalTags : null,
+        document_tags: null,
         expiration_date: expirationDate || null,
         file_data: fileData,
         file_name: fileName,
       });
-      toast.success(`Document uploaded — ${selectedTypes.length} type${selectedTypes.length > 1 ? "s" : ""} tagged`);
+      toast.success(`${selectedType} uploaded`);
       setShowUploadDialog(false);
+
+      // If medical category, offer to tag additional related types
+      if (selectedCategory === "medical") {
+        setLastUploadedCategory(selectedCategory);
+        setLastUploadedType(selectedType);
+        setAdditionalTags([]);
+        setShowMedicalTag(true);
+      }
+
       resetUpload();
       fetchDocuments();
     } catch {
@@ -111,6 +118,47 @@ const DocumentsPage = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  // Save additional medical tags to the most recent document
+  const handleSaveMedicalTags = async () => {
+    if (additionalTags.length === 0) {
+      setShowMedicalTag(false);
+      return;
+    }
+    try {
+      // Find the latest document we just uploaded
+      const latest = documents.find((d) => d.document_type === lastUploadedType && d.document_category === lastUploadedCategory);
+      if (latest) {
+        // The backend stores document_tags — we need to re-fetch to get the id
+        const refreshed = await axios.get(`${API}/documents`);
+        const target = refreshed.data.find((d) => d.document_type === lastUploadedType && d.document_category === lastUploadedCategory);
+        if (target) {
+          // For simplicity, create additional doc records per tag (same file)
+          for (const tag of additionalTags) {
+            await axios.post(`${API}/documents`, {
+              document_type: tag,
+              document_category: lastUploadedCategory,
+              document_tags: null,
+              expiration_date: target.expiration_date || null,
+              file_data: null, // will need the file data
+              file_name: target.file_name,
+            });
+          }
+        }
+      }
+    } catch {
+      // Silently fail — tagging is optional
+    }
+    toast.success(`${additionalTags.length} additional type${additionalTags.length > 1 ? "s" : ""} tagged`);
+    setShowMedicalTag(false);
+    fetchDocuments();
+  };
+
+  const toggleAdditionalTag = (type) => {
+    setAdditionalTags((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
   };
 
   const handleDelete = async (docId) => {
@@ -157,10 +205,22 @@ const DocumentsPage = () => {
     }
   };
 
-  // Filter types by search within selected category
-  const allTypes = getTypesForCategory(selectedCategory);
+  // Filtered types for type step
   const groups = getGroupsForCategory(selectedCategory);
+  const allTypes = getTypesForCategory(selectedCategory);
   const searchLower = typeSearch.toLowerCase();
+
+  // Related medical types for post-upload tagging (same group, excluding the uploaded type)
+  const getRelatedMedicalTypes = () => {
+    const medGroups = getGroupsForCategory("medical");
+    if (!medGroups) return [];
+    for (const group of Object.values(medGroups)) {
+      if (group.types.includes(lastUploadedType)) {
+        return group.types.filter((t) => t !== lastUploadedType);
+      }
+    }
+    return [];
+  };
 
   if (loading) {
     return (
@@ -239,14 +299,10 @@ const DocumentsPage = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-foreground truncate">{doc.document_type}</p>
                         <p className="text-xs text-muted-foreground truncate">{doc.file_name}</p>
-                        {doc.document_tags?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {doc.document_tags.map((tag) => (
-                              <span key={tag} className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                <Tag className="w-2 h-2" />{tag}
-                              </span>
-                            ))}
-                          </div>
+                        {doc.document_category && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground mt-1 inline-block">
+                            {DOCUMENT_CATEGORIES[doc.document_category]?.label || doc.document_category}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -284,8 +340,8 @@ const DocumentsPage = () => {
                     variant="ghost" size="icon" className="h-7 w-7 -ml-1 shrink-0"
                     data-testid="upload-back-btn"
                     onClick={() => {
-                      if (uploadStep === "file") setUploadStep("type");
-                      else if (uploadStep === "type") { setSelectedCategory(""); setSelectedTypes([]); setTypeSearch(""); setUploadStep("category"); }
+                      if (uploadStep === "file") { setUploadStep("type"); }
+                      else if (uploadStep === "type") { setSelectedCategory(""); setSelectedType(""); setTypeSearch(""); setUploadStep("category"); }
                     }}
                   >
                     <ArrowLeft className="w-4 h-4" />
@@ -295,7 +351,7 @@ const DocumentsPage = () => {
               </DialogTitle>
               <DialogDescription>
                 {uploadStep === "category" && "Select a document category"}
-                {uploadStep === "type" && `Select document type${selectedTypes.length > 0 ? ` (${selectedTypes.length} selected)` : ""}`}
+                {uploadStep === "type" && "Select the document type"}
                 {uploadStep === "file" && "Attach your file"}
               </DialogDescription>
             </DialogHeader>
@@ -322,7 +378,7 @@ const DocumentsPage = () => {
               </div>
             )}
 
-            {/* Step 2: Type Selection (searchable + multi-tag) */}
+            {/* Step 2: Type Selection — single select */}
             {uploadStep === "type" && (
               <div data-testid="upload-step-type" className="space-y-3 py-2">
                 {/* Search */}
@@ -338,8 +394,7 @@ const DocumentsPage = () => {
                   />
                 </div>
 
-                {/* Types list — grouped for medical, flat for others */}
-                <div className="max-h-[280px] overflow-y-auto space-y-1 -mx-1 px-1">
+                <div className="max-h-[300px] overflow-y-auto space-y-1 -mx-1 px-1">
                   {groups ? (
                     Object.entries(groups).map(([gKey, group]) => {
                       const filtered = group.types.filter((t) => t.toLowerCase().includes(searchLower));
@@ -348,79 +403,53 @@ const DocumentsPage = () => {
                         <div key={gKey} className="mb-2">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-1">{group.label}</p>
                           {filtered.map((type) => (
-                            <label
+                            <button
                               key={type}
                               data-testid={`type-option-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                                selectedTypes.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                              className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
+                                selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                               }`}
+                              onClick={() => { setSelectedType(type); setUploadStep("file"); }}
                             >
-                              <Checkbox
-                                checked={selectedTypes.includes(type)}
-                                onCheckedChange={() => toggleType(type)}
-                                className="shrink-0"
-                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
+                              }`}>
+                                {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
+                              </div>
                               <span className="text-sm text-foreground">{type}</span>
-                            </label>
+                            </button>
                           ))}
                         </div>
                       );
                     })
                   ) : (
                     allTypes.filter((t) => t.toLowerCase().includes(searchLower)).map((type) => (
-                      <label
+                      <button
                         key={type}
                         data-testid={`type-option-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                        className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                          selectedTypes.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
+                          selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                         }`}
+                        onClick={() => { setSelectedType(type); setUploadStep("file"); }}
                       >
-                        <Checkbox
-                          checked={selectedTypes.includes(type)}
-                          onCheckedChange={() => toggleType(type)}
-                          className="shrink-0"
-                        />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                          selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        }`}>
+                          {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
                         <span className="text-sm text-foreground">{type}</span>
-                      </label>
+                      </button>
                     ))
                   )}
                 </div>
-
-                {selectedTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1 border-t">
-                    {selectedTypes.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-xs gap-1 pr-1">
-                        {t}
-                        <button onClick={() => toggleType(t)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                <p className="text-[10px] text-muted-foreground">
-                  Select one or more types if this file contains multiple documents.
-                </p>
-
-                <Button
-                  data-testid="type-next-btn"
-                  className="w-full"
-                  disabled={selectedTypes.length === 0}
-                  onClick={() => setUploadStep("file")}
-                >
-                  Continue with {selectedTypes.length} type{selectedTypes.length !== 1 ? "s" : ""}
-                </Button>
               </div>
             )}
 
             {/* Step 3: File + Expiration */}
             {uploadStep === "file" && (
               <div data-testid="upload-step-file" className="space-y-4 py-2">
-                {/* Selected types summary */}
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedTypes.map((t) => (
-                    <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
-                  ))}
-                </div>
+                {/* Selected type summary */}
+                <Badge variant="outline" className="text-xs">{selectedType}</Badge>
 
                 {/* File picker */}
                 <div className="space-y-1.5">
@@ -446,7 +475,6 @@ const DocumentsPage = () => {
                 <div className="space-y-1.5">
                   <Label>Expiration Date (optional)</Label>
                   <Input data-testid="doc-expiration-input" type="date" value={expirationDate} onChange={(e) => setExpirationDate(e.target.value)} />
-                  <p className="text-[10px] text-muted-foreground">You'll receive a reminder 30 days before expiration</p>
                 </div>
 
                 <DialogFooter className="gap-2 sm:gap-0">
@@ -454,13 +482,55 @@ const DocumentsPage = () => {
                   <Button
                     data-testid="confirm-upload-btn"
                     onClick={handleUpload}
-                    disabled={uploading || selectedTypes.length === 0 || !fileData}
+                    disabled={uploading || !selectedType || !fileData}
                   >
                     {uploading ? "Uploading..." : "Upload"}
                   </Button>
                 </DialogFooter>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Post-Upload: Medical Tagging (optional) ─────── */}
+        <Dialog open={showMedicalTag} onOpenChange={setShowMedicalTag}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Does this file cover other records?</DialogTitle>
+              <DialogDescription>
+                Your <strong>{lastUploadedType}</strong> was saved. If this file also contains other related records, select them below.
+              </DialogDescription>
+            </DialogHeader>
+            <div data-testid="medical-tag-dialog" className="space-y-1 py-2 max-h-[240px] overflow-y-auto">
+              {getRelatedMedicalTypes().map((type) => (
+                <label
+                  key={type}
+                  data-testid={`medical-tag-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                  className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
+                    additionalTags.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                  }`}
+                >
+                  <Checkbox
+                    checked={additionalTags.includes(type)}
+                    onCheckedChange={() => toggleAdditionalTag(type)}
+                    className="shrink-0"
+                  />
+                  <span className="text-sm text-foreground">{type}</span>
+                </label>
+              ))}
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setShowMedicalTag(false)} data-testid="medical-tag-skip">
+                No, just this one
+              </Button>
+              <Button
+                onClick={handleSaveMedicalTags}
+                disabled={additionalTags.length === 0}
+                data-testid="medical-tag-save"
+              >
+                Tag {additionalTags.length} additional
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 

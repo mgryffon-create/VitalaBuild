@@ -5,15 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
-  Shield, Plus, FileText, AlertTriangle, CheckCircle, Clock,
+  Shield, Plus, FileText, AlertTriangle, Clock,
   Trash2, Upload, CreditCard, Heart, ClipboardCheck, X, Eye,
-  ArrowLeft, Search, Tag
+  ArrowLeft, Search, Check
 } from "lucide-react";
 import { DOCUMENT_CATEGORIES, getTypesForCategory, getGroupsForCategory } from "@/config/documentTypes";
 import DocumentPreview from "@/components/DocumentPreview";
@@ -40,19 +40,25 @@ const VaultPage = () => {
   const [filter, setFilter] = useState("all");
   const [previewDoc, setPreviewDoc] = useState(null);
 
-  // Upload state
+  // Upload state — single type
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStep, setUploadStep] = useState("category");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedType, setSelectedType] = useState("");
   const [typeSearch, setTypeSearch] = useState("");
   const [form, setForm] = useState({
     issuing_authority: "", document_number: "",
     issue_date: "", expiration_date: "", state: "",
   });
+
+  // Post-upload medical tagging
+  const [showMedicalTag, setShowMedicalTag] = useState(false);
+  const [additionalTags, setAdditionalTags] = useState([]);
+  const [lastUploadRes, setLastUploadRes] = useState(null);
+  const [lastUploadedType, setLastUploadedType] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -70,7 +76,7 @@ const VaultPage = () => {
   const resetUpload = () => {
     setUploadStep("category");
     setSelectedCategory("");
-    setSelectedTypes([]);
+    setSelectedType("");
     setTypeSearch("");
     setSelectedFile(null);
     setUploadProgress(0);
@@ -79,14 +85,8 @@ const VaultPage = () => {
 
   const openUpload = () => { resetUpload(); setShowUpload(true); };
 
-  const toggleType = (type) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
-  };
-
   const handleUpload = async () => {
-    if (!selectedCategory || selectedTypes.length === 0) {
+    if (!selectedCategory || !selectedType) {
       toast.error("Please select a category and document type");
       return;
     }
@@ -97,12 +97,10 @@ const VaultPage = () => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      // Upload once per selected type (sharing the same file)
-      const primaryType = selectedTypes[0];
       const formData = new FormData();
       formData.append("file", selectedFile);
       formData.append("category", selectedCategory);
-      formData.append("subtype", primaryType);
+      formData.append("subtype", selectedType);
       if (form.issuing_authority) formData.append("issuing_authority", form.issuing_authority);
       if (form.document_number) formData.append("document_number", form.document_number);
       if (form.issue_date) formData.append("issue_date", form.issue_date);
@@ -116,25 +114,17 @@ const VaultPage = () => {
         },
       });
 
-      // If multi-tagged, create additional vault records for the same file
-      if (selectedTypes.length > 1) {
-        for (let i = 1; i < selectedTypes.length; i++) {
-          await axios.post(`${API}/vault/documents`, {
-            category: selectedCategory,
-            subtype: selectedTypes[i],
-            issuing_authority: form.issuing_authority || null,
-            document_number: form.document_number || null,
-            issue_date: form.issue_date || null,
-            expiration_date: form.expiration_date || null,
-            state: form.state || null,
-            file_url: res.data.file_url,
-            file_name: selectedFile.name,
-          });
-        }
+      toast.success(`${selectedType} uploaded to vault`);
+      setShowUpload(false);
+
+      // If medical, offer post-upload tagging for related types
+      if (selectedCategory === "medical") {
+        setLastUploadRes(res.data);
+        setLastUploadedType(selectedType);
+        setAdditionalTags([]);
+        setShowMedicalTag(true);
       }
 
-      toast.success(`${selectedTypes.length} document type${selectedTypes.length > 1 ? "s" : ""} uploaded to vault`);
-      setShowUpload(false);
       resetUpload();
       fetchData();
     } catch (err) {
@@ -142,6 +132,52 @@ const VaultPage = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  // Save additional medical tags as separate vault records pointing to same file
+  const handleSaveMedicalTags = async () => {
+    if (additionalTags.length === 0 || !lastUploadRes) {
+      setShowMedicalTag(false);
+      return;
+    }
+    try {
+      for (const tag of additionalTags) {
+        await axios.post(`${API}/vault/documents`, {
+          category: "medical",
+          subtype: tag,
+          issuing_authority: form.issuing_authority || null,
+          document_number: form.document_number || null,
+          issue_date: form.issue_date || null,
+          expiration_date: form.expiration_date || null,
+          state: form.state || null,
+          file_url: lastUploadRes.file_url,
+          file_name: lastUploadRes.file_name || "uploaded_file",
+        });
+      }
+      toast.success(`${additionalTags.length} additional type${additionalTags.length > 1 ? "s" : ""} tagged`);
+      fetchData();
+    } catch {
+      toast.error("Failed to save additional tags");
+    }
+    setShowMedicalTag(false);
+  };
+
+  const toggleAdditionalTag = (type) => {
+    setAdditionalTags((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  // Related medical types from the same group, excluding the one just uploaded
+  const getRelatedMedicalTypes = () => {
+    const medGroups = getGroupsForCategory("medical");
+    if (!medGroups) return [];
+    for (const group of Object.values(medGroups)) {
+      if (group.types.includes(lastUploadedType)) {
+        return group.types.filter((t) => t !== lastUploadedType);
+      }
+    }
+    return [];
   };
 
   const handleDelete = async (docId) => {
@@ -157,7 +193,6 @@ const VaultPage = () => {
   const filtered = filter === "all" ? docs : docs.filter((d) => d.category === filter);
   const expiredCount = docs.filter((d) => d.expiration_date && new Date(d.expiration_date) < new Date()).length;
 
-  // For type selection
   const allTypes = getTypesForCategory(selectedCategory);
   const groups = getGroupsForCategory(selectedCategory);
   const searchLower = typeSearch.toLowerCase();
@@ -290,7 +325,7 @@ const VaultPage = () => {
                   data-testid="vault-upload-back-btn"
                   onClick={() => {
                     if (uploadStep === "details") setUploadStep("type");
-                    else if (uploadStep === "type") { setSelectedCategory(""); setSelectedTypes([]); setTypeSearch(""); setUploadStep("category"); }
+                    else if (uploadStep === "type") { setSelectedCategory(""); setSelectedType(""); setTypeSearch(""); setUploadStep("category"); }
                   }}
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -322,7 +357,7 @@ const VaultPage = () => {
             </div>
           )}
 
-          {/* Step 2: Type Selection */}
+          {/* Step 2: Type Selection — single select, click to advance */}
           {uploadStep === "type" && (
             <div data-testid="vault-step-type" className="space-y-3 py-2">
               <div className="relative">
@@ -337,75 +372,61 @@ const VaultPage = () => {
                 />
               </div>
 
-              <div className="max-h-[280px] overflow-y-auto space-y-1 -mx-1 px-1">
+              <div className="max-h-[300px] overflow-y-auto space-y-1 -mx-1 px-1">
                 {groups ? (
                   Object.entries(groups).map(([gKey, group]) => {
-                    const filtered_types = group.types.filter((t) => t.toLowerCase().includes(searchLower));
-                    if (filtered_types.length === 0) return null;
+                    const filteredTypes = group.types.filter((t) => t.toLowerCase().includes(searchLower));
+                    if (filteredTypes.length === 0) return null;
                     return (
                       <div key={gKey} className="mb-2">
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-1">{group.label}</p>
-                        {filtered_types.map((type) => (
-                          <label
+                        {filteredTypes.map((type) => (
+                          <button
                             key={type}
                             data-testid={`vault-type-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                              selectedTypes.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                            className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
+                              selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                             }`}
+                            onClick={() => { setSelectedType(type); setUploadStep("details"); }}
                           >
-                            <Checkbox checked={selectedTypes.includes(type)} onCheckedChange={() => toggleType(type)} className="shrink-0" />
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                              selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
+                            }`}>
+                              {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
                             <span className="text-sm text-foreground">{type}</span>
-                          </label>
+                          </button>
                         ))}
                       </div>
                     );
                   })
                 ) : (
                   allTypes.filter((t) => t.toLowerCase().includes(searchLower)).map((type) => (
-                    <label
+                    <button
                       key={type}
                       data-testid={`vault-type-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedTypes.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
+                        selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                       }`}
+                      onClick={() => { setSelectedType(type); setUploadStep("details"); }}
                     >
-                      <Checkbox checked={selectedTypes.includes(type)} onCheckedChange={() => toggleType(type)} className="shrink-0" />
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
+                      }`}>
+                        {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </div>
                       <span className="text-sm text-foreground">{type}</span>
-                    </label>
+                    </button>
                   ))
                 )}
               </div>
-
-              {selectedTypes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1 border-t">
-                  {selectedTypes.map((t) => (
-                    <Badge key={t} variant="secondary" className="text-xs gap-1 pr-1">
-                      {t}
-                      <button onClick={() => toggleType(t)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              <Button
-                data-testid="vault-type-next-btn"
-                className="w-full"
-                disabled={selectedTypes.length === 0}
-                onClick={() => setUploadStep("details")}
-              >
-                Continue with {selectedTypes.length} type{selectedTypes.length !== 1 ? "s" : ""}
-              </Button>
             </div>
           )}
 
           {/* Step 3: File + Details */}
           {uploadStep === "details" && (
             <div data-testid="vault-step-details" className="space-y-3 py-2">
-              <div className="flex flex-wrap gap-1.5">
-                {selectedTypes.map((t) => (
-                  <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
-                ))}
-              </div>
+              <Badge variant="outline" className="text-xs">{selectedType}</Badge>
 
               {/* File Picker */}
               <div className="space-y-1.5">
@@ -470,12 +491,54 @@ const VaultPage = () => {
 
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button variant="outline" onClick={() => setShowUpload(false)}>Cancel</Button>
-                <Button data-testid="vault-submit-btn" onClick={handleUpload} disabled={uploading || !selectedFile || selectedTypes.length === 0}>
+                <Button data-testid="vault-submit-btn" onClick={handleUpload} disabled={uploading || !selectedFile || !selectedType}>
                   {uploading ? `Uploading ${uploadProgress}%...` : "Upload to Vault"}
                 </Button>
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Post-Upload: Medical Tagging (optional) ─────── */}
+      <Dialog open={showMedicalTag} onOpenChange={setShowMedicalTag}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Does this file cover other records?</DialogTitle>
+            <DialogDescription>
+              Your <strong>{lastUploadedType}</strong> was saved. If this file also contains other related records, select them below.
+            </DialogDescription>
+          </DialogHeader>
+          <div data-testid="medical-tag-dialog" className="space-y-1 py-2 max-h-[240px] overflow-y-auto">
+            {getRelatedMedicalTypes().map((type) => (
+              <label
+                key={type}
+                data-testid={`medical-tag-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
+                  additionalTags.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                }`}
+              >
+                <Checkbox
+                  checked={additionalTags.includes(type)}
+                  onCheckedChange={() => toggleAdditionalTag(type)}
+                  className="shrink-0"
+                />
+                <span className="text-sm text-foreground">{type}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowMedicalTag(false)} data-testid="medical-tag-skip">
+              No, just this one
+            </Button>
+            <Button
+              onClick={handleSaveMedicalTags}
+              disabled={additionalTags.length === 0}
+              data-testid="medical-tag-save"
+            >
+              Tag {additionalTags.length} additional
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
