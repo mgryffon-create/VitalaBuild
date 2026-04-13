@@ -9,28 +9,19 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Document Vault Organization + Clean UX (April 2025)
+- **Phase A — Category Tabs**: Top-level tabs (All, Medical Records, Certifications, Identification, Compliance) with dynamic counts
+- **Phase B — Human Labels**: LABEL_MAP converts raw names (drivers_license→Driver's License, TB_test→TB Test, etc.) + CATEGORY_NORMALIZE maps old categories (identity→identification, health_screen→medical, resume→compliance)
+- **Phase C — Single Status**: One badge per doc: Active/Expires in Xd/Expired/Uploaded/Replaced — no double badges
+- **Phase D — Dedup**: Shows only latest per category+subtype. Older versions hidden by default, shown via "History" toggle with reduced opacity and "Replaced" badge
+- **Phase E — Metadata Prefill**: Replace flow prefills issuing authority, document number, state from original
+- **Phase F/G — Counts + Sorting**: Dynamic tab counts, sort expired→expiring→active→uploaded→replaced
+
 ### Phase 2: Human-Centered Vault (April 2025)
-- **Phase A — Language**: "Your Documents" (not "Secure Document Vault"), user-first copy throughout
-- **Phase B — Organization**: Sort by expiration (expired→expiring→active→none), category counts on active docs, archived docs hidden by default with toggle
-- **Phase C — Expiration Visibility**: Active/Xd left/Expired badges, attention banner with count ("2 documents need attention")
-- **Phase D — Document Replacement**: Replace button (↻) on each card → opens upload with category+type preselected + metadata prefilled → archives old version (verification_status="archived")
-- **Phase E — Skipped**: No new parsing system built (constraint: "hook into existing only" — no existing vault-level metadata extraction exists)
-- **Phase F/G — Preserved**: Upload flow unchanged, profile routing preserved
+- User-first language, expiration badges, replace flow, archived versioning, attention banner
 
-### Phase 2: Work History Editing (April 2025)
-- Edit/delete buttons on each entry, form prefill, in-place update
-
-### Phase 2: Global Autocomplete System (April 2025)
-- InlineAutocomplete for certs, licenses, positions, departments
-
-### Phase 2: Document Vault as Single Source of Truth (April 2025)
-- Medical Records tab → vault routing, Credentials tab → vault CTAs
-
-### Phase 2: UX Polish, Resume Upload, Matching, Onboarding
-- All prior Phase 2 features
-
-### Phase 1: Core Features
-- Stripe Billing, OpenAI Resume Parser, Portable References, Document Vault, Compliance
+### Phase 2: All Prior Features
+- Work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
 
 ## Test Accounts
 | Role | Email | Password |
