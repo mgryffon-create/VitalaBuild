@@ -9,17 +9,24 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Job Card Redesign — Decision-First UX (April 2025)
+- **Smart title**: `smartTitle()` converts generic "Test Job Posting 1234" → "ICU/Critical Care RN" from specialty field
+- **Pay-first hierarchy**: Weekly pay shown as 2xl/3xl font (most prominent). Hidden when $0.
+- **Match score badge**: Amber card with star + percentage + "match" label
+- **Quick detail chips**: Shift, duration, start date, stipend, certs required — all visible without expanding
+- **Hidden noise**: $0 pay hidden, "0+ yrs" hidden, generic job IDs replaced
+- **Action buttons with labels**: Pass (X), Details (chevron), Interested (heart) — all labeled clearly
+- **Employer view redesigned**: Pay expectation prominent, experience highlights as checklist, skills/certs in expanded view
+- **Preserved**: Swipe gestures, card stack animation, match dialog, expanded details
+
 ### Phase 2: Searchable Inputs + Document Preview Fix (April 2025)
-- **All long-list fields are now autocomplete**: Specialty (SpecialtyAutocomplete), Certifications, License Type, License State, Position/Title, Department/Unit (InlineAutocomplete), Clinical Skills, Experience Highlights (SuggestionInput), Preferred Locations (LocationAutocomplete)
-- **Short-list fields remain as Select** (by design): Availability, Shift, Job Type, Travel Readiness, Worker Protection fields (3-5 options each)
-- **Document Preview fixed**: Root cause — file_url pointed to auth-protected endpoint but `<img src>` / `<iframe src>` don't send auth headers. Fix: DocumentPreview.jsx now fetches via authenticated `axios.get(url, {responseType:'blob'})` → creates blob URL → uses as src. Images render as `<img>`, PDFs as `<iframe>`, others show download fallback.
-- **Dedup improved**: Prefers documents with file_url over metadata-only duplicates
+- All long-list fields converted to autocomplete, document preview via authenticated blob URLs
 
 ### Phase 2: Document Vault Organization (April 2025)
-- Category tabs, human labels, single status, dedup, replace flow, attention banner
+- Category tabs, human labels, single status, dedup, replace flow
 
 ### Phase 2: All Prior Features
-- Human-centered vault, work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
+- Work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
 
 ## Test Accounts
 | Role | Email | Password |
