@@ -10,3 +10,6 @@
 ## Seeker Accounts
 - seeker_test@vitalamatch.com / test123
 
+## Incomplete Test Users (for OnboardingGate testing)
+- test_incomplete_seeker_1776061525@test.com / test123
+- test_incomplete_poster_1776061975@test.com / test123
