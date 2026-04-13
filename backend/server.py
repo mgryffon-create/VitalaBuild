@@ -980,7 +980,6 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
     job_type = (job.get("job_type") or "").lower()
     type_score = 3
     type_reason = None
-    type_conflict = False
     if pref_type and job_type:
         if pref_type in job_type or job_type in pref_type:
             type_score = 5
@@ -988,7 +987,6 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
             type_score = 4
         else:
             type_score = 1
-            type_conflict = True
     signals["job_type"] = (type_score, 5, type_reason)
 
     # 7. Start timing alignment (5 pts)
@@ -3505,6 +3503,272 @@ async def get_push_subscription(current_user: dict = Depends(get_current_user)):
     sub = await db.push_subscriptions.find_one({"user_id": current_user["id"]}, {"_id": 0})
     return {"subscribed": bool(sub), "endpoint": sub.get("endpoint") if sub else None}
 
+# ==================== OFFER CONFLICT ENGINE ====================
+
+def _parse_date(date_str: str):
+    """Parse a date string to a date object. Returns None on failure."""
+    if not date_str:
+        return None
+    try:
+        if "T" in date_str or "+" in date_str or "Z" in date_str:
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00")).date()
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _duration_to_days(duration_str: str) -> int:
+    """Convert duration like '13 weeks' or 'Permanent' to days."""
+    if not duration_str:
+        return 0
+    d = duration_str.lower().strip()
+    if "permanent" in d or "ongoing" in d:
+        return 365 * 2  # treat as 2 years
+    import re
+    m = re.search(r"(\d+)\s*week", d)
+    if m:
+        return int(m.group(1)) * 7
+    m = re.search(r"(\d+)\s*month", d)
+    if m:
+        return int(m.group(1)) * 30
+    m = re.search(r"(\d+)\s*year", d)
+    if m:
+        return int(m.group(1)) * 365
+    return 0
+
+
+def _calculate_end_date(start_date_str: str, duration_str: str):
+    """Calculate end date from start + duration. Returns None if can't calculate."""
+    start = _parse_date(start_date_str)
+    if not start:
+        return None
+    days = _duration_to_days(duration_str)
+    if days <= 0:
+        return None  # unknown duration
+    return start + timedelta(days=days)
+
+
+def _dates_overlap(start_a, end_a, start_b, end_b) -> bool:
+    """Check if two date ranges overlap. None end = ongoing (always overlaps future)."""
+    if not start_a or not start_b:
+        return False
+    # If either has no end date, treat as ongoing
+    if end_a is None:
+        end_a = start_a + timedelta(days=365 * 5)
+    if end_b is None:
+        end_b = start_b + timedelta(days=365 * 5)
+    return start_a <= end_b and start_b <= end_a
+
+
+def _same_city(loc_a: str, loc_b: str) -> bool:
+    """Conservative city match — only True if city names are clearly the same."""
+    if not loc_a or not loc_b:
+        return False
+    # Normalize: lowercase, strip whitespace
+    a = loc_a.lower().strip()
+    b = loc_b.lower().strip()
+    if a == b:
+        return True
+    # Extract city part before comma (e.g., "Los Angeles, CA" → "los angeles")
+    city_a = a.split(",")[0].strip()
+    city_b = b.split(",")[0].strip()
+    return city_a == city_b and len(city_a) > 2
+
+
+def _shifts_conflict(shift_a: str, shift_b: str) -> bool:
+    """Check if two shifts conflict (same time of day)."""
+    if not shift_a or not shift_b:
+        return False
+    a = shift_a.lower()
+    b = shift_b.lower()
+    # Same shift type = conflict
+    if "day" in a and "day" in b:
+        return True
+    if "night" in a and "night" in b:
+        return True
+    if "evening" in a and "evening" in b:
+        return True
+    # Flexible/rotating conflict with everything
+    if "flexible" in a or "rotating" in a or "flexible" in b or "rotating" in b:
+        return True
+    return False
+
+
+def _is_blocking_job_type(job_type: str) -> bool:
+    """Travel contracts and full-time roles block other commitments."""
+    if not job_type:
+        return False
+    t = job_type.lower()
+    return "travel" in t or "staff" in t or "permanent" in t or "full" in t
+
+
+def _is_flexible_job_type(job_type: str) -> bool:
+    """PRN and per diem roles allow coexistence if schedules don't conflict."""
+    if not job_type:
+        return False
+    t = job_type.lower()
+    return "prn" in t or "per diem" in t or "part" in t
+
+
+async def check_offer_conflicts(db_ref, seeker_id: str, new_offer: dict, new_job: dict) -> dict:
+    """
+    Check for conflicts between a new offer and existing active assignments.
+    Returns: {has_hard_block, hard_blocks: [...], soft_warnings: [...], existing_assignments: [...]}
+    """
+    hard_blocks = []
+    soft_warnings = []
+    existing_assignments = []
+
+    # Gather all active/accepted offers and employments for this seeker
+    active_statuses = ["accepted"]
+    active_offers = await db_ref.employment_offers.find(
+        {"seeker_id": seeker_id, "status": {"$in": active_statuses}},
+        {"_id": 0}
+    ).to_list(50)
+
+    active_employments = await db_ref.employments.find(
+        {"seeker_id": seeker_id, "status": {"$in": ["onboarding", "active"]}},
+        {"_id": 0}
+    ).to_list(50)
+
+    # Build list of active commitments with their job data
+    commitments = []
+    seen_offer_ids = set()
+
+    for emp in active_employments:
+        seen_offer_ids.add(emp.get("offer_id"))
+        job = await db_ref.jobs.find_one({"id": emp.get("job_id")}, {"_id": 0})
+        start = _parse_date(emp.get("start_date"))
+        end = _parse_date(emp.get("end_date"))
+        if not end and job:
+            end = _calculate_end_date(emp.get("start_date"), job.get("duration"))
+        commitments.append({
+            "id": emp.get("id"),
+            "source": "employment",
+            "title": emp.get("position_title", ""),
+            "start": start,
+            "end": end,
+            "shift": emp.get("shift_type") or (job.get("shift_type") if job else None),
+            "location": emp.get("location") or (job.get("location") if job else None),
+            "job_type": emp.get("job_type") or (job.get("job_type") if job else None),
+        })
+
+    for off in active_offers:
+        if off.get("id") in seen_offer_ids:
+            continue
+        job = await db_ref.jobs.find_one({"id": off.get("job_id")}, {"_id": 0})
+        start = _parse_date(off.get("start_date"))
+        end = _calculate_end_date(off.get("start_date"), job.get("duration") if job else None)
+        commitments.append({
+            "id": off.get("id"),
+            "source": "offer",
+            "title": off.get("position_title", ""),
+            "start": start,
+            "end": end,
+            "shift": job.get("shift_type") if job else None,
+            "location": job.get("location") if job else None,
+            "job_type": job.get("job_type") if job else None,
+        })
+
+    if not commitments:
+        return {"has_hard_block": False, "hard_blocks": [], "soft_warnings": [], "existing_assignments": []}
+
+    # New offer details
+    new_start = _parse_date(new_offer.get("start_date"))
+    new_end = _calculate_end_date(new_offer.get("start_date"), new_job.get("duration"))
+    new_shift = new_job.get("shift_type")
+    new_location = new_job.get("location")
+    new_type = new_job.get("job_type")
+    new_is_blocking = _is_blocking_job_type(new_type)
+    new_is_flexible = _is_flexible_job_type(new_type)
+
+    for c in commitments:
+        c_title = c["title"] or "Existing assignment"
+        c_end_label = c["end"].strftime("%b %d") if c["end"] else "ongoing"
+
+        existing_assignments.append({
+            "title": c_title,
+            "start": c["start"].isoformat() if c["start"] else None,
+            "end": c["end"].isoformat() if c["end"] else None,
+            "location": c["location"],
+            "job_type": c["job_type"],
+            "shift": c["shift"],
+        })
+
+        overlap = _dates_overlap(new_start, new_end, c["start"], c["end"])
+        if not overlap:
+            continue
+
+        same_city = _same_city(new_location, c["location"])
+        c_is_blocking = _is_blocking_job_type(c["job_type"])
+        c_is_flexible = _is_flexible_job_type(c["job_type"])
+        shifts_clash = _shifts_conflict(new_shift, c["shift"])
+
+        # --- HARD BLOCKS ---
+
+        # 1. Blocking type + blocking type with date overlap → always block
+        if new_is_blocking and c_is_blocking:
+            hard_blocks.append(
+                f"This role overlaps with your current assignment ({c_title}, ending {c_end_label}). "
+                f"Both are full-commitment roles that cannot run simultaneously."
+            )
+            continue
+
+        # 2. One blocking + one any type with date overlap → block
+        if (new_is_blocking or c_is_blocking) and not (new_is_flexible and c_is_flexible):
+            if not (new_is_flexible or c_is_flexible):
+                hard_blocks.append(
+                    f"This role overlaps with your current assignment ({c_title}, ending {c_end_label}). "
+                    f"A full-commitment role cannot coexist with this assignment."
+                )
+                continue
+
+        # 3. Overlapping shifts on same dates → block
+        if shifts_clash and not (new_is_flexible and c_is_flexible):
+            hard_blocks.append(
+                f"These shifts conflict with your assignment at {c_title}. "
+                f"Both roles have overlapping shift schedules."
+            )
+            continue
+
+        # 4. Ongoing assignment (no end date) + new blocking role → block
+        if c["end"] is None and new_is_blocking:
+            hard_blocks.append(
+                f"You have an ongoing assignment ({c_title}) with no end date. "
+                f"This must be resolved before accepting a new full-commitment role."
+            )
+            continue
+
+        # --- SOFT WARNINGS ---
+
+        # 5. Different city with date overlap → warn
+        if not same_city and new_location and c["location"]:
+            soft_warnings.append(
+                f"This assignment is in a different city ({new_location}) "
+                f"than your active role at {c_title} ({c['location']})."
+            )
+
+        # 6. Flexible + flexible with shift overlap → warn (not block)
+        if new_is_flexible and c_is_flexible and shifts_clash:
+            soft_warnings.append(
+                f"Both roles have similar shift times. Confirm you can manage both schedules "
+                f"alongside {c_title}."
+            )
+
+        # 7. Date overlap but seems manageable → general caution
+        if not same_city and not shifts_clash and (new_is_flexible or c_is_flexible):
+            soft_warnings.append(
+                f"You have an active assignment ({c_title}, ending {c_end_label}) during this period. "
+                f"Verify both commitments are feasible."
+            )
+
+    return {
+        "has_hard_block": len(hard_blocks) > 0,
+        "hard_blocks": hard_blocks,
+        "soft_warnings": soft_warnings,
+        "existing_assignments": existing_assignments,
+    }
+
 # ==================== HIRING SUITE ====================
 
 # ----- Employment Offers -----
@@ -3629,6 +3893,20 @@ async def get_employment_offer(offer_id: str, current_user: dict = Depends(get_c
         "company_name": poster_profile.get("company_name") if poster_profile else None
     }
 
+@api_router.get("/hiring/offers/{offer_id}/conflicts")
+async def check_offer_conflicts_endpoint(offer_id: str, current_user: dict = Depends(get_current_user)):
+    """Check for conflicts before accepting an offer (seeker only)"""
+    offer = await db.employment_offers.find_one({"id": offer_id}, {"_id": 0})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    if offer["seeker_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0}) or {}
+    result = await check_offer_conflicts(db, current_user["id"], offer, job)
+    return result
+
 @api_router.put("/hiring/offers/{offer_id}/respond")
 async def respond_to_offer(offer_id: str, response: OfferResponse, current_user: dict = Depends(get_current_user)):
     """Accept or reject an employment offer (seeker only)"""
@@ -3662,6 +3940,21 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
         pass
     
     new_status = "accepted" if response.accepted else "rejected"
+    
+    # CONFLICT CHECK — hard block on acceptance if conflicts exist
+    if response.accepted:
+        job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0}) or {}
+        conflict_result = await check_offer_conflicts(db, current_user["id"], offer, job)
+        if conflict_result["has_hard_block"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "This offer conflicts with an existing assignment",
+                    "hard_blocks": conflict_result["hard_blocks"],
+                    "soft_warnings": conflict_result["soft_warnings"],
+                }
+            )
+    
     update_data = {
         "status": new_status,
         "response_notes": response.notes,
@@ -3674,6 +3967,8 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
     # If accepted, create employment record and onboarding checklist
     employment_id = None
     if response.accepted:
+        # job already fetched during conflict check above
+        end_date = _calculate_end_date(offer["start_date"], job.get("duration"))
         employment_id = str(uuid.uuid4())
         employment = {
             "id": employment_id,
@@ -3683,7 +3978,11 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
             "job_id": offer["job_id"],
             "position_title": offer["position_title"],
             "start_date": offer["start_date"],
-            "status": "onboarding",  # onboarding, active, completed
+            "end_date": end_date.isoformat() if end_date else None,
+            "shift_type": job.get("shift_type"),
+            "location": job.get("location"),
+            "job_type": job.get("job_type"),
+            "status": "onboarding",  # onboarding, active, completed, canceled
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.employments.insert_one(employment)

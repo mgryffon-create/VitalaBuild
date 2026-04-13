@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Briefcase, DollarSign, Calendar, Clock, MapPin, CheckCircle,
-  XCircle, AlertCircle, Stethoscope, ArrowRight,
+  XCircle, AlertCircle, Stethoscope, ArrowRight, ShieldAlert, AlertTriangle, Info,
 } from "lucide-react";
 
 const STATUS_CONFIG = {
@@ -35,6 +35,8 @@ const MyOffersPage = () => {
   const [reviewOffer, setReviewOffer] = useState(null);
   const [responseNotes, setResponseNotes] = useState("");
   const [responding, setResponding] = useState(false);
+  const [conflicts, setConflicts] = useState(null);
+  const [conflictsLoading, setConflictsLoading] = useState(false);
 
   const fetchOffers = useCallback(async () => {
     try {
@@ -49,6 +51,29 @@ const MyOffersPage = () => {
 
   useEffect(() => { fetchOffers(); }, [fetchOffers]);
 
+  const openReview = async (offer) => {
+    setReviewOffer(offer);
+    setResponseNotes("");
+    setConflicts(null);
+    if (offer.status === "pending") {
+      setConflictsLoading(true);
+      try {
+        const res = await axios.get(`${API}/hiring/offers/${offer.id}/conflicts`);
+        setConflicts(res.data);
+      } catch {
+        setConflicts(null);
+      } finally {
+        setConflictsLoading(false);
+      }
+    }
+  };
+
+  const closeReview = () => {
+    setReviewOffer(null);
+    setResponseNotes("");
+    setConflicts(null);
+  };
+
   const handleRespond = async (accepted) => {
     if (!reviewOffer) return;
     setResponding(true);
@@ -58,11 +83,20 @@ const MyOffersPage = () => {
         notes: responseNotes,
       });
       toast.success(accepted ? "Offer accepted!" : "Offer declined");
-      setReviewOffer(null);
-      setResponseNotes("");
+      closeReview();
       fetchOffers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to respond");
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 409 && typeof detail === "object") {
+        toast.error("Cannot accept — conflicts with existing assignment");
+        setConflicts({
+          has_hard_block: true,
+          hard_blocks: detail.hard_blocks || [],
+          soft_warnings: detail.soft_warnings || [],
+        });
+      } else {
+        toast.error(typeof detail === "string" ? detail : "Failed to respond");
+      }
     } finally {
       setResponding(false);
     }
@@ -209,18 +243,14 @@ const MyOffersPage = () => {
                             data-testid={`decline-offer-${offer.id}`}
                             variant="outline"
                             className="border-destructive/40 text-destructive hover:bg-destructive hover:text-white"
-                            onClick={() => {
-                              setReviewOffer(offer);
-                            }}
+                            onClick={() => openReview(offer)}
                           >
                             <XCircle className="w-4 h-4 mr-1" /> Decline
                           </Button>
                           <Button
                             data-testid={`accept-offer-${offer.id}`}
                             className="bg-green-500 hover:bg-green-600 text-white"
-                            onClick={() => {
-                              setReviewOffer(offer);
-                            }}
+                            onClick={() => openReview(offer)}
                           >
                             <CheckCircle className="w-4 h-4 mr-1" /> Accept
                           </Button>
@@ -236,8 +266,8 @@ const MyOffersPage = () => {
       </div>
 
       {/* Review / Respond Dialog */}
-      <Dialog open={!!reviewOffer} onOpenChange={() => { setReviewOffer(null); setResponseNotes(""); }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!reviewOffer} onOpenChange={closeReview}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Review Offer</DialogTitle>
             <DialogDescription>
@@ -247,6 +277,60 @@ const MyOffersPage = () => {
 
           {reviewOffer && (
             <div className="space-y-4 py-2">
+              {/* Conflict alerts */}
+              {conflictsLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-lg">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                  Checking for scheduling conflicts...
+                </div>
+              )}
+
+              {conflicts?.has_hard_block && (
+                <Alert data-testid="conflict-hard-block" className="border-red-400 bg-red-50 dark:bg-red-900/10">
+                  <ShieldAlert className="h-4 w-4 text-red-500" />
+                  <AlertDescription className="text-red-700 dark:text-red-400">
+                    <p className="font-semibold mb-1.5">This offer conflicts with an existing assignment</p>
+                    <ul className="space-y-1">
+                      {conflicts.hard_blocks.map((b, i) => (
+                        <li key={i} className="text-sm flex items-start gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {conflicts && !conflicts.has_hard_block && conflicts.soft_warnings?.length > 0 && (
+                <Alert data-testid="conflict-soft-warning" className="border-amber-400 bg-amber-50 dark:bg-amber-900/10">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertDescription className="text-amber-700 dark:text-amber-400">
+                    <p className="font-semibold mb-1.5">Review before accepting</p>
+                    <ul className="space-y-1">
+                      {conflicts.soft_warnings.map((w, i) => (
+                        <li key={i} className="text-sm flex items-start gap-1.5">
+                          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {conflicts?.existing_assignments?.length > 0 && (
+                <div data-testid="existing-assignments" className="p-3 bg-muted/50 rounded-lg space-y-1.5">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Your Active Assignments</p>
+                  {conflicts.existing_assignments.map((a, i) => (
+                    <div key={i} className="text-sm text-foreground flex items-center gap-2">
+                      <Briefcase className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-medium">{a.title}</span>
+                      {a.location && <span className="text-muted-foreground">· {a.location}</span>}
+                      {a.end && <span className="text-muted-foreground">· ends {new Date(a.end).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                      {!a.end && <span className="text-amber-600 text-xs">· ongoing</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Offer summary */}
               <div className="p-4 bg-muted rounded-xl space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -318,11 +402,17 @@ const MyOffersPage = () => {
             </Button>
             <Button
               data-testid="dialog-accept-btn"
-              className="bg-green-500 hover:bg-green-600 text-white"
+              className={conflicts?.has_hard_block
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-600 text-white"}
               onClick={() => handleRespond(true)}
-              disabled={responding}
+              disabled={responding || conflictsLoading || conflicts?.has_hard_block}
             >
-              <CheckCircle className="w-4 h-4 mr-1" /> {responding ? "Processing..." : "Accept Offer"}
+              {conflicts?.has_hard_block ? (
+                <><ShieldAlert className="w-4 h-4 mr-1" /> Blocked</>
+              ) : (
+                <><CheckCircle className="w-4 h-4 mr-1" /> {responding ? "Processing..." : "Accept Offer"}</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
