@@ -20,7 +20,9 @@ import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import SuggestionInput from "@/components/SuggestionInput";
 import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
+import InlineAutocomplete from "@/components/InlineAutocomplete";
 import { getSkillSuggestions, getHighlightSuggestions } from "@/config/specialtySuggestions";
+import { CERTIFICATIONS, LICENSE_TYPES, US_STATES, POSITION_TITLES, DEPARTMENTS } from "@/config/fieldSuggestions";
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -876,20 +878,22 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 </div>
                 <div className="space-y-2">
                   <Label>Position/Title</Label>
-                  <Input
-                    data-testid="work-position-input"
+                  <InlineAutocomplete
                     value={newWorkHistory.position}
-                    onChange={(e) => setNewWorkHistory({ ...newWorkHistory, position: e.target.value })}
+                    onChange={(v) => setNewWorkHistory({ ...newWorkHistory, position: v })}
+                    suggestions={POSITION_TITLES}
                     placeholder="ICU Registered Nurse"
+                    testId="work-position"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Department/Unit</Label>
-                  <Input
-                    data-testid="work-department-input"
+                  <InlineAutocomplete
                     value={newWorkHistory.department}
-                    onChange={(e) => setNewWorkHistory({ ...newWorkHistory, department: e.target.value })}
+                    onChange={(v) => setNewWorkHistory({ ...newWorkHistory, department: v })}
+                    suggestions={DEPARTMENTS}
                     placeholder="Intensive Care Unit"
+                    testId="work-department"
                   />
                 </div>
                 <div className="flex items-end gap-2">
@@ -989,11 +993,12 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               </div>
             )}
             <div className="flex gap-2">
-              <Input
-                data-testid="new-cert-name-input"
-                placeholder="Certification name (e.g., BLS, ACLS)"
+              <InlineAutocomplete
                 value={newCert.name}
-                onChange={(e) => setNewCert({ ...newCert, name: e.target.value })}
+                onChange={(v) => setNewCert({ ...newCert, name: v })}
+                suggestions={CERTIFICATIONS}
+                placeholder="Search certification (BLS, ACLS...)"
+                testId="new-cert-name"
               />
               <Input
                 data-testid="new-cert-exp-input"
@@ -1054,8 +1059,20 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               </div>
             )}
             <div className="grid sm:grid-cols-4 gap-2">
-              <Input data-testid="new-license-name-input" placeholder="License type (e.g., RN)" value={newLicense.name} onChange={(e) => setNewLicense({ ...newLicense, name: e.target.value })} />
-              <Input data-testid="new-license-state-input" placeholder="State" value={newLicense.state} onChange={(e) => setNewLicense({ ...newLicense, state: e.target.value })} />
+              <InlineAutocomplete
+                value={newLicense.name}
+                onChange={(v) => setNewLicense({ ...newLicense, name: v })}
+                suggestions={LICENSE_TYPES}
+                placeholder="License type (RN, LPN...)"
+                testId="new-license-name"
+              />
+              <InlineAutocomplete
+                value={newLicense.state}
+                onChange={(v) => setNewLicense({ ...newLicense, state: v })}
+                suggestions={US_STATES}
+                placeholder="State (CA, NY...)"
+                testId="new-license-state"
+              />
               <Input data-testid="new-license-number-input" placeholder="License #" value={newLicense.license_number} onChange={(e) => setNewLicense({ ...newLicense, license_number: e.target.value })} />
               <Input data-testid="new-license-exp-input" type="date" value={newLicense.expiration} onChange={(e) => setNewLicense({ ...newLicense, expiration: e.target.value })} />
             </div>
