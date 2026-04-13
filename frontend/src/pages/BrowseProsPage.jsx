@@ -264,12 +264,14 @@ const BrowseProsPage = () => {
                   </div>
                 )}
 
-                {/* Context: job-specific fit line */}
-                {current.best_job_context && (
-                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
-                    <p data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                      <Star className="w-3 h-3 shrink-0" /> {current.best_job_context}
-                    </p>
+                {/* Context: specific reason WHY this pro is relevant */}
+                {current.context_reasons?.length > 0 && (
+                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-0.5">
+                    {current.context_reasons.slice(0, 2).map((r, i) => (
+                      <p key={i} data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                        <Star className="w-3 h-3 shrink-0" /> {r}
+                      </p>
+                    ))}
                   </div>
                 )}
               </CardContent>

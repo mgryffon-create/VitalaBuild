@@ -1625,48 +1625,52 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
                 best_job_id = job["id"]
                 best_job_title = job.get("title", "")
 
-        # Build match reasons from best job
+        # Build specific context reasons from best job (no "fit"/"match" wording)
+        context_reasons = []
         if best_job_id:
             best_job = next((j for j in employer_jobs_full if j["id"] == best_job_id), {})
             spec = profile.get("specialty", "").lower()
             job_spec = best_job.get("specialty", "").lower()
             if spec and job_spec and (spec in job_spec or job_spec in spec):
-                short_title = best_job_title.split(" - ")[0] if " - " in best_job_title else best_job_title
-                match_reasons.append(f"Matches your {short_title.strip()[:30]} role")
+                # Extract a readable sub-specialty label
+                sub = best_job.get("specialty", "").replace("Registered Nurse (RN)", "").replace("Licensed Practical Nurse (LPN)", "").replace("Certified Nursing Assistant (CNA)", "").strip(" -")
+                if not sub:
+                    sub = best_job_title.split(" - ")[0].strip() if " - " in best_job_title else best_job_title.strip()
+                if sub:
+                    context_reasons.append(f"Specialty aligns with your {sub[:35].strip()} role")
             locs = profile.get("preferred_locations", [])
             job_loc = best_job.get("location", "")
             if locs and job_loc and any(l.lower().split(",")[0] in job_loc.lower() for l in locs):
-                match_reasons.append("Near your location")
+                context_reasons.append("Located near your facility")
             shift = profile.get("preferred_shift", "")
-            if shift:
-                match_reasons.append(f"Available for {shift.lower()}")
-            exp = profile.get("years_experience", 0)
-            req = best_job.get("experience_required", 0)
-            if exp and req and exp >= req:
-                match_reasons.append(f"Meets {req}+ yr requirement")
+            job_shift = best_job.get("shift_type", "")
+            if shift and job_shift and shift.lower().split()[0] in job_shift.lower():
+                context_reasons.append(f"Available for your {job_shift.split('(')[0].strip().lower()} opening")
+            elif shift:
+                context_reasons.append(f"Available for {shift.lower()}")
+            exp = profile.get("years_experience", 0) or 0
+            req = best_job.get("experience_required", 0) or 0
+            if exp and req > 0 and exp >= req:
+                context_reasons.append(f"Meets your {req}+ year experience requirement")
 
-        if not match_reasons:
-            if ref_count > 0:
-                match_reasons.append("Has verified references")
-            elif vault_count >= 3:
-                match_reasons.append("Compliance docs ready")
-            elif profile.get("years_experience", 0) >= 3:
-                match_reasons.append(f"{profile['years_experience']}+ years experience")
-
-        # Always generate a job-specific context line
-        best_job_context = None
-        if best_job_id:
-            best_job = next((j for j in employer_jobs_full if j["id"] == best_job_id), {})
-            job_label = best_job.get("title", "").split(" - ")[0].strip()
-            if not job_label:
-                job_label = best_job.get("specialty", "").replace("Registered Nurse (RN)", "RN").replace("Licensed Practical Nurse (LPN)", "LPN").split(" - ")[-1].strip()
-            if job_label:
-                if best_score >= 70:
-                    best_job_context = f"Strong fit for your {job_label[:35]} role"
-                elif best_score >= 45:
-                    best_job_context = f"Good fit for your {job_label[:35]} role"
-                else:
-                    best_job_context = f"Potential fit for your {job_label[:35]} role"
+        if not context_reasons:
+            # Fallback: check if same broad role category (both RN, both LPN, etc)
+            if best_job_id:
+                best_job = next((j for j in employer_jobs_full if j["id"] == best_job_id), {})
+                pro_spec = profile.get("specialty", "")
+                job_spec_full = best_job.get("specialty", "")
+                # Check broad role match (e.g. both contain "RN" or "LPN")
+                for role_abbr in ["RN", "LPN", "CNA", "NP"]:
+                    if role_abbr in pro_spec and role_abbr in job_spec_full:
+                        job_sub = job_spec_full.replace("Registered Nurse (RN)", "").replace("Licensed Practical Nurse (LPN)", "").replace("Certified Nursing Assistant (CNA)", "").strip(" -")
+                        if job_sub:
+                            context_reasons.append(f"{role_abbr} background relevant to your {job_sub[:30]} role")
+                        break
+            if not context_reasons:
+                if ref_count > 0:
+                    context_reasons.append("Has verified references on file")
+                elif vault_count >= 3:
+                    context_reasons.append("Compliance documents uploaded")
 
         pros.append({
             "id": seeker["id"],
@@ -1685,8 +1689,7 @@ async def browse_pros(current_user: dict = Depends(get_current_user)):
             "match_score": best_score,
             "best_job_id": best_job_id,
             "best_job_title": best_job_title,
-            "match_reasons": match_reasons[:2],
-            "best_job_context": best_job_context,
+            "context_reasons": context_reasons[:2],
         })
 
     # Sort by match score descending — best matches first
