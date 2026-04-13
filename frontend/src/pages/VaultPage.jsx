@@ -14,7 +14,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import {
   Shield, Plus, FileText, AlertTriangle, Clock,
   Trash2, Upload, CreditCard, Heart, ClipboardCheck, X, Eye,
-  ArrowLeft, Search, Check
+  ArrowLeft, Search, Check, RefreshCw, Archive
 } from "lucide-react";
 import { DOCUMENT_CATEGORIES, getTypesForCategory, getGroupsForCategory } from "@/config/documentTypes";
 import DocumentPreview from "@/components/DocumentPreview";
@@ -32,7 +32,40 @@ const VERIFICATION_BADGE = {
   verified:   { label: "Verified",   className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
   rejected:   { label: "Rejected",   className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
   unverified: { label: "Unverified", className: "bg-muted text-muted-foreground" },
+  archived:   { label: "Archived",   className: "bg-muted text-muted-foreground/60" },
 };
+
+// Compute days until expiration
+function daysUntilExp(expDate) {
+  if (!expDate) return null;
+  const exp = new Date(expDate);
+  const now = new Date();
+  return Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+}
+
+function expirationLabel(expDate) {
+  const days = daysUntilExp(expDate);
+  if (days === null) return null;
+  if (days <= 0) return { text: "Expired", className: "bg-destructive text-destructive-foreground", urgent: true };
+  if (days <= 30) return { text: `${days}d left`, className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", urgent: true };
+  if (days <= 60) return { text: `${days}d left`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", urgent: false };
+  return { text: "Active", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", urgent: false };
+}
+
+// Sort: expired first, then expiring soon, then active, then no expiration
+function sortByExpiration(a, b) {
+  const dA = daysUntilExp(a.expiration_date);
+  const dB = daysUntilExp(b.expiration_date);
+  // Archived go last
+  if (a.verification_status === "archived" && b.verification_status !== "archived") return 1;
+  if (b.verification_status === "archived" && a.verification_status !== "archived") return -1;
+  // Both have expiration
+  if (dA !== null && dB !== null) return dA - dB;
+  // One has, one doesn't
+  if (dA !== null) return -1;
+  if (dB !== null) return 1;
+  return 0;
+}
 
 const VaultPage = () => {
   const { user } = useAuth();
@@ -40,10 +73,11 @@ const VaultPage = () => {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
-  const [fromContext, setFromContext] = useState(null); // "completion" | "profile" | null
+  const [fromContext, setFromContext] = useState(null);
 
-  // Upload state — single type
+  // Upload state
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -52,6 +86,7 @@ const VaultPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedType, setSelectedType] = useState("");
   const [typeSearch, setTypeSearch] = useState("");
+  const [replacingDocId, setReplacingDocId] = useState(null); // doc being replaced
   const [form, setForm] = useState({
     issuing_authority: "", document_number: "",
     issue_date: "", expiration_date: "", state: "",
@@ -81,7 +116,6 @@ const VaultPage = () => {
     const category = searchParams.get("category");
     const type = searchParams.get("type");
     const from = searchParams.get("from");
-
     if (category) {
       setFromContext(from);
       setSelectedCategory(category);
@@ -92,7 +126,6 @@ const VaultPage = () => {
         setUploadStep("type");
       }
       setShowUpload(true);
-      // Clear params after reading
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -104,10 +137,29 @@ const VaultPage = () => {
     setTypeSearch("");
     setSelectedFile(null);
     setUploadProgress(0);
+    setReplacingDocId(null);
     setForm({ issuing_authority: "", document_number: "", issue_date: "", expiration_date: "", state: "" });
   };
 
   const openUpload = () => { resetUpload(); setShowUpload(true); };
+
+  // Replace flow: preselect category + type, mark old doc for archiving
+  const startReplace = (doc) => {
+    resetUpload();
+    setReplacingDocId(doc.id);
+    setSelectedCategory(doc.category || "");
+    setSelectedType(doc.subtype || "");
+    // Prefill metadata from old doc
+    setForm({
+      issuing_authority: doc.issuing_authority || "",
+      document_number: doc.document_number || "",
+      issue_date: doc.issue_date || "",
+      expiration_date: "",
+      state: doc.state || "",
+    });
+    setUploadStep("details");
+    setShowUpload(true);
+  };
 
   const handleUpload = async () => {
     if (!selectedCategory || !selectedType) {
@@ -138,11 +190,22 @@ const VaultPage = () => {
         },
       });
 
-      toast.success(`${selectedType} uploaded to vault`);
+      // If replacing, archive the old document
+      if (replacingDocId) {
+        try {
+          await axios.put(`${API}/vault/documents/${replacingDocId}`, {
+            verification_status: "archived",
+          });
+        } catch { /* old doc archive is best-effort */ }
+        toast.success(`${selectedType} replaced — previous version archived`);
+      } else {
+        toast.success(`${selectedType} added to your vault`);
+      }
+
       setShowUpload(false);
 
-      // If medical, offer post-upload tagging for related types
-      if (selectedCategory === "medical") {
+      // Medical post-upload tagging
+      if (selectedCategory === "medical" && !replacingDocId) {
         setLastUploadRes(res.data);
         setLastUploadedType(selectedType);
         setAdditionalTags([]);
@@ -152,13 +215,12 @@ const VaultPage = () => {
       resetUpload();
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to upload");
+      toast.error(err.response?.data?.detail || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
   };
 
-  // Save additional medical tags as separate vault records pointing to same file
   const handleSaveMedicalTags = async () => {
     if (additionalTags.length === 0 || !lastUploadRes) {
       setShowMedicalTag(false);
@@ -167,8 +229,7 @@ const VaultPage = () => {
     try {
       for (const tag of additionalTags) {
         await axios.post(`${API}/vault/documents`, {
-          category: "medical",
-          subtype: tag,
+          category: "medical", subtype: tag,
           issuing_authority: form.issuing_authority || null,
           document_number: form.document_number || null,
           issue_date: form.issue_date || null,
@@ -192,7 +253,6 @@ const VaultPage = () => {
     );
   };
 
-  // Related medical types from the same group, excluding the one just uploaded
   const getRelatedMedicalTypes = () => {
     const medGroups = getGroupsForCategory("medical");
     if (!medGroups) return [];
@@ -214,8 +274,14 @@ const VaultPage = () => {
     }
   };
 
-  const filtered = filter === "all" ? docs : docs.filter((d) => d.category === filter);
-  const expiredCount = docs.filter((d) => d.expiration_date && new Date(d.expiration_date) < new Date()).length;
+  // Derived data
+  const activeDocs = docs.filter((d) => d.verification_status !== "archived");
+  const archivedDocs = docs.filter((d) => d.verification_status === "archived");
+  const visibleDocs = showArchived ? docs : activeDocs;
+  const filteredDocs = (filter === "all" ? visibleDocs : visibleDocs.filter((d) => d.category === filter)).sort(sortByExpiration);
+  const expiredCount = activeDocs.filter((d) => daysUntilExp(d.expiration_date) !== null && daysUntilExp(d.expiration_date) <= 0).length;
+  const expiringSoonCount = activeDocs.filter((d) => { const days = daysUntilExp(d.expiration_date); return days !== null && days > 0 && days <= 30; }).length;
+  const needsAttentionCount = expiredCount + expiringSoonCount;
 
   const allTypes = getTypesForCategory(selectedCategory);
   const groups = getGroupsForCategory(selectedCategory);
@@ -237,10 +303,10 @@ const VaultPage = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Secure Document Vault</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Your Documents</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {docs.length} document{docs.length !== 1 ? "s" : ""} stored
-              {expiredCount > 0 && <span className="text-amber-600 ml-2">({expiredCount} expired)</span>}
+              {activeDocs.length} document{activeDocs.length !== 1 ? "s" : ""}
+              {archivedDocs.length > 0 && <span className="text-muted-foreground/60 ml-1">({archivedDocs.length} archived)</span>}
             </p>
           </div>
           <Button data-testid="add-vault-doc-btn" onClick={openUpload} className="w-full sm:w-auto">
@@ -248,17 +314,16 @@ const VaultPage = () => {
           </Button>
         </div>
 
-        {/* Contextual guidance banner when routed from profile completion */}
+        {/* Guidance banner */}
         {fromContext && (
           <div data-testid="vault-guidance-banner" className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
             <Shield className="w-5 h-5 text-primary shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
                 {fromContext === "completion"
-                  ? "Complete your profile by uploading the required document"
-                  : "Upload your document for employer verification"}
+                  ? "You're almost done — upload the required document to complete your profile"
+                  : "Upload your document here. It'll be stored securely and shared only when you apply."}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Select the document type and upload your file below</p>
             </div>
             <button onClick={() => setFromContext(null)} className="text-muted-foreground hover:text-foreground shrink-0">
               <X className="w-4 h-4" />
@@ -266,8 +331,25 @@ const VaultPage = () => {
           </div>
         )}
 
+        {/* Attention banner — documents need action */}
+        {needsAttentionCount > 0 && !fromContext && (
+          <div data-testid="vault-attention-banner" className="flex items-center gap-3 p-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/10">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {needsAttentionCount} document{needsAttentionCount > 1 ? "s" : ""} need{needsAttentionCount === 1 ? "s" : ""} attention
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {expiredCount > 0 && `${expiredCount} expired`}
+                {expiredCount > 0 && expiringSoonCount > 0 && " · "}
+                {expiringSoonCount > 0 && `${expiringSoonCount} expiring within 30 days`}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Category Filters */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <button
             data-testid="filter-all"
             onClick={() => setFilter("all")}
@@ -275,10 +357,10 @@ const VaultPage = () => {
               filter === "all" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80 text-foreground"
             }`}
           >
-            All ({docs.length})
+            All ({activeDocs.length})
           </button>
           {Object.entries(CATEGORY_META).map(([key, meta]) => {
-            const count = docs.filter((d) => d.category === key).length;
+            const count = activeDocs.filter((d) => d.category === key).length;
             if (count === 0) return null;
             return (
               <button
@@ -293,17 +375,27 @@ const VaultPage = () => {
               </button>
             );
           })}
+          {archivedDocs.length > 0 && (
+            <button
+              data-testid="toggle-archived"
+              onClick={() => setShowArchived(!showArchived)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-all flex items-center gap-1"
+            >
+              <Archive className="w-3 h-3" />
+              {showArchived ? "Hide archived" : `Show archived (${archivedDocs.length})`}
+            </button>
+          )}
         </div>
 
         {/* Documents Grid */}
-        {filtered.length === 0 ? (
+        {filteredDocs.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Shield className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
               <h3 className="font-semibold text-foreground mb-1">
-                {filter === "all" ? "Your vault is empty" : `No ${CATEGORY_META[filter]?.label || filter} documents`}
+                {filter === "all" ? "No documents yet" : `No ${CATEGORY_META[filter]?.label || filter} documents`}
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">Upload documents once. Reuse them across job offers.</p>
+              <p className="text-sm text-muted-foreground mb-4">Your documents are stored securely and shared only when you choose.</p>
               <Button variant="outline" onClick={openUpload}>
                 <Upload className="w-4 h-4 mr-1.5" /> Upload Your First Document
               </Button>
@@ -311,13 +403,14 @@ const VaultPage = () => {
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((doc) => {
+            {filteredDocs.map((doc) => {
               const meta = CATEGORY_META[doc.category] || CATEGORY_META.compliance;
               const Icon = meta.icon;
+              const isArchived = doc.verification_status === "archived";
               const vBadge = VERIFICATION_BADGE[doc.verification_status] || VERIFICATION_BADGE.unverified;
-              const isExpired = doc.expiration_date && new Date(doc.expiration_date) < new Date();
+              const expLabel = expirationLabel(doc.expiration_date);
               return (
-                <Card key={doc.id} data-testid={`vault-doc-${doc.id}`} className={`transition-colors cursor-pointer hover:border-primary/30 ${isExpired ? "border-amber-300 dark:border-amber-700" : ""}`} onClick={() => setPreviewDoc(doc)}>
+                <Card key={doc.id} data-testid={`vault-doc-${doc.id}`} className={`transition-colors cursor-pointer hover:border-primary/30 ${isArchived ? "opacity-50" : ""} ${expLabel?.urgent ? "border-amber-300 dark:border-amber-700" : ""}`} onClick={() => setPreviewDoc(doc)}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta.color}`}>
@@ -327,26 +420,32 @@ const VaultPage = () => {
                         <p className="font-medium text-sm text-foreground truncate">{doc.subtype || doc.file_name || doc.category}</p>
                         <p className="text-xs text-muted-foreground">
                           {meta.label}
-                          {doc.file_size ? ` — ${(doc.file_size / 1024).toFixed(0)} KB` : ""}
+                          {doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(0)} KB` : ""}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                          <Badge variant="outline" className={`text-[10px] ${vBadge.className}`}>{vBadge.label}</Badge>
-                          {isExpired && (
-                            <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 border-red-200">
-                              <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> Expired
+                          {isArchived ? (
+                            <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground/60">Archived</Badge>
+                          ) : (
+                            <Badge variant="outline" className={`text-[10px] ${vBadge.className}`}>{vBadge.label}</Badge>
+                          )}
+                          {expLabel && !isArchived && (
+                            <Badge variant="outline" className={`text-[10px] ${expLabel.className}`}>
+                              {expLabel.urgent && <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />}
+                              {expLabel.text}
                             </Badge>
-                          )}
-                          {doc.expiration_date && !isExpired && (
-                            <span className="text-[10px] text-muted-foreground">Exp: {doc.expiration_date.slice(0, 10)}</span>
-                          )}
-                          {doc.file_url && (
-                            <span className="text-[10px] text-primary flex items-center gap-0.5"><Eye className="w-2.5 h-2.5" /> Preview</span>
                           )}
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        {!isArchived && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" data-testid={`replace-doc-${doc.id}`} onClick={(e) => { e.stopPropagation(); startReplace(doc); }} title="Replace with newer version">
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -373,8 +472,11 @@ const VaultPage = () => {
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
               )}
-              Upload to Vault
+              {replacingDocId ? "Replace Document" : "Add Document"}
             </DialogTitle>
+            {replacingDocId && (
+              <DialogDescription>Upload a newer version. The previous file will be archived.</DialogDescription>
+            )}
           </DialogHeader>
 
           {/* Step 1: Category */}
@@ -399,7 +501,7 @@ const VaultPage = () => {
             </div>
           )}
 
-          {/* Step 2: Type Selection — single select, click to advance */}
+          {/* Step 2: Type Selection */}
           {uploadStep === "type" && (
             <div data-testid="vault-step-type" className="space-y-3 py-2">
               <div className="relative">
@@ -413,7 +515,6 @@ const VaultPage = () => {
                   autoFocus
                 />
               </div>
-
               <div className="max-h-[300px] overflow-y-auto space-y-1 -mx-1 px-1">
                 {groups ? (
                   Object.entries(groups).map(([gKey, group]) => {
@@ -426,16 +527,10 @@ const VaultPage = () => {
                           <button
                             key={type}
                             data-testid={`vault-type-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                            className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
-                              selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
-                            }`}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left hover:bg-muted/50 border border-transparent"
                             onClick={() => { setSelectedType(type); setUploadStep("details"); }}
                           >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
-                            }`}>
-                              {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
-                            </div>
+                            <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0" />
                             <span className="text-sm text-foreground">{type}</span>
                           </button>
                         ))}
@@ -447,16 +542,10 @@ const VaultPage = () => {
                     <button
                       key={type}
                       data-testid={`vault-type-${type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left ${
-                        selectedType === type ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
-                      }`}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg cursor-pointer transition-colors text-left hover:bg-muted/50 border border-transparent"
                       onClick={() => { setSelectedType(type); setUploadStep("details"); }}
                     >
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        selectedType === type ? "border-primary bg-primary" : "border-muted-foreground/30"
-                      }`}>
-                        {selectedType === type && <Check className="w-3 h-3 text-primary-foreground" />}
-                      </div>
+                      <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center shrink-0" />
                       <span className="text-sm text-foreground">{type}</span>
                     </button>
                   ))
@@ -470,7 +559,6 @@ const VaultPage = () => {
             <div data-testid="vault-step-details" className="space-y-3 py-2">
               <Badge variant="outline" className="text-xs">{selectedType}</Badge>
 
-              {/* File Picker */}
               <div className="space-y-1.5">
                 <Label>File *</Label>
                 {selectedFile ? (
@@ -523,7 +611,7 @@ const VaultPage = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Issuing Authority</Label>
-                  <Input value={form.issuing_authority} onChange={(e) => setForm((p) => ({ ...p, issuing_authority: e.target.value }))} placeholder="e.g., CA DMV" />
+                  <Input value={form.issuing_authority} onChange={(e) => setForm((p) => ({ ...p, issuing_authority: e.target.value }))} placeholder="e.g., AHA" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Document Number</Label>
@@ -534,7 +622,7 @@ const VaultPage = () => {
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button variant="outline" onClick={() => setShowUpload(false)}>Cancel</Button>
                 <Button data-testid="vault-submit-btn" onClick={handleUpload} disabled={uploading || !selectedFile || !selectedType}>
-                  {uploading ? `Uploading ${uploadProgress}%...` : "Upload to Vault"}
+                  {uploading ? `Uploading ${uploadProgress}%...` : replacingDocId ? "Replace Document" : "Save to Vault"}
                 </Button>
               </DialogFooter>
             </div>
@@ -542,7 +630,7 @@ const VaultPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── Post-Upload: Medical Tagging (optional) ─────── */}
+      {/* ── Post-Upload: Medical Tagging ─────── */}
       <Dialog open={showMedicalTag} onOpenChange={setShowMedicalTag}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -560,24 +648,14 @@ const VaultPage = () => {
                   additionalTags.includes(type) ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                 }`}
               >
-                <Checkbox
-                  checked={additionalTags.includes(type)}
-                  onCheckedChange={() => toggleAdditionalTag(type)}
-                  className="shrink-0"
-                />
+                <Checkbox checked={additionalTags.includes(type)} onCheckedChange={() => toggleAdditionalTag(type)} className="shrink-0" />
                 <span className="text-sm text-foreground">{type}</span>
               </label>
             ))}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowMedicalTag(false)} data-testid="medical-tag-skip">
-              No, just this one
-            </Button>
-            <Button
-              onClick={handleSaveMedicalTags}
-              disabled={additionalTags.length === 0}
-              data-testid="medical-tag-save"
-            >
+            <Button variant="outline" onClick={() => setShowMedicalTag(false)} data-testid="medical-tag-skip">No, just this one</Button>
+            <Button onClick={handleSaveMedicalTags} disabled={additionalTags.length === 0} data-testid="medical-tag-save">
               Tag {additionalTags.length} additional
             </Button>
           </DialogFooter>
