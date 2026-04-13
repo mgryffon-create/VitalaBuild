@@ -67,6 +67,19 @@ function formatPayBreakdown(card) {
   return null;
 }
 
+// ── Human-readable date formatting ───────────────────────
+function formatStartDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr + (dateStr.includes("T") ? "" : "T00:00:00"));
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const day = d.getDate();
+    return `${month} ${day}`;
+  } catch {
+    return dateStr;
+  }
+}
+
 function matchLabel(card) {
   const tier = card.match_tier;
   if (tier === "strong") return { text: "Strong Match", cls: "text-green-600 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" };
@@ -432,18 +445,25 @@ const SeekerViewContent = ({ card, expanded }) => {
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <MapPin className="w-3.5 h-3.5 shrink-0" /><span>{card.location || "Location TBD"}</span>
         </div>
+        {/* Primary chips — decision-critical */}
         <div className="flex flex-wrap gap-1.5 mt-3">
           {card.shift_type && <Badge className="text-xs gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0"><Clock className="w-3 h-3" /> {card.shift_type}</Badge>}
           {card.duration && <Badge variant="secondary" className="text-xs gap-1"><Calendar className="w-3 h-3" /> {card.duration}</Badge>}
-          {card.start_date && <Badge variant="secondary" className="text-xs gap-1">Start {card.start_date}</Badge>}
-          {card.weekly_hours && <Badge variant="outline" className="text-xs">{card.weekly_hours}hrs/week</Badge>}
-          {card.stipend && card.stipend !== "Not included" && <Badge className="text-xs gap-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0"><Home className="w-3 h-3" /> {card.stipend}</Badge>}
-          {hasExp && <Badge variant="outline" className="text-xs">{card.experience_required}+ yrs</Badge>}
-          {card.certifications_required?.length > 0 && <Badge variant="outline" className="text-xs gap-1"><Award className="w-3 h-3" /> {card.certifications_required.join(", ")}</Badge>}
+          {card.start_date && <Badge variant="secondary" className="text-xs gap-1">Starts {formatStartDate(card.start_date)}</Badge>}
         </div>
-        {card.description && <p className={`text-sm text-muted-foreground mt-3 leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>{card.description}</p>}
+        {/* Secondary chips — supporting context */}
+        {(card.weekly_hours || (card.stipend && card.stipend !== "Not included") || hasExp || card.certifications_required?.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {card.weekly_hours && <Badge variant="outline" className="text-xs text-muted-foreground font-normal">{card.weekly_hours} hrs/week</Badge>}
+            {card.stipend && card.stipend !== "Not included" && <Badge variant="outline" className="text-xs text-muted-foreground font-normal gap-1"><Home className="w-3 h-3" /> {card.stipend}</Badge>}
+            {hasExp && <Badge variant="outline" className="text-xs text-muted-foreground font-normal">{card.experience_required}+ yrs exp</Badge>}
+            {card.certifications_required?.length > 0 && <Badge variant="outline" className="text-xs text-muted-foreground font-normal gap-1"><Award className="w-3 h-3" /> {card.certifications_required.join(", ")}</Badge>}
+          </div>
+        )}
+        {card.description && !expanded && <p className="text-xs text-muted-foreground/70 mt-3 leading-relaxed line-clamp-1">{card.description}</p>}
         {expanded && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 space-y-4">
+            {card.description && <p className="text-sm text-muted-foreground leading-relaxed">{card.description}</p>}
             {card.benefits?.length > 0 && (<div><p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Benefits</p><div className="flex flex-wrap gap-1.5">{card.benefits.map((b, i) => <Badge key={i} variant="secondary" className="text-xs"><CheckCircle className="w-3 h-3 mr-1" />{b}</Badge>)}</div></div>)}
             {card.requirements?.length > 0 && (<div><p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2">Requirements</p><ul className="space-y-1">{card.requirements.map((r, i) => <li key={i} className="text-sm text-muted-foreground flex items-start gap-2"><CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {r}</li>)}</ul></div>)}
             {card.time_off_policy && (<div className="px-3 py-2 bg-muted/50 rounded-lg"><p className="text-[11px] text-muted-foreground uppercase tracking-wide">Time Off</p><p className="text-sm font-medium text-foreground">{card.time_off_policy}</p></div>)}

@@ -888,7 +888,10 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
         spec_reason = f"Matches your {short} specialty" if short else None
     elif seeker_cat and job_cat and seeker_cat == job_cat:
         spec_score = 18
-        spec_reason = f"Related {job_cat} role" + (f" in {job_sub.title()}" if job_sub else "")
+        if job_sub:
+            spec_reason = f"Aligned with your {job_cat} specialty in {job_sub.title()}"
+        else:
+            spec_reason = f"Aligned with your {job_cat} specialty"
     elif seeker_cat and job_cat:
         spec_score = 5
     signals["specialty"] = (spec_score, 30, spec_reason)
@@ -901,10 +904,10 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
     if required_exp == 0 or seeker_exp >= required_exp:
         exp_score = 25
         if required_exp > 0:
-            exp_reason = f"Meets the {required_exp}+ year experience requirement"
+            exp_reason = f"Meets your {required_exp}+ year experience requirement"
     elif seeker_exp >= required_exp - 1:
         exp_score = 15
-        exp_reason = f"Close to the {required_exp}+ year experience level"
+        exp_reason = f"Nearly meets the {required_exp}+ year experience level"
     else:
         exp_score = 5
     signals["experience"] = (exp_score, 25, exp_reason)
@@ -928,7 +931,7 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
         ratio = matched / len(required_certs)
         cert_score = int(15 * ratio)
         if ratio >= 1.0:
-            cert_reason = f"Has all required certifications ({', '.join(c.upper() for c in required_certs[:3])})"
+            cert_reason = f"You hold all required certifications ({', '.join(c.upper() for c in required_certs[:3])})"
         elif ratio > 0:
             cert_reason = f"Has some required certifications"
     else:
@@ -1046,9 +1049,9 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
     # If we have no positive reasons for possible tier, generate contextual ones
     if tier == "possible" and len(reasons) == 0:
         if seeker_cat == job_cat and seeker_sub != job_sub:
-            reasons.append(f"Related {job_cat} position outside your usual department")
+            reasons.append(f"Aligned with your {job_cat} background, different unit")
         if exp_earned >= 15 and exp_earned < 25:
-            reasons.append("Building toward the required experience level")
+            reasons.append("Experience level is close to the requirement")
 
     return {
         "compatibility_score": max(0, min(100, raw_pct)),
