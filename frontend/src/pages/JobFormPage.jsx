@@ -11,53 +11,53 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
+import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
+import InlineAutocomplete from "@/components/InlineAutocomplete";
+import { CERTIFICATIONS } from "@/config/fieldSuggestions";
 import {
   Briefcase, MapPin, DollarSign, Clock, Plus, X, Save, ArrowLeft,
   Award, Gift, FileText, Calendar, Cloud, CloudOff, Loader2, Check,
-  ChevronUp, ChevronDown, ExternalLink, Globe
+  ChevronUp, ChevronDown, ExternalLink, Globe, AlertTriangle, Home
 } from "lucide-react";
 
 const SECTIONS = [
   { id: "basic", label: "Basic Info", icon: Briefcase },
   { id: "schedule", label: "Schedule", icon: Clock },
-  { id: "compensation", label: "Compensation", icon: DollarSign },
+  { id: "compensation", label: "Pay", icon: DollarSign },
   { id: "requirements", label: "Requirements", icon: FileText },
   { id: "workflow", label: "Application", icon: Globe },
   { id: "review", label: "Review", icon: Check },
 ];
 
+const JOB_TYPES = ["Travel Contract", "Per Diem", "Staff/Permanent", "PRN", "Local Contract"];
+const DURATIONS = ["4 weeks", "8 weeks", "13 weeks", "26 weeks", "52 weeks", "Permanent", "Ongoing"];
+const SHIFT_TYPES = ["Day Shift (7a-7p)", "Night Shift (7p-7a)", "Day Shift (8 hr)", "Evening Shift", "Rotating", "Flexible"];
+const STIPEND_OPTIONS = ["Housing included", "Housing stipend", "M&IE stipend", "Travel reimbursement", "Not included"];
+const COMMON_BENEFITS = [
+  "Health Insurance", "Dental Insurance", "Vision Insurance", "401(k)",
+  "Housing Stipend", "Travel Reimbursement", "Sign-On Bonus", "Completion Bonus",
+  "Referral Bonus", "Continuing Education", "License Reimbursement", "Meal Allowance",
+];
+
 const AutoSaveIndicator = ({ status }) => {
-  const statusConfig = {
-    saved: { icon: Cloud, text: "Saved", className: "text-green-500" },
-    saving: { icon: Loader2, text: "Saving...", className: "text-blue-500" },
-    unsaved: { icon: CloudOff, text: "Unsaved", className: "text-amber-500" },
-    error: { icon: CloudOff, text: "Save failed", className: "text-red-500" },
-  };
-  const config = statusConfig[status] || statusConfig.saved;
-  const Icon = config.icon;
-  return (
-    <div className={`flex items-center gap-1.5 text-xs ${config.className}`}>
-      <Icon className={`w-3.5 h-3.5 ${status === "saving" ? "animate-spin" : ""}`} />
-      <span className="hidden sm:inline">{config.text}</span>
-    </div>
-  );
+  const cfg = { saved: { icon: Cloud, text: "Saved", cls: "text-green-500" }, saving: { icon: Loader2, text: "Saving...", cls: "text-blue-500" }, unsaved: { icon: CloudOff, text: "Unsaved", cls: "text-amber-500" }, error: { icon: CloudOff, text: "Save failed", cls: "text-red-500" } };
+  const c = cfg[status] || cfg.saved;
+  const Icon = c.icon;
+  return <div className={`flex items-center gap-1.5 text-xs ${c.cls}`}><Icon className={`w-3.5 h-3.5 ${status === "saving" ? "animate-spin" : ""}`} /><span className="hidden sm:inline">{c.text}</span></div>;
 };
 
-const CollapsibleSection = ({ id, title, icon: Icon, children, isActive, defaultOpen = true }) => {
+const CollapsibleSection = ({ id, title, icon: Icon, children, isActive, hasErrors, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div id={`section-${id}`} data-testid={`section-${id}`} className="scroll-mt-32">
-      <Card className={`transition-all duration-200 ${isActive ? "ring-2 ring-primary/40 shadow-md" : "shadow-sm"}`}>
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="w-full"
-          data-testid={`toggle-section-${id}`}
-        >
+      <Card className={`transition-all duration-200 ${isActive ? "ring-2 ring-primary/40 shadow-md" : ""} ${hasErrors ? "ring-2 ring-amber-400/50" : ""}`}>
+        <button type="button" onClick={() => setOpen(!open)} className="w-full" data-testid={`toggle-section-${id}`}>
           <CardHeader className="flex flex-row items-center justify-between py-4 px-4 sm:px-6 cursor-pointer select-none">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Icon className="w-5 h-5 text-primary shrink-0" />
               {title}
+              {hasErrors && <AlertTriangle className="w-4 h-4 text-amber-500" />}
             </CardTitle>
             {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </CardHeader>
@@ -68,39 +68,26 @@ const CollapsibleSection = ({ id, title, icon: Icon, children, isActive, default
   );
 };
 
-const ProgressTracker = ({ activeSection, completedSections, onSectionClick }) => (
+const ProgressTracker = ({ activeSection, completedSections, errorSections, onSectionClick }) => (
   <div data-testid="progress-tracker" className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b py-2.5 px-2 -mx-4 sm:-mx-0 mb-4">
     <div className="flex items-center justify-between max-w-4xl mx-auto px-2">
       {SECTIONS.map((section, idx) => {
         const isActive = activeSection === section.id;
         const isCompleted = completedSections.has(section.id);
+        const hasError = errorSections.has(section.id);
         const Icon = section.icon;
         return (
-          <button
-            key={section.id}
-            type="button"
-            onClick={() => onSectionClick(section.id)}
-            data-testid={`progress-step-${section.id}`}
-            className="flex flex-col items-center gap-1 group relative flex-1"
-          >
-            {/* Connector line */}
-            {idx > 0 && (
-              <div className={`absolute top-3.5 right-1/2 w-full h-0.5 -z-10 ${
-                isCompleted || isActive ? "bg-primary/50" : "bg-muted-foreground/20"
-              }`} />
-            )}
+          <button key={section.id} type="button" onClick={() => onSectionClick(section.id)} data-testid={`progress-step-${section.id}`} className="flex flex-col items-center gap-1 group relative flex-1">
+            {idx > 0 && <div className={`absolute top-3.5 right-1/2 w-full h-0.5 -z-10 ${isCompleted || isActive ? "bg-primary/50" : "bg-muted-foreground/20"}`} />}
             <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all text-xs font-semibold
               ${isActive ? "bg-primary text-primary-foreground scale-110 shadow-lg shadow-primary/30" : ""}
               ${isCompleted && !isActive ? "bg-primary/20 text-primary" : ""}
-              ${!isActive && !isCompleted ? "bg-muted text-muted-foreground" : ""}
+              ${hasError && !isActive ? "bg-amber-100 text-amber-600 ring-2 ring-amber-300" : ""}
+              ${!isActive && !isCompleted && !hasError ? "bg-muted text-muted-foreground" : ""}
             `}>
-              {isCompleted && !isActive ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+              {isCompleted && !isActive ? <Check className="w-3.5 h-3.5" /> : hasError && !isActive ? <AlertTriangle className="w-3 h-3" /> : <Icon className="w-3.5 h-3.5" />}
             </div>
-            <span className={`text-[10px] sm:text-xs leading-tight text-center transition-colors
-              ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}
-            `}>
-              {section.label}
-            </span>
+            <span className={`text-[10px] sm:text-xs leading-tight text-center transition-colors ${isActive ? "text-primary font-semibold" : hasError ? "text-amber-600" : "text-muted-foreground"}`}>{section.label}</span>
           </button>
         );
       })}
@@ -108,14 +95,29 @@ const ProgressTracker = ({ activeSection, completedSections, onSectionClick }) =
   </div>
 );
 
-const ReviewField = ({ label, value, missing }) => (
+const ReviewField = ({ label, value, required, missing }) => (
   <div className="flex justify-between items-start py-1.5 border-b border-muted/50 last:border-0">
-    <span className="text-sm text-muted-foreground">{label}</span>
+    <span className="text-sm text-muted-foreground">{label}{required && <span className="text-amber-500 ml-0.5">*</span>}</span>
     <span className={`text-sm font-medium text-right max-w-[60%] ${missing ? "text-amber-500 italic" : ""}`}>
-      {value || "Not set"}
+      {value || (missing ? "Required" : "Not set")}
     </span>
   </div>
 );
+
+// Smart title generation
+function generateTitle(job) {
+  const parts = [];
+  if (job.specialty) {
+    const match = job.specialty.match(/\(([^)]+)\)\s*-\s*(.+)/);
+    if (match) parts.push(`${match[2].trim()} ${match[1].trim()}`);
+    else { const s = job.specialty.match(/\(([^)]+)\)/); parts.push(s ? s[1] : job.specialty); }
+  }
+  if (job.shift_type) {
+    const shift = job.shift_type.split("(")[0].trim();
+    parts.push(`– ${shift}`);
+  }
+  return parts.join(" ") || "";
+}
 
 const JobFormPage = () => {
   const navigate = useNavigate();
@@ -132,24 +134,12 @@ const JobFormPage = () => {
   const observerRef = useRef(null);
 
   const [job, setJob] = useState({
-    title: "",
-    description: "",
-    location: "",
-    duration: "",
-    pay_range: { min: "", max: "" },
-    benefits: [],
-    time_off_policy: "",
-    requirements: [],
-    certifications_required: [],
-    experience_required: 0,
-    specialty: "",
-    shift_type: "",
-    start_date: "",
-    application_workflow_type: "in_platform_only",
-    external_application_url: "",
-    external_application_stage: "",
-    profile_sufficient_for_initial_review: true,
-    required_additional_fields: "",
+    title: "", description: "", location: "", duration: "", job_type: "",
+    pay_range: { min: "", max: "" }, stipend: "",
+    benefits: [], time_off_policy: "", requirements: [], certifications_required: [],
+    experience_required: "", specialty: "", shift_type: "", start_date: "",
+    application_workflow_type: "in_platform_only", external_application_url: "",
+    external_application_stage: "", profile_sufficient_for_initial_review: true, required_additional_fields: "",
   });
 
   const [newBenefit, setNewBenefit] = useState("");
@@ -157,643 +147,387 @@ const JobFormPage = () => {
   const [newCert, setNewCert] = useState("");
   const isEdit = !!jobId;
 
-  // Compute completed sections
-  const completedSections = new Set();
-  if (job.title && job.specialty && job.location && job.description) completedSections.add("basic");
-  if (job.duration || job.shift_type || job.start_date) completedSections.add("schedule");
-  if (job.pay_range.min || job.pay_range.max || job.benefits.length > 0) completedSections.add("compensation");
-  if (job.experience_required > 0 || job.requirements.length > 0 || job.certifications_required.length > 0) completedSections.add("requirements");
-  if (job.application_workflow_type) completedSections.add("workflow");
+  // ── Validation ────────────────────────────────────────
+  const isTravelContract = ["Travel Contract", "Local Contract"].includes(job.job_type);
+  const isWeakTitle = (t) => !t || /test|posting|job\s*\d|^\d+$/i.test(t) || t.length < 5;
+  const hasPay = parseInt(job.pay_range.min) > 0 || parseInt(job.pay_range.max) > 0;
 
-  const durations = ["13 weeks", "26 weeks", "52 weeks", "Permanent", "Per Diem", "PRN"];
-  const shiftTypes = ["Day Shift (7a-7p)", "Night Shift (7p-7a)", "Day Shift (8 hr)", "Evening Shift", "Rotating", "Flexible"];
-  const commonBenefits = [
-    "Health Insurance", "Dental Insurance", "Vision Insurance", "401(k)",
-    "Housing Stipend", "Travel Reimbursement", "Sign-On Bonus", "Completion Bonus",
-    "Referral Bonus", "Continuing Education", "License Reimbursement", "Meal Allowance",
-  ];
-
-  // Intersection Observer to track active section on scroll
-  useEffect(() => {
-    const sectionIds = SECTIONS.map((s) => `section-${s.id}`);
-    const handleIntersect = (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible.length > 0) {
-        const id = visible[0].target.id.replace("section-", "");
-        setActiveSection(id);
-      }
-    };
-    observerRef.current = new IntersectionObserver(handleIntersect, {
-      rootMargin: "-120px 0px -50% 0px",
-      threshold: 0.1,
-    });
-    // Small delay to allow DOM mount
-    const timer = setTimeout(() => {
-      sectionIds.forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) observerRef.current.observe(el);
-      });
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      observerRef.current?.disconnect();
-    };
-  }, [loading]);
-
-  const scrollToSection = (sectionId) => {
-    const el = document.getElementById(`section-${sectionId}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const requiredFields = {
+    title: !isWeakTitle(job.title),
+    specialty: !!job.specialty,
+    location: !!job.location,
+    description: !!job.description && job.description.length >= 20,
+    shift_type: !!job.shift_type,
+    pay: hasPay,
+    job_type: !!job.job_type,
+    experience: job.experience_required !== "" && job.experience_required !== undefined,
+    start_date: !!job.start_date,
+    // Travel-specific
+    ...(isTravelContract ? {
+      duration: !!job.duration,
+      stipend: !!job.stipend,
+    } : {}),
   };
 
-  const fetchSpecialties = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/specialties`);
-      setSpecialties(response.data);
-    } catch (error) {
-      console.error("Failed to load specialties");
-    }
-  }, []);
+  const missingFields = Object.entries(requiredFields).filter(([, ok]) => !ok).map(([k]) => k);
+  const canPublish = missingFields.length === 0;
+  const generatedTitle = generateTitle(job);
 
-  const fetchJob = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/jobs/${jobId}`);
-      setJob(response.data);
-      lastSavedRef.current = JSON.stringify(response.data);
-    } catch (error) {
-      toast.error("Failed to load job");
-      navigate("/poster");
-    } finally {
-      setLoading(false);
-      setTimeout(() => setInitialLoadComplete(true), 500);
-    }
-  }, [jobId, navigate]);
+  // Section-level errors
+  const sectionErrors = new Set();
+  if (!requiredFields.title || !requiredFields.specialty || !requiredFields.location || !requiredFields.description) sectionErrors.add("basic");
+  if (!requiredFields.shift_type || !requiredFields.start_date || (isTravelContract && !requiredFields.duration)) sectionErrors.add("schedule");
+  if (!requiredFields.pay || (isTravelContract && !requiredFields.stipend)) sectionErrors.add("compensation");
+
+  // Section-level completeness
+  const completedSections = new Set();
+  if (requiredFields.title && requiredFields.specialty && requiredFields.location && requiredFields.description) completedSections.add("basic");
+  if (requiredFields.shift_type && requiredFields.start_date && (!isTravelContract || requiredFields.duration)) completedSections.add("schedule");
+  if (requiredFields.pay && (!isTravelContract || requiredFields.stipend)) completedSections.add("compensation");
+  if (requiredFields.experience) completedSections.add("requirements");
+  if (job.application_workflow_type) completedSections.add("workflow");
+  if (canPublish) completedSections.add("review");
 
   useEffect(() => {
-    fetchSpecialties();
-    if (jobId) fetchJob();
-  }, [jobId, fetchJob, fetchSpecialties]);
+    const ids = SECTIONS.map((s) => `section-${s.id}`);
+    const handleIntersect = (entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length > 0) setActiveSection(visible[0].target.id.replace("section-", ""));
+    };
+    observerRef.current = new IntersectionObserver(handleIntersect, { rootMargin: "-120px 0px -50% 0px", threshold: 0.1 });
+    const timer = setTimeout(() => { ids.forEach((id) => { const el = document.getElementById(id); if (el) observerRef.current.observe(el); }); }, 100);
+    return () => { clearTimeout(timer); observerRef.current?.disconnect(); };
+  }, [loading]);
+
+  const scrollToSection = (sectionId) => { const el = document.getElementById(`section-${sectionId}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); };
+
+  const fetchSpecialties = useCallback(async () => { try { const r = await axios.get(`${API}/specialties`); setSpecialties(r.data); } catch {} }, []);
+  const fetchJob = useCallback(async () => {
+    try { const r = await axios.get(`${API}/jobs/${jobId}`); setJob(r.data); lastSavedRef.current = JSON.stringify(r.data); }
+    catch { toast.error("Failed to load job"); navigate("/poster"); }
+    finally { setLoading(false); setTimeout(() => setInitialLoadComplete(true), 500); }
+  }, [jobId, navigate]);
+
+  useEffect(() => { fetchSpecialties(); if (jobId) fetchJob(); }, [jobId, fetchJob, fetchSpecialties]);
 
   // Auto-save (edit mode only)
   useEffect(() => {
     if (!isEdit || !initialLoadComplete) return;
-    const currentData = JSON.stringify(job);
-    if (currentData === lastSavedRef.current) return;
+    const cur = JSON.stringify(job);
+    if (cur === lastSavedRef.current) return;
     setAutoSaveStatus("unsaved");
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     autoSaveTimeoutRef.current = setTimeout(async () => {
       if (!job.title || !job.description || !job.location || !job.specialty) return;
       setAutoSaveStatus("saving");
       try {
-        const payload = {
-          ...job,
-          pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 },
-          experience_required: parseInt(job.experience_required) || 0,
-        };
+        const payload = { ...job, pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 }, experience_required: parseInt(job.experience_required) || 0 };
         await axios.put(`${API}/jobs/${jobId}`, payload);
         lastSavedRef.current = JSON.stringify(job);
         setAutoSaveStatus("saved");
-      } catch (error) {
-        setAutoSaveStatus("error");
-      }
+      } catch { setAutoSaveStatus("error"); }
     }, 1500);
     return () => { if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current); };
   }, [job, isEdit, jobId, initialLoadComplete]);
 
   const handleSave = async () => {
-    if (!job.title || !job.description || !job.location || !job.specialty) {
-      toast.error("Please fill in all required fields (Title, Specialty, Location, Description)");
-      scrollToSection("basic");
+    if (!canPublish) {
+      const firstError = [...sectionErrors][0];
+      if (firstError) scrollToSection(firstError);
+      toast.error(`Missing required fields: ${missingFields.map(f => f.replace(/_/g, " ")).join(", ")}`);
       return;
     }
     setSaving(true);
     try {
-      const payload = {
-        ...job,
-        pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 },
-        experience_required: parseInt(job.experience_required) || 0,
-      };
-      if (isEdit) {
-        await axios.put(`${API}/jobs/${jobId}`, payload);
-        toast.success("Job updated successfully");
-      } else {
-        await axios.post(`${API}/jobs`, payload);
-        toast.success("Job posted successfully");
-      }
+      const title = isWeakTitle(job.title) && generatedTitle ? generatedTitle : job.title;
+      const payload = { ...job, title, pay_range: { min: parseInt(job.pay_range.min) || 0, max: parseInt(job.pay_range.max) || 0 }, experience_required: parseInt(job.experience_required) || 0 };
+      if (isEdit) { await axios.put(`${API}/jobs/${jobId}`, payload); toast.success("Job updated"); }
+      else { await axios.post(`${API}/jobs`, payload); toast.success("Job posted"); }
       navigate("/poster");
-    } catch (error) {
-      toast.error(`Failed to ${isEdit ? "update" : "create"} job`);
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error(`Failed to ${isEdit ? "update" : "create"} job`); }
+    finally { setSaving(false); }
   };
 
-  const addItem = (field, value, setter) => {
-    if (value.trim()) {
-      setJob((prev) => ({ ...prev, [field]: [...(prev[field] || []), value.trim()] }));
-      setter("");
-    }
-  };
+  const addItem = (field, value, setter) => { if (value.trim()) { setJob((prev) => ({ ...prev, [field]: [...(prev[field] || []), value.trim()] })); setter(""); } };
+  const removeItem = (field, index) => { setJob((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) })); };
 
-  const removeItem = (field, index) => {
-    setJob((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
-  };
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const requiredFieldsMissing = !job.title || !job.description || !job.location || !job.specialty;
+  if (loading) return <DashboardLayout><div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" /></div></DashboardLayout>;
 
   return (
     <DashboardLayout>
       <div data-testid="job-form-page" className="max-w-4xl mx-auto pb-24 sm:pb-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/poster")} data-testid="back-btn" className="shrink-0">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/poster")} data-testid="back-btn" className="shrink-0"><ArrowLeft className="w-5 h-5" /></Button>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                {isEdit ? "Edit Job Posting" : "Post New Job"}
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                {isEdit ? "Update your job listing" : "Fill in the details below"}
-              </p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">{isEdit ? "Edit Job Posting" : "Post New Job"}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{canPublish ? "Ready to publish" : `${missingFields.length} required field${missingFields.length > 1 ? "s" : ""} remaining`}</p>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-3">
             {isEdit && initialLoadComplete && <AutoSaveIndicator status={autoSaveStatus} />}
-            <Button data-testid="save-job-btn" onClick={handleSave} disabled={saving} size="sm">
+            <Button data-testid="save-job-btn" onClick={handleSave} disabled={saving || !canPublish} size="sm">
               <Save className="w-4 h-4 mr-1.5" />
-              {saving ? "Saving..." : isEdit ? "Update" : "Post Job"}
+              {saving ? "Saving..." : isEdit ? "Update" : "Publish Job"}
             </Button>
           </div>
         </div>
 
-        {/* Progress Tracker */}
-        <ProgressTracker
-          activeSection={activeSection}
-          completedSections={completedSections}
-          onSectionClick={scrollToSection}
-        />
+        <ProgressTracker activeSection={activeSection} completedSections={completedSections} errorSections={sectionErrors} onSectionClick={scrollToSection} />
 
         <div className="space-y-4">
-          {/* === SECTION 1: Basic Info === */}
-          <CollapsibleSection id="basic" title="Basic Information" icon={Briefcase} isActive={activeSection === "basic"}>
+          {/* === BASIC INFO === */}
+          <CollapsibleSection id="basic" title="Basic Information" icon={Briefcase} isActive={activeSection === "basic"} hasErrors={sectionErrors.has("basic") && activeSection !== "basic"}>
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="title">Job Title *</Label>
-                <Input
-                  data-testid="job-title-input"
-                  id="title"
-                  value={job.title}
-                  onChange={(e) => setJob((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g., ICU Registered Nurse"
-                />
+                <Label>Job Title *</Label>
+                <Input data-testid="job-title-input" value={job.title} onChange={(e) => setJob((p) => ({ ...p, title: e.target.value }))} placeholder="e.g., ICU Registered Nurse" />
+                {isWeakTitle(job.title) && generatedTitle && (
+                  <p className="text-xs text-muted-foreground">Seeker-facing title: <strong className="text-foreground">{generatedTitle}</strong></p>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Specialty *</Label>
-                  <Select value={job.specialty} onValueChange={(v) => setJob((prev) => ({ ...prev, specialty: v }))}>
-                    <SelectTrigger data-testid="specialty-select">
-                      <SelectValue placeholder="Select specialty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 py-1.5 text-sm font-semibold text-primary">Nursing</div>
-                      {specialties.nursing?.map((spec) => (
-                        <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                      ))}
-                      <div className="px-2 py-1.5 text-sm font-semibold text-secondary border-t mt-2 pt-2">Allied Health</div>
-                      {specialties.allied_health?.map((spec) => (
-                        <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SpecialtyAutocomplete
+                    value={job.specialty}
+                    allSpecialties={[...(specialties.nursing || []), ...(specialties.allied_health || [])]}
+                    onChange={(v) => setJob((p) => ({ ...p, specialty: v }))}
+                    testId="job-specialty"
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="location">Location *</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      data-testid="location-input"
-                      id="location"
-                      value={job.location}
-                      onChange={(e) => setJob((prev) => ({ ...prev, location: e.target.value }))}
-                      className="pl-10"
-                      placeholder="City, State"
-                    />
-                  </div>
+                  <Label>Location *</Label>
+                  <LocationAutocomplete
+                    locations={job.location ? [job.location] : []}
+                    onAdd={(city) => setJob((p) => ({ ...p, location: city }))}
+                    onRemove={() => setJob((p) => ({ ...p, location: "" }))}
+                    testId="job-location"
+                    placeholder="Search city (e.g., Los Angeles, CA)"
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="description">Job Description *</Label>
-                <Textarea
-                  data-testid="description-input"
-                  id="description"
-                  value={job.description}
-                  onChange={(e) => setJob((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe the role, responsibilities, and ideal candidate..."
-                  rows={4}
-                />
+                <Label>Job Type *</Label>
+                <Select value={job.job_type} onValueChange={(v) => setJob((p) => ({ ...p, job_type: v }))}>
+                  <SelectTrigger data-testid="job-type-select"><SelectValue placeholder="Select job type" /></SelectTrigger>
+                  <SelectContent>{JOB_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Job Description *</Label>
+                <Textarea data-testid="description-input" value={job.description} onChange={(e) => setJob((p) => ({ ...p, description: e.target.value }))} placeholder="Describe the role, responsibilities, and ideal candidate..." rows={4} />
+                {job.description && job.description.length < 20 && <p className="text-xs text-amber-500">Please write at least 20 characters</p>}
               </div>
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 2: Schedule === */}
-          <CollapsibleSection id="schedule" title="Duration & Schedule" icon={Clock} isActive={activeSection === "schedule"}>
+          {/* === SCHEDULE === */}
+          <CollapsibleSection id="schedule" title="Schedule & Timing" icon={Clock} isActive={activeSection === "schedule"} hasErrors={sectionErrors.has("schedule") && activeSection !== "schedule"}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Assignment Duration</Label>
-                <Select value={job.duration} onValueChange={(v) => setJob((prev) => ({ ...prev, duration: v }))}>
-                  <SelectTrigger data-testid="duration-select">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {durations.map((dur) => (
-                      <SelectItem key={dur} value={dur}>{dur}</SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label>Shift Type *</Label>
+                <Select value={job.shift_type} onValueChange={(v) => setJob((p) => ({ ...p, shift_type: v }))}>
+                  <SelectTrigger data-testid="shift-select"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                  <SelectContent>{SHIFT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Shift Type</Label>
-                <Select value={job.shift_type} onValueChange={(v) => setJob((prev) => ({ ...prev, shift_type: v }))}>
-                  <SelectTrigger data-testid="shift-select">
-                    <SelectValue placeholder="Select shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {shiftTypes.map((shift) => (
-                      <SelectItem key={shift} value={shift}>{shift}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Start Date *</Label>
+                <Input data-testid="start-date-input" type="date" value={job.start_date} onChange={(e) => setJob((p) => ({ ...p, start_date: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="start_date">Start Date</Label>
-                <Input
-                  data-testid="start-date-input"
-                  id="start_date"
-                  type="date"
-                  value={job.start_date}
-                  onChange={(e) => setJob((prev) => ({ ...prev, start_date: e.target.value }))}
-                />
+                <Label>Duration {isTravelContract && "*"}</Label>
+                <Select value={job.duration} onValueChange={(v) => setJob((p) => ({ ...p, duration: v }))}>
+                  <SelectTrigger data-testid="duration-select"><SelectValue placeholder="Select duration" /></SelectTrigger>
+                  <SelectContent>{DURATIONS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 3: Compensation === */}
-          <CollapsibleSection id="compensation" title="Compensation & Benefits" icon={DollarSign} isActive={activeSection === "compensation"}>
+          {/* === COMPENSATION === */}
+          <CollapsibleSection id="compensation" title="Compensation & Benefits" icon={DollarSign} isActive={activeSection === "compensation"} hasErrors={sectionErrors.has("compensation") && activeSection !== "compensation"}>
             <div className="space-y-5">
-              {/* Pay Range */}
               <div>
-                <Label className="text-sm font-semibold mb-2 block">Hourly Rate</Label>
+                <Label className="text-sm font-semibold mb-2 block">Hourly Rate *</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Minimum</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="min-pay-input"
-                        type="number"
-                        value={job.pay_range.min}
-                        onChange={(e) => setJob((prev) => ({ ...prev, pay_range: { ...prev.pay_range, min: e.target.value } }))}
-                        className="pl-10"
-                        placeholder="0"
-                      />
+                      <Input data-testid="min-pay-input" type="number" value={job.pay_range.min} onChange={(e) => setJob((p) => ({ ...p, pay_range: { ...p.pay_range, min: e.target.value } }))} className="pl-10" placeholder="25" />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Maximum</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="max-pay-input"
-                        type="number"
-                        value={job.pay_range.max}
-                        onChange={(e) => setJob((prev) => ({ ...prev, pay_range: { ...prev.pay_range, max: e.target.value } }))}
-                        className="pl-10"
-                        placeholder="0"
-                      />
+                      <Input data-testid="max-pay-input" type="number" value={job.pay_range.max} onChange={(e) => setJob((p) => ({ ...p, pay_range: { ...p.pay_range, max: e.target.value } }))} className="pl-10" placeholder="55" />
                     </div>
                   </div>
                 </div>
+                {!hasPay && <p className="text-xs text-amber-500 mt-1">Compensation is required — jobs without pay are skipped by seekers</p>}
               </div>
+
+              {/* Stipend (required for travel) */}
+              {isTravelContract && (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5"><Home className="w-4 h-4 text-primary" /> Stipend / Housing *</Label>
+                  <Select value={job.stipend} onValueChange={(v) => setJob((p) => ({ ...p, stipend: v }))}>
+                    <SelectTrigger data-testid="stipend-select"><SelectValue placeholder="Select stipend info" /></SelectTrigger>
+                    <SelectContent>{STIPEND_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Benefits */}
               <div>
-                <Label className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                  <Gift className="w-4 h-4 text-primary" /> Benefits Offered
-                </Label>
+                <Label className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Gift className="w-4 h-4 text-primary" /> Benefits Offered</Label>
                 <div className="flex gap-2 mb-2">
                   <Select value={newBenefit} onValueChange={setNewBenefit}>
-                    <SelectTrigger data-testid="benefit-select" className="flex-1">
-                      <SelectValue placeholder="Select a benefit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {commonBenefits.map((b) => (
-                        <SelectItem key={b} value={b}>{b}</SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger data-testid="benefit-select" className="flex-1"><SelectValue placeholder="Select a benefit" /></SelectTrigger>
+                    <SelectContent>{COMMON_BENEFITS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Button data-testid="add-benefit-btn" type="button" variant="outline" size="icon" onClick={() => addItem("benefits", newBenefit, setNewBenefit)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <Button data-testid="add-benefit-btn" type="button" variant="outline" size="icon" onClick={() => addItem("benefits", newBenefit, setNewBenefit)}><Plus className="w-4 h-4" /></Button>
                 </div>
-                {job.benefits.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {job.benefits.map((benefit, index) => (
-                      <Badge key={index} variant="secondary" className="flex items-center gap-1 py-0.5 px-2 text-xs">
-                        {benefit}
-                        <button type="button" onClick={() => removeItem("benefits", index)} className="ml-0.5 hover:text-destructive">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                {job.benefits.length > 0 && <div className="flex flex-wrap gap-1.5">{job.benefits.map((b, i) => <Badge key={i} variant="secondary" className="flex items-center gap-1 py-0.5 px-2 text-xs">{b}<button type="button" onClick={() => removeItem("benefits", i)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button></Badge>)}</div>}
               </div>
 
-              {/* Time Off */}
               <div>
-                <Label className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-primary" /> Time Off Policy
-                </Label>
-                <Textarea
-                  data-testid="time-off-input"
-                  value={job.time_off_policy}
-                  onChange={(e) => setJob((prev) => ({ ...prev, time_off_policy: e.target.value }))}
-                  placeholder="Describe PTO policies..."
-                  rows={2}
-                />
+                <Label className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Calendar className="w-4 h-4 text-primary" /> Time Off Policy</Label>
+                <Textarea data-testid="time-off-input" value={job.time_off_policy} onChange={(e) => setJob((p) => ({ ...p, time_off_policy: e.target.value }))} placeholder="Describe PTO policies..." rows={2} />
               </div>
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 4: Requirements === */}
+          {/* === REQUIREMENTS === */}
           <CollapsibleSection id="requirements" title="Requirements & Certifications" icon={FileText} isActive={activeSection === "requirements"}>
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <Label>Minimum Years of Experience</Label>
-                <Input
-                  data-testid="experience-input"
-                  type="number"
-                  min="0"
-                  value={job.experience_required}
-                  onChange={(e) => setJob((prev) => ({ ...prev, experience_required: e.target.value }))}
-                  placeholder="0"
-                  className="w-28"
-                />
+                <Label>Minimum Years of Experience *</Label>
+                <Input data-testid="experience-input" type="number" min="0" value={job.experience_required} onChange={(e) => setJob((p) => ({ ...p, experience_required: e.target.value }))} placeholder="0" className="w-28" />
+                <p className="text-xs text-muted-foreground">Enter 0 for no minimum</p>
               </div>
-
               <div>
                 <Label className="mb-2 block">Additional Requirements</Label>
                 <div className="flex gap-2 mb-2">
-                  <Input
-                    data-testid="requirement-input"
-                    value={newRequirement}
-                    onChange={(e) => setNewRequirement(e.target.value)}
-                    placeholder="e.g., Must be able to lift 50 lbs"
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addItem("requirements", newRequirement, setNewRequirement))}
-                  />
-                  <Button data-testid="add-requirement-btn" type="button" variant="outline" size="icon" onClick={() => addItem("requirements", newRequirement, setNewRequirement)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <Input data-testid="requirement-input" value={newRequirement} onChange={(e) => setNewRequirement(e.target.value)} placeholder="e.g., Must be able to lift 50 lbs" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addItem("requirements", newRequirement, setNewRequirement))} />
+                  <Button data-testid="add-requirement-btn" type="button" variant="outline" size="icon" onClick={() => addItem("requirements", newRequirement, setNewRequirement)}><Plus className="w-4 h-4" /></Button>
                 </div>
-                {job.requirements.length > 0 && (
-                  <div className="space-y-1.5">
-                    {job.requirements.map((req, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md text-sm">
-                        <span className="flex-1">{req}</span>
-                        <button type="button" onClick={() => removeItem("requirements", index)} className="text-muted-foreground hover:text-destructive shrink-0">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {job.requirements.length > 0 && <div className="space-y-1.5">{job.requirements.map((r, i) => <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md text-sm"><span className="flex-1">{r}</span><button type="button" onClick={() => removeItem("requirements", i)} className="text-muted-foreground hover:text-destructive shrink-0"><X className="w-4 h-4" /></button></div>)}</div>}
               </div>
-
               <div>
-                <Label className="mb-2 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-primary" /> Required Certifications
-                </Label>
+                <Label className="mb-2 flex items-center gap-1.5"><Award className="w-4 h-4 text-primary" /> Required Certifications</Label>
                 <div className="flex gap-2 mb-2">
-                  <Input
-                    data-testid="cert-input"
-                    value={newCert}
-                    onChange={(e) => setNewCert(e.target.value)}
-                    placeholder="e.g., BLS, ACLS, PALS"
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addItem("certifications_required", newCert, setNewCert))}
-                  />
-                  <Button data-testid="add-cert-btn" type="button" variant="outline" size="icon" onClick={() => addItem("certifications_required", newCert, setNewCert)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <InlineAutocomplete value={newCert} onChange={setNewCert} suggestions={CERTIFICATIONS} placeholder="Search certifications (BLS, ACLS...)" testId="cert-autocomplete" />
+                  <Button data-testid="add-cert-btn" type="button" variant="outline" size="icon" onClick={() => addItem("certifications_required", newCert, setNewCert)}><Plus className="w-4 h-4" /></Button>
                 </div>
-                {job.certifications_required.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {job.certifications_required.map((cert, index) => (
-                      <Badge key={index} variant="outline" className="flex items-center gap-1 py-0.5 px-2 text-xs">
-                        <Award className="w-3 h-3" />
-                        {cert}
-                        <button type="button" onClick={() => removeItem("certifications_required", index)} className="ml-0.5 hover:text-destructive">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                {job.certifications_required.length > 0 && <div className="flex flex-wrap gap-1.5">{job.certifications_required.map((c, i) => <Badge key={i} variant="outline" className="flex items-center gap-1 py-0.5 px-2 text-xs"><Award className="w-3 h-3" />{c}<button type="button" onClick={() => removeItem("certifications_required", i)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button></Badge>)}</div>}
               </div>
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 5: Application Workflow === */}
+          {/* === APPLICATION WORKFLOW === */}
           <CollapsibleSection id="workflow" title="Application Workflow" icon={Globe} isActive={activeSection === "workflow"}>
             <div className="space-y-5">
               <div className="space-y-1.5">
                 <Label className="text-sm font-semibold">How should candidates apply?</Label>
-                <Select
-                  value={job.application_workflow_type}
-                  onValueChange={(v) => setJob((prev) => ({
-                    ...prev,
-                    application_workflow_type: v,
-                    external_application_stage: v === "in_platform_only" ? "" : v === "external_required_immediately" ? "before_match" : "after_match",
-                  }))}
-                >
-                  <SelectTrigger data-testid="workflow-type-select">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={job.application_workflow_type} onValueChange={(v) => setJob((p) => ({ ...p, application_workflow_type: v, external_application_stage: v === "in_platform_only" ? "" : v === "external_required_immediately" ? "before_match" : "after_match" }))}>
+                  <SelectTrigger data-testid="workflow-type-select"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="in_platform_only">In-platform only (VitalaMatch profile)</SelectItem>
+                    <SelectItem value="in_platform_only">In-platform only</SelectItem>
                     <SelectItem value="external_required_immediately">External application required immediately</SelectItem>
-                    <SelectItem value="external_required_after_match">External application required after match (Recommended)</SelectItem>
+                    <SelectItem value="external_required_after_match">External application after match</SelectItem>
                     <SelectItem value="external_optional">External application optional</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {job.application_workflow_type === "in_platform_only" && "Candidates apply using their VitalaMatch profile. No external steps needed."}
-                  {job.application_workflow_type === "external_required_immediately" && "Candidates will be directed to your external application immediately when they express interest."}
-                  {job.application_workflow_type === "external_required_after_match" && "Candidates apply in VitalaMatch first. Once there's mutual interest, they'll complete your external application. This reduces drop-off."}
-                  {job.application_workflow_type === "external_optional" && "You can review profiles first and request external applications for specific candidates later."}
-                </p>
               </div>
-
               {job.application_workflow_type !== "in_platform_only" && (
                 <>
                   <div className="space-y-1.5">
                     <Label>External Application URL *</Label>
-                    <div className="relative">
-                      <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-testid="external-url-input"
-                        value={job.external_application_url}
-                        onChange={(e) => setJob((prev) => ({ ...prev, external_application_url: e.target.value }))}
-                        className="pl-10"
-                        placeholder="https://careers.yourcompany.com/apply"
-                        type="url"
-                      />
-                    </div>
+                    <div className="relative"><ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input data-testid="external-url-input" value={job.external_application_url} onChange={(e) => setJob((p) => ({ ...p, external_application_url: e.target.value }))} className="pl-10" placeholder="https://careers.yourcompany.com/apply" type="url" /></div>
                   </div>
-
                   <div className="space-y-1.5">
-                    <Label>When is the external application required?</Label>
-                    <Select value={job.external_application_stage} onValueChange={(v) => setJob((prev) => ({ ...prev, external_application_stage: v }))}>
-                      <SelectTrigger data-testid="workflow-stage-select">
-                        <SelectValue placeholder="Select stage" />
-                      </SelectTrigger>
+                    <Label>When is external application required?</Label>
+                    <Select value={job.external_application_stage} onValueChange={(v) => setJob((p) => ({ ...p, external_application_stage: v }))}>
+                      <SelectTrigger data-testid="workflow-stage-select"><SelectValue placeholder="Select stage" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="before_match">Before match (immediately)</SelectItem>
+                        <SelectItem value="before_match">Before match</SelectItem>
                         <SelectItem value="after_match">After mutual match</SelectItem>
-                        <SelectItem value="after_offer">After offer is sent</SelectItem>
+                        <SelectItem value="after_offer">After offer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </>
               )}
-
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  id="profile-sufficient"
-                  data-testid="profile-sufficient-checkbox"
-                  checked={job.profile_sufficient_for_initial_review}
-                  onChange={(e) => setJob((prev) => ({ ...prev, profile_sufficient_for_initial_review: e.target.checked }))}
-                  className="mt-1 h-4 w-4 rounded border-border text-primary"
-                />
-                <label htmlFor="profile-sufficient" className="text-sm text-foreground">
-                  Candidates can be reviewed using their VitalaMatch profile before completing your external application
-                </label>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Additional Requirements (optional)</Label>
-                <Input
-                  data-testid="additional-fields-input"
-                  value={job.required_additional_fields}
-                  onChange={(e) => setJob((prev) => ({ ...prev, required_additional_fields: e.target.value }))}
-                  placeholder="e.g., Background check, drug screen results, references"
-                />
-                <p className="text-xs text-muted-foreground">Anything required that may not already be in the candidate profile</p>
-              </div>
             </div>
           </CollapsibleSection>
 
-          {/* === SECTION 6: Review & Submit === */}
-          <CollapsibleSection id="review" title="Review & Submit" icon={Check} isActive={activeSection === "review"}>
+          {/* === REVIEW === */}
+          <CollapsibleSection id="review" title="Review & Publish" icon={Check} isActive={activeSection === "review"}>
             <div className="space-y-4">
-              {requiredFieldsMissing && (
-                <div data-testid="missing-fields-warning" className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-600">
-                  Please complete all required fields (marked with *) in the Basic Info section before submitting.
+              {!canPublish && (
+                <div data-testid="missing-fields-warning" className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <p className="text-sm font-medium text-amber-600 flex items-center gap-1.5 mb-2"><AlertTriangle className="w-4 h-4" /> {missingFields.length} required field{missingFields.length > 1 ? "s" : ""} missing</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {missingFields.map((f) => <Badge key={f} variant="outline" className="text-xs text-amber-600 border-amber-300">{f.replace(/_/g, " ")}</Badge>)}
+                  </div>
+                </div>
+              )}
+              {canPublish && (
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <p className="text-sm font-medium text-green-600 flex items-center gap-1.5"><Check className="w-4 h-4" /> Ready to publish — all required fields are complete</p>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Position</h4>
-                  <ReviewField label="Title" value={job.title} missing={!job.title} />
-                  <ReviewField label="Specialty" value={job.specialty} missing={!job.specialty} />
-                  <ReviewField label="Location" value={job.location} missing={!job.location} />
+                  <ReviewField label="Title" value={isWeakTitle(job.title) && generatedTitle ? `${job.title} → ${generatedTitle}` : job.title} required missing={!requiredFields.title} />
+                  <ReviewField label="Specialty" value={job.specialty} required missing={!requiredFields.specialty} />
+                  <ReviewField label="Location" value={job.location} required missing={!requiredFields.location} />
+                  <ReviewField label="Job Type" value={job.job_type} required missing={!requiredFields.job_type} />
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Schedule</h4>
-                  <ReviewField label="Duration" value={job.duration} />
-                  <ReviewField label="Shift" value={job.shift_type} />
-                  <ReviewField label="Start Date" value={job.start_date} />
+                  <ReviewField label="Shift" value={job.shift_type} required missing={!requiredFields.shift_type} />
+                  <ReviewField label="Start Date" value={job.start_date} required missing={!requiredFields.start_date} />
+                  <ReviewField label="Duration" value={job.duration} required={isTravelContract} missing={isTravelContract && !requiredFields.duration} />
                 </div>
               </div>
-
               <div>
                 <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Compensation</h4>
-                <ReviewField
-                  label="Pay Range"
-                  value={job.pay_range.min || job.pay_range.max ? `$${job.pay_range.min || "0"} - $${job.pay_range.max || "0"}/hr` : null}
-                />
+                <ReviewField label="Pay Range" value={hasPay ? `$${job.pay_range.min}–$${job.pay_range.max}/hr` : null} required missing={!requiredFields.pay} />
+                {isTravelContract && <ReviewField label="Stipend/Housing" value={job.stipend} required missing={!requiredFields.stipend} />}
                 <ReviewField label="Benefits" value={job.benefits.length > 0 ? job.benefits.join(", ") : null} />
               </div>
-
               <div>
                 <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Requirements</h4>
-                <ReviewField label="Experience" value={job.experience_required > 0 ? `${job.experience_required}+ years` : null} />
+                <ReviewField label="Experience" value={job.experience_required !== "" ? `${job.experience_required}+ years` : null} required missing={!requiredFields.experience} />
                 <ReviewField label="Certifications" value={job.certifications_required.length > 0 ? job.certifications_required.join(", ") : null} />
-                <ReviewField label="Requirements" value={job.requirements.length > 0 ? `${job.requirements.length} listed` : null} />
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">Application Workflow</h4>
-                <ReviewField label="Type" value={job.application_workflow_type?.replace(/_/g, " ")} />
-                {job.application_workflow_type !== "in_platform_only" && (
-                  <>
-                    <ReviewField label="External URL" value={job.external_application_url} missing={!job.external_application_url} />
-                    <ReviewField label="Stage" value={job.external_application_stage?.replace(/_/g, " ")} />
-                  </>
-                )}
-              </div>
-
-              {/* Desktop Submit */}
               <div className="flex justify-end gap-3 pt-3 border-t">
-                <Button variant="outline" onClick={() => navigate("/poster")} data-testid="cancel-btn">
-                  Cancel
-                </Button>
-                <Button
-                  data-testid="save-job-bottom-btn"
-                  onClick={handleSave}
-                  disabled={saving || requiredFieldsMissing}
-                  size="lg"
-                >
+                <Button variant="outline" onClick={() => navigate("/poster")} data-testid="cancel-btn">Cancel</Button>
+                <Button data-testid="save-job-bottom-btn" onClick={handleSave} disabled={saving || !canPublish} size="lg">
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Saving..." : isEdit ? "Update Job" : "Post Job"}
+                  {saving ? "Publishing..." : isEdit ? "Update Job" : "Publish Job"}
                 </Button>
               </div>
             </div>
           </CollapsibleSection>
         </div>
 
-        {/* Mobile Sticky Bottom Bar */}
+        {/* Mobile Bottom Bar */}
         <div data-testid="mobile-sticky-submit" className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-background/95 backdrop-blur-sm border-t px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
             {isEdit && initialLoadComplete && <AutoSaveIndicator status={autoSaveStatus} />}
-            {!isEdit && (
-              <span className="text-xs text-muted-foreground">
-                {completedSections.size}/{SECTIONS.length - 1} sections filled
-              </span>
-            )}
+            {!isEdit && <span className="text-xs text-muted-foreground">{canPublish ? "Ready to publish" : `${missingFields.length} fields remaining`}</span>}
           </div>
-          <Button
-            data-testid="mobile-submit-btn"
-            onClick={handleSave}
-            disabled={saving || requiredFieldsMissing}
-            className="shrink-0"
-          >
-            <Save className="w-4 h-4 mr-1.5" />
-            {saving ? "Saving..." : isEdit ? "Update" : "Post Job"}
+          <Button data-testid="mobile-submit-btn" onClick={handleSave} disabled={saving || !canPublish} className="shrink-0">
+            <Save className="w-4 h-4 mr-1.5" />{saving ? "..." : isEdit ? "Update" : "Publish"}
           </Button>
         </div>
       </div>
