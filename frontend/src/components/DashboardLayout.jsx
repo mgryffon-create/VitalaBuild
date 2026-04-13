@@ -16,6 +16,9 @@ import {
   ChevronDown,
   ChevronRight,
   ClipboardCheck,
+  Search,
+  Gift,
+  UserCheck,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -28,12 +31,20 @@ const seekerNavItems = [
   { label: "Profile", icon: User, path: "/seeker/profile" },
 ];
 
-// Employer navigation — Phase 2 simplified (5 items)
+// Employer navigation — grouped by workflow
 const posterNavItems = [
+  { type: "header", label: "Home" },
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { type: "header", label: "Source Talent" },
+  { label: "Browse Pros", icon: Search, path: "/poster/candidates" },
+  { type: "header", label: "Hiring Flow" },
   { label: "Applicants", icon: Users, path: "/poster/pipeline" },
   { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
+  { label: "Offers", icon: Gift, path: "/poster/offers-sent" },
+  { label: "Onboarding", icon: UserCheck, path: "/poster/compliance" },
+  { type: "header", label: "Job Management" },
+  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { type: "header", label: "Account" },
   { label: "Profile", icon: User, path: "/poster/profile" },
 ];
 
@@ -167,10 +178,10 @@ const seekerBottomNav = [
   { label: "Profile", icon: User, path: "/seeker/profile" },
 ];
 
-// Bottom nav items — employer (5 tabs, mirrors sidebar)
+// Bottom nav items — employer (5 primary tabs for mobile)
 const posterBottomNav = [
   { label: "Dashboard", icon: Home, path: "/poster" },
-  { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
+  { label: "Pros", icon: Search, path: "/poster/candidates" },
   { label: "Applicants", icon: Users, path: "/poster/pipeline" },
   { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
   { label: "Profile", icon: User, path: "/poster/profile" },
