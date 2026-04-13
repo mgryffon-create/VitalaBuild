@@ -9,30 +9,29 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Job Card Polish (April 2025)
-- **Reason line wording**: "Aligned with your RN specialty" (not "Related RN role"), "Meets your X+ year experience requirement", "You hold all required certifications"
-- **Description de-emphasis**: collapsed = 1-line truncated preview (text-xs, opacity 70%); full text in expanded/Details view only
-- **Chip hierarchy**: primary row (shift, duration, start date) in solid badges; secondary row (hours, stipend, exp, certs) in lighter outline
-- **Date formatting**: "Starts Feb 1" (not "Start 2026-02-01"), "36 hrs/week" (not "36hrs/week")
+### Phase 2: Offer Acceptance Guardrails (April 2025)
+- **Conflict detection engine**: checks date overlap, shift overlap, distance (city), job type compatibility against all active/accepted assignments
+- **Hard blocks**: overlapping dates with incompatible job types (both full-commitment), overlapping shifts, ongoing assignments with no end date
+- **Soft warnings**: different city, similar shift times for flexible roles, risky but feasible combos
+- **New endpoint**: GET /api/hiring/offers/{id}/conflicts — returns {has_hard_block, hard_blocks, soft_warnings, existing_assignments}
+- **Acceptance blocking**: respond_to_offer returns 409 with conflict details when hard blocks exist; decline always works
+- **Enriched employment records**: end_date (calculated from duration), shift_type, location, job_type stored from linked job
+- **Frontend**: conflict alerts in review dialog (red hard block / amber soft warning), "Blocked" accept button, existing assignments display
 
-### Phase 2: Tiered Matching System (April 2025)
-- 3-tier classification (Strong/Possible/Hidden), 7-dimension scoring, job quality filtering
-- Human-readable reason lines, tier badges, Expand Search, backward compat for poster swipe
+### Phase 2: Card Polish (April 2025)
+- Confident reason lines, description de-emphasis, chip hierarchy, human date formatting
 
-### Phase 2: Structured Pay System (April 2025)
-- Structured pay fields persisted and returned, auto-calculated weekly pay, pay range validation
+### Phase 2: Tiered Matching (April 2025)
+- 3-tier classification (Strong/Possible/Hidden), 7-dimension scoring, Expand Search
+
+### Phase 2: Structured Pay (April 2025)
+- Structured pay fields, auto-calculated weekly pay, pay range validation
 
 ### Phase 2: Job Posting Quality Gate (April 2025)
 - 9+ required fields, weak title detection, section-level errors, publish gating
 
-### Phase 2: Job Card Redesign (April 2025)
-- Pay-first hierarchy, smart title, match score badge, quick detail chips, action buttons
-
-### Phase 2: Document Vault Organization (April 2025)
-- Category tabs, human labels, single status, dedup, replace flow, preview fix
-
 ### Phase 2: All Prior Features
-- Global autocomplete, work history editing, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
+- Global autocomplete, work history editing, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding, document vault
 
 ## Test Accounts
 | Role | Email | Password |
