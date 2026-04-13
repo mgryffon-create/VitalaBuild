@@ -126,7 +126,7 @@ const PosterDashboard = () => {
 
   return (
     <DashboardLayout>
-      <div data-testid="poster-dashboard" className="space-y-5 sm:space-y-8 max-w-5xl">
+      <div data-testid="poster-dashboard" className="space-y-6 sm:space-y-8 max-w-5xl">
 
         {/* Verification Alerts */}
         {verificationStatus && !verificationStatus.business_email_verified && !verificationStatus.dev_bypass_active && (
@@ -156,7 +156,7 @@ const PosterDashboard = () => {
           </Alert>
         )}
 
-        {/* Header */}
+        {/* Header + Primary CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
@@ -164,143 +164,108 @@ const PosterDashboard = () => {
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best candidates.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              data-testid="post-job-btn"
-              onClick={() => navigate("/poster/jobs/new")}
-              className={`w-full sm:w-auto ${canPost ? "bg-primary hover:bg-primary/90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
-              disabled={!canPost}
-            >
-              {canPost ? <Plus className="mr-2 w-4 h-4" /> : <Shield className="mr-2 w-4 h-4" />}
-              Post New Job
-            </Button>
-          </div>
         </div>
+        <Button
+          data-testid="post-job-btn"
+          onClick={() => navigate("/poster/jobs/new")}
+          size="lg"
+          className={`w-full h-12 text-base font-semibold shadow-md ${canPost ? "bg-primary hover:bg-primary/90 shadow-primary/20" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+          disabled={!canPost}
+        >
+          {canPost ? <Plus className="mr-2 w-5 h-5" /> : <Shield className="mr-2 w-5 h-5" />}
+          Post New Job
+        </Button>
         {!canPost && (
-          <p data-testid="post-job-locked-msg" className="text-xs text-amber-600 dark:text-amber-400 -mt-3">
+          <p data-testid="post-job-locked-msg" className="text-xs text-amber-600 dark:text-amber-400 -mt-4">
             Verify your business email to post jobs
           </p>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions — 3 cards, larger, no Post Job duplicate */}
         <section data-testid="section-employer-quick-actions">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              data-testid="qa-post-job"
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-primary/40 hover:bg-muted/50 transition-all text-left"
-              onClick={() => navigate("/poster/jobs/new")}
-            >
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Plus className="w-4 h-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">Post Job</p>
-              </div>
-            </button>
+          <div className="grid grid-cols-3 gap-3">
             <button
               data-testid="qa-view-candidates"
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-green-500/40 hover:bg-muted/50 transition-all text-left"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card border border-border hover:border-green-500/40 hover:bg-green-50/50 dark:hover:bg-green-950/20 transition-all text-center"
               onClick={() => navigate("/poster/pipeline")}
             >
-              <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                <Users className="w-4 h-4 text-green-600" />
+              <div className="w-11 h-11 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-green-600" />
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">View Candidates</p>
-              </div>
+              <p className="font-medium text-sm text-foreground leading-tight">View<br/>Candidates</p>
             </button>
             <button
               data-testid="qa-view-matches"
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-blue-500/40 hover:bg-muted/50 transition-all text-left"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card border border-border hover:border-blue-500/40 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-all text-center"
               onClick={() => navigate("/poster/messages")}
             >
-              <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                <MessageCircle className="w-4 h-4 text-blue-600" />
+              <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-blue-600" />
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">View Matches</p>
-              </div>
+              <p className="font-medium text-sm text-foreground leading-tight">View<br/>Matches</p>
             </button>
             <button
               data-testid="qa-edit-profile"
-              className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 transition-all text-left"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card border border-border hover:border-secondary/40 hover:bg-muted/50 transition-all text-center"
               onClick={() => navigate("/poster/profile")}
             >
-              <div className="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
-                <Edit className="w-4 h-4 text-secondary" />
+              <div className="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center">
+                <Edit className="w-5 h-5 text-secondary" />
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm text-foreground">Edit Company Profile</p>
-              </div>
+              <p className="font-medium text-sm text-foreground leading-tight">Edit<br/>Profile</p>
             </button>
           </div>
         </section>
 
-        {/* Hiring Flow Steps */}
+        {/* Hiring Pipeline Flow */}
         <section data-testid="section-hiring-flow">
-          <div className="flex items-center rounded-xl border bg-card p-2 gap-0.5">
-            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">1</div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-foreground">Jobs</p>
-                <p className="text-[9px] text-muted-foreground">{stats?.active_jobs || 0} active</p>
-              </div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hiring Pipeline</h2>
+          <div className="flex items-stretch rounded-xl border bg-card overflow-hidden">
+            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors border-r">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">1</div>
+              <p className="text-xs font-semibold text-foreground mt-1">Active Jobs</p>
+              <p className="text-lg font-bold text-primary">{stats?.active_jobs || 0}</p>
             </button>
-            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-            <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-candidates" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-green-600">2</div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-foreground">Candidates</p>
-                <p className="text-[9px] text-muted-foreground">{candidateCount} waiting</p>
-              </div>
+            <div className="flex items-center -mx-1.5 z-10"><ArrowRight className="w-3 h-3 text-muted-foreground/40" /></div>
+            <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-candidates" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors border-r">
+              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-600">2</div>
+              <p className="text-xs font-semibold text-foreground mt-1">Candidates</p>
+              <p className="text-lg font-bold text-green-600">{candidateCount}</p>
+              <p className="text-[9px] text-muted-foreground">waiting</p>
             </button>
-            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-            <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-blue-600">3</div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-foreground">Offers</p>
-                <p className="text-[9px] text-muted-foreground">{offerCount} sent</p>
-              </div>
+            <div className="flex items-center -mx-1.5 z-10"><ArrowRight className="w-3 h-3 text-muted-foreground/40" /></div>
+            <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors">
+              <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-xs font-bold text-blue-600">3</div>
+              <p className="text-xs font-semibold text-foreground mt-1">Offers Sent</p>
+              <p className="text-lg font-bold text-blue-600">{offerCount}</p>
             </button>
           </div>
         </section>
 
-        {/* Stats */}
+        {/* Stats — subdued, smaller */}
         <section data-testid="section-employer-stats">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate("/poster/jobs/new")}>
-              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground">{stats?.active_jobs || 0}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Jobs Posted</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="cursor-pointer hover:border-green-500/40 transition-colors" onClick={() => navigate("/poster/pipeline")}>
-              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground">{candidateCount}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Candidates</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="cursor-pointer hover:border-blue-500/40 transition-colors" onClick={() => navigate("/poster/offers-sent")}>
-              <CardContent className="p-3 sm:p-5 flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <Send className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground">{offerCount}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Offers Sent</p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/jobs/new")}>
+              <Briefcase className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <p className="text-base font-bold text-foreground leading-none">{stats?.active_jobs || 0}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Jobs</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/pipeline")}>
+              <Users className="w-4 h-4 text-green-600 shrink-0" />
+              <div>
+                <p className="text-base font-bold text-foreground leading-none">{candidateCount}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Candidates</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted transition-colors" onClick={() => navigate("/poster/offers-sent")}>
+              <Send className="w-4 h-4 text-blue-600 shrink-0" />
+              <div>
+                <p className="text-base font-bold text-foreground leading-none">{offerCount}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Offers</p>
+              </div>
+            </div>
           </div>
         </section>
 
