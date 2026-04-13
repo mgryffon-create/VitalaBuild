@@ -601,14 +601,15 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
   const startEditWork = (index) => {
     const job = (profile.work_history || [])[index];
     if (!job) return;
+    // Normalize field names — handles both standard and resume-parsed formats
     setNewWorkHistory({
-      facility_name: job.facility_name || "",
-      position: job.position || "",
-      department: job.department || "",
+      facility_name: job.facility_name || job.primary_employer || "",
+      position: job.position || job.role_title || job.display_title || "",
+      department: job.department || (job.specialties ? (Array.isArray(job.specialties) ? job.specialties.join(", ") : job.specialties) : ""),
       start_date: job.start_date || "",
       end_date: job.end_date || "",
-      is_current: job.is_current || false,
-      responsibilities: job.responsibilities || "",
+      is_current: job.is_current || job.currently_working || false,
+      responsibilities: job.responsibilities || (job.description_summary || ""),
     });
     setEditingWorkIndex(index);
   };
@@ -866,18 +867,18 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-foreground">{job.position || "Untitled Position"}</h4>
-                          {job.is_current && (
+                          <h4 className="font-semibold text-foreground">{job.position || job.role_title || job.display_title || "Untitled Position"}</h4>
+                          {(job.is_current || job.currently_working) && (
                             <Badge className="bg-secondary/10 text-secondary text-xs">Current</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <Building className="w-3 h-3" /> {job.facility_name || "Unknown Facility"}
-                          {job.department && <span> &bull; {job.department}</span>}
+                          <Building className="w-3 h-3" /> {job.facility_name || job.primary_employer || "Unknown Facility"}
+                          {(job.department || (job.specialties && (Array.isArray(job.specialties) ? job.specialties.join(", ") : job.specialties))) && <span> &bull; {job.department || (Array.isArray(job.specialties) ? job.specialties.join(", ") : job.specialties)}</span>}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {job.start_date || "N/A"} - {job.is_current ? "Present" : job.end_date || "N/A"}
+                          {job.start_date || "N/A"} - {(job.is_current || job.currently_working) ? "Present" : job.end_date || "N/A"}
                         </p>
                         {job.responsibilities && (
                           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{job.responsibilities}</p>

@@ -9,22 +9,23 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Global UX Cleanup — Structured Autocomplete (April 2025)
-- **InlineAutocomplete component**: Shared single-value typeahead replacing raw text inputs
-- **Fields converted**:
-  - Certification name → autocomplete (30+ standard certs: BLS, ACLS, PALS, CCRN, etc.)
-  - License Type → autocomplete (20+ types: RN, LPN, CNA, NP, etc.)
-  - License State → autocomplete (50 US states + DC + Compact)
-  - Work History Position/Title → autocomplete (35+ titles: ICU RN, Travel RN, etc.)
-  - Work History Department/Unit → autocomplete (50+ departments: ICU, ED, Med-Surg, etc.)
-- **Previously converted** (unchanged): Specialty, Clinical Skills, Experience Highlights, Preferred Locations
-- **Suggestion data**: `/app/frontend/src/config/fieldSuggestions.js`
+### Phase 2: Work History Editing (April 2025)
+- **Edit mode**: Click gear icon on any work entry → form prefills with entry data → modify → "Save Changes" updates in-place
+- **Delete**: Trash icon removes entries, auto-cancels edit mode if editing that entry
+- **Field normalization**: Handles both standard (facility_name, position) and resume-parsed (primary_employer, role_title) field names
+- **No re-upload required**: All changes happen inline on the Work History tab
+
+### Phase 2: Global Autocomplete System (April 2025)
+- InlineAutocomplete for: Certifications, License Type, State, Position/Title, Department/Unit
+- SpecialtyAutocomplete, SuggestionInput (Skills, Highlights), LocationAutocomplete
 
 ### Phase 2: Document Vault as Single Source of Truth (April 2025)
-- Medical Records tab → vault routing + required docs checklist
-- Vault deep-linking with category/type/from params
+- Vault routing from profile, deep-linking, guidance banners
 
-### Phase 2: UX Polish, Resume Upload, Matching, Onboarding
+### Phase 2: Resume Upload + UX Polish (April 2025)
+- Auth fix, review dialog, AI language removed, specialty autocomplete
+
+### Phase 2: Matching, Onboarding, Navigation
 - All prior Phase 2 features
 
 ### Phase 1: Core Features (March-April 2025)
