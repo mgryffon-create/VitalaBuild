@@ -224,45 +224,47 @@ const PosterDashboard = () => {
           </div>
         </section>
 
-        {/* Hiring Flow */}
+        {/* Jobs Snapshot */}
+        <section data-testid="section-jobs-snapshot">
+          <div className="flex items-center justify-between px-4 py-3 rounded-xl border bg-card">
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Jobs Snapshot</h2>
+              <p className="text-2xl font-bold text-primary leading-tight">{stats?.active_jobs || 0} <span className="text-sm font-normal text-muted-foreground">active jobs</span></p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/poster/jobs/new")} data-testid="snapshot-post-job" className="text-xs">
+              <Briefcase className="w-3.5 h-3.5 mr-1.5" /> Manage
+            </Button>
+          </div>
+        </section>
+
+        {/* Hiring Flow — pros only */}
         <section data-testid="section-hiring-flow">
           <div className="mb-2">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Hiring Flow</h2>
             <p className="text-[10px] text-muted-foreground">Active pros across all jobs</p>
           </div>
           <div className="flex items-stretch rounded-xl border bg-card overflow-hidden">
-            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">1</div>
-              <p className="text-[10px] font-semibold text-foreground mt-1">Active Jobs</p>
-              <p className="text-base font-bold text-primary leading-tight">{stats?.active_jobs || 0}</p>
-              <p className="text-[8px] text-muted-foreground">Open positions</p>
-            </button>
-            <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-applicants" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
-              <div className="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center text-[9px] font-bold text-amber-600">2</div>
-              <p className="text-[10px] font-semibold text-foreground mt-1">Applicants</p>
-              <p className="text-base font-bold text-amber-600 leading-tight">{candidateCounts.applicants}</p>
+              <p className="text-[10px] font-semibold text-foreground">Applicants</p>
+              <p className="text-lg font-bold text-amber-600 leading-tight">{candidateCounts.applicants}</p>
               <p className="text-[8px] text-muted-foreground">Interested pros</p>
             </button>
             <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/messages")} data-testid="flow-matches" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
-              <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center text-[9px] font-bold text-green-600">3</div>
-              <p className="text-[10px] font-semibold text-foreground mt-1">Matches</p>
-              <p className="text-base font-bold text-green-600 leading-tight">{candidateCounts.matched}</p>
+              <p className="text-[10px] font-semibold text-foreground">Matches</p>
+              <p className="text-lg font-bold text-green-600 leading-tight">{candidateCounts.matched}</p>
               <p className="text-[8px] text-muted-foreground">Accepted / interviewing</p>
             </button>
             <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors border-r min-w-0">
-              <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[9px] font-bold text-purple-600">4</div>
-              <p className="text-[10px] font-semibold text-foreground mt-1">Offers</p>
-              <p className="text-base font-bold text-purple-600 leading-tight">{offerCount}</p>
+              <p className="text-[10px] font-semibold text-foreground">Offers</p>
+              <p className="text-lg font-bold text-purple-600 leading-tight">{offerCount}</p>
               <p className="text-[8px] text-muted-foreground">Offers sent</p>
             </button>
             <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/compliance")} data-testid="flow-onboarding" className="flex-1 flex flex-col items-center justify-center gap-0 py-3 px-1 hover:bg-muted/40 transition-colors min-w-0">
-              <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-600">5</div>
-              <p className="text-[10px] font-semibold text-foreground mt-1">Onboarding</p>
-              <p className="text-base font-bold text-emerald-600 leading-tight">{onboardingCount}</p>
+              <p className="text-[10px] font-semibold text-foreground">Onboarding</p>
+              <p className="text-lg font-bold text-emerald-600 leading-tight">{onboardingCount}</p>
               <p className="text-[8px] text-muted-foreground">Hires in progress</p>
             </button>
           </div>
