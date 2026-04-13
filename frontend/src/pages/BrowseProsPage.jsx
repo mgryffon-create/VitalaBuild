@@ -48,11 +48,11 @@ const formatRole = (specialty, years) => {
   return parts.join(" \u2022 ") || "Healthcare Pro";
 };
 
-// Match quality label from score
-const matchLabel = (score) => {
-  if (score >= 70) return { text: "Strong Match", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
-  if (score >= 45) return { text: "Good Match", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
-  return { text: "Potential Match", className: "bg-muted text-muted-foreground" };
+// Match tier badge config
+const TIER_BADGE = {
+  strong:   { text: "Strong Match",   className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+  possible: { text: "Possible Match", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  none:     { text: "Explore",        className: "bg-muted text-muted-foreground" },
 };
 
 // Known clinical certifications worth showing
@@ -109,12 +109,14 @@ const BrowseProsPage = () => {
   const [showJobPicker, setShowJobPicker] = useState(false);
   const [pendingSeekerId, setPendingSeekerId] = useState(null);
   const [acting, setActing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  const fetchPros = useCallback(async () => {
+  const fetchPros = useCallback(async (includeAll = false) => {
     try {
-      const res = await axios.get(`${API}/employer/browse-pros`);
+      const res = await axios.get(`${API}/employer/browse-pros${includeAll ? "?include_all=true" : ""}`);
       setPros(res.data.pros || []);
       setJobs(res.data.jobs || []);
+      setCurrentIndex(0);
     } catch {
       toast.error("Failed to load pros");
     } finally {
@@ -192,11 +194,22 @@ const BrowseProsPage = () => {
           <Card>
             <CardContent className="py-12 text-center">
               <Search className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-              <h2 className="text-base font-semibold text-foreground mb-1">All caught up</h2>
-              <p className="text-sm text-muted-foreground mb-4">No more pros to browse right now. Check back later or review your applicants.</p>
-              <Button onClick={() => navigate("/poster/pipeline")} data-testid="go-to-applicants">
-                View Applicants <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
+              <h2 className="text-base font-semibold text-foreground mb-1">{expanded ? "All caught up" : "No more top matches"}</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                {expanded
+                  ? "No more pros to browse right now. Check back later or review your applicants."
+                  : "You've seen all Strong and Possible matches. Expand to browse more pros."}
+              </p>
+              <div className="flex flex-col gap-2 items-center">
+                {!expanded && (
+                  <Button onClick={() => { setExpanded(true); setLoading(true); fetchPros(true); }} data-testid="expand-search-btn">
+                    <Search className="w-4 h-4 mr-1" /> Expand search to more Pros
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => navigate("/poster/pipeline")} data-testid="go-to-applicants">
+                  View Applicants <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (
@@ -213,10 +226,10 @@ const BrowseProsPage = () => {
                     <h2 className="text-base font-semibold text-foreground leading-tight">{formatName(current.full_name)}</h2>
                     <p className="text-[13px] text-muted-foreground leading-tight">{formatRole(current.specialty, current.years_experience)}</p>
                   </div>
-                  {/* Match quality label */}
-                  {current.match_score > 0 && (
-                    <span data-testid="match-label" className={`text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${matchLabel(current.match_score).className}`}>
-                      {matchLabel(current.match_score).text}
+                  {/* Tier badge */}
+                  {current.match_tier && TIER_BADGE[current.match_tier] && (
+                    <span data-testid="match-label" className={`text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${TIER_BADGE[current.match_tier].className}`}>
+                      {TIER_BADGE[current.match_tier].text}
                     </span>
                   )}
                 </div>
