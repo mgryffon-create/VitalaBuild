@@ -100,6 +100,26 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
+// Redirect authenticated users away from public pages (landing, auth)
+const RedirectIfAuth = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (user) {
+    const redirectMap = { seeker: "/seeker", poster: "/poster", admin: "/admin/onboarding" };
+    return <Navigate to={redirectMap[user.role] || "/seeker"} replace />;
+  }
+
+  return children;
+};
+
 // Auth Provider
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -177,8 +197,8 @@ function App() {
         <Toaster position="top-center" richColors />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/" element={<RedirectIfAuth><LandingPage /></RedirectIfAuth>} />
+          <Route path="/auth" element={<RedirectIfAuth><AuthPage /></RedirectIfAuth>} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/references/submit/:token" element={<ReferenceSubmitPage />} />
