@@ -9,24 +9,23 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Job Card Redesign — Decision-First UX (April 2025)
-- **Smart title**: `smartTitle()` converts generic "Test Job Posting 1234" → "ICU/Critical Care RN" from specialty field
-- **Pay-first hierarchy**: Weekly pay shown as 2xl/3xl font (most prominent). Hidden when $0.
-- **Match score badge**: Amber card with star + percentage + "match" label
-- **Quick detail chips**: Shift, duration, start date, stipend, certs required — all visible without expanding
-- **Hidden noise**: $0 pay hidden, "0+ yrs" hidden, generic job IDs replaced
-- **Action buttons with labels**: Pass (X), Details (chevron), Interested (heart) — all labeled clearly
-- **Employer view redesigned**: Pay expectation prominent, experience highlights as checklist, skills/certs in expanded view
-- **Preserved**: Swipe gestures, card stack animation, match dialog, expanded details
+### Phase 2: Job Posting Quality Gate (April 2025)
+- **9 required fields**: title (non-weak), specialty, location, description (20+), shift, pay (>$0), job type, experience, start date
+- **Travel/contract extra**: +duration, +stipend/housing (11 total)
+- **Publish disabled** until all required fields complete
+- **Structured inputs**: Specialty (SpecialtyAutocomplete), Location (LocationAutocomplete), Certifications (InlineAutocomplete)
+- **Weak title detection**: regex blocks "Test Job Posting 123" → auto-generates "ICU/Critical Care RN – Night Shift" from structured fields
+- **Section-level errors**: Progress tracker shows ⚠️ on incomplete sections
+- **Review section**: Missing fields as amber badges, "Ready to publish" green banner when complete
 
-### Phase 2: Searchable Inputs + Document Preview Fix (April 2025)
-- All long-list fields converted to autocomplete, document preview via authenticated blob URLs
+### Phase 2: Job Card Redesign (April 2025)
+- Pay-first hierarchy, smart title, match score badge, quick detail chips, action buttons with labels
 
 ### Phase 2: Document Vault Organization (April 2025)
-- Category tabs, human labels, single status, dedup, replace flow
+- Category tabs, human labels, single status, dedup, replace flow, preview fix
 
 ### Phase 2: All Prior Features
-- Work history editing, global autocomplete, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
+- Global autocomplete, work history editing, vault-as-source-of-truth, UX polish, resume upload, matching, onboarding
 
 ## Test Accounts
 | Role | Email | Password |
