@@ -9,14 +9,21 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Structured Pay System (April 2025)
+- **Structured pay fields**: base_rate, guaranteed_hours, weekly_stipend, overtime_rate, weekly_pay, job_type, stipend, weekly_hours
+- Backend Pydantic models (JobPosting + JobPostingResponse) updated to persist and return all fields
+- JobFormPage: 4-field pay grid (Base Rate, Hours/Week, Weekly Stipend, OT Rate) with auto-calculated Weekly Pay
+- Pay range validation by role (CNA/LPN/RN/NP) with out-of-range warning + acknowledgment
+- SwipePage: Pay-first card hierarchy — weekly pay in green, hourly breakdown, match score badge
+- Rewind/Undo button on swipe cards (single undo, resets after use)
+
 ### Phase 2: Job Posting Quality Gate (April 2025)
-- **9 required fields**: title (non-weak), specialty, location, description (20+), shift, pay (>$0), job type, experience, start date
-- **Travel/contract extra**: +duration, +stipend/housing (11 total)
-- **Publish disabled** until all required fields complete
-- **Structured inputs**: Specialty (SpecialtyAutocomplete), Location (LocationAutocomplete), Certifications (InlineAutocomplete)
-- **Weak title detection**: regex blocks "Test Job Posting 123" → auto-generates "ICU/Critical Care RN – Night Shift" from structured fields
-- **Section-level errors**: Progress tracker shows ⚠️ on incomplete sections
-- **Review section**: Missing fields as amber badges, "Ready to publish" green banner when complete
+- 9 required fields: title (non-weak), specialty, location, description (150+), shift, pay (>$0), job type, experience, start date
+- Travel/contract extras: +duration, +stipend/housing (11 total)
+- Publish disabled until all required fields complete
+- Structured inputs: Specialty, Location, Certifications (autocomplete)
+- Weak title detection with auto-generation
+- Section-level errors in progress tracker
 
 ### Phase 2: Job Card Redesign (April 2025)
 - Pay-first hierarchy, smart title, match score badge, quick detail chips, action buttons with labels
