@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
 import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 
@@ -1226,7 +1227,8 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
           </CardContent>
         </Card>
 
-        {/* Work Environment Preferences */}
+        {/* Work Environment Preferences — feature-gated */}
+        {FEATURE_FLAGS.enable_worker_preferences && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1317,6 +1319,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Work Type & Travel */}
         <Card>
@@ -1466,7 +1469,8 @@ const PosterProfileForm = ({ profile, updateField, specialties }) => {
         </CardContent>
       </Card>
 
-      {/* Facility Work Environment */}
+      {/* Facility Work Environment — feature-gated */}
+      {FEATURE_FLAGS.enable_facility_profile_fields && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1546,6 +1550,7 @@ const PosterProfileForm = ({ profile, updateField, specialties }) => {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
