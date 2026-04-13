@@ -9,30 +9,28 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Preferences Tab Fixes (April 2025)
+- **Location Autocomplete**: Replaced raw text input with searchable typeahead (LocationAutocomplete.jsx) suggesting ~200 US cities in "City, ST" format. Supports chips, keyboard nav, and multiple selections.
+- **ResizeObserver Fix**: Improved global error suppression in index.js to catch both "completed" and "limit exceeded" variants.
+- **SeekerProfile Model Fix**: Added missing fields (education, full_name, license_number, etc.) and `extra='ignore'` to prevent 422 errors on save.
+
 ### Phase 2: Single-Type Document Upload (April 2025)
-- **One upload = one type**: Radio-style single-select buttons in type step; clicking auto-advances to file step
-- **No global multi-select**: Checkboxes removed from standard upload flow on both DocumentsPage and VaultPage
-- **Medical exception**: After uploading a medical document, optional post-upload dialog asks "Does this file also cover other records?" limited to related sibling types from the same group only (Vaccinations ↔ Vaccinations, TB ↔ TB)
-- **Non-medical categories**: Upload completes without any post-upload tag dialog
+- One upload = one type with radio-style single-select. Medical exception: post-upload dialog for related sibling types only.
 
 ### Phase 2: Structured Document Upload System (April 2025)
-- 3-step category-first wizard (Category → Type → File) on both DocumentsPage and VaultPage
-- 5 categories: Medical Documents, Certifications, Identification, Licenses, Compliance Documents
-- Medical Documents split into Vaccinations (7 types) and TB/Medical Clearance (4 types)
-- Searchable type filtering within categories
-- Backend: `document_category` and `document_tags` fields in DocumentUpload model
+- 3-step category-first wizard, 5 categories, Medical split into Vaccinations + TB/Clearance
 
 ### Phase 2: Post-Login Routing Fix (April 2025)
 - RedirectIfAuth wrapper on `/` and `/auth`
 
 ### Phase 2: Mandatory Onboarding Flow (April 2025)
-- GET /api/profile/completion endpoint, OnboardingGate.jsx, dashboard progress bars
+- GET /api/profile/completion, OnboardingGate.jsx, dashboard progress bars
 
 ### Phase 2: Bidirectional Matching & Worker Protection — Phase A (April 2025)
-- Worker Preferences, Facility Profile, Assignment Feedback, Trust Scores, Signals, Badges
+- Worker Preferences, Facility Profile, Feedback, Trust Scores, Signals, Badges
 
 ### Phase 2: Browse Pros & Tiered Matching (April 2025)
-- Tiered matching, filter refinement, Pro Profile View, Express interest pipeline
+- Tiered matching, filter refinement, Pro Profile View
 
 ### Phase 2: UX Overhaul (April 2025)
 - Navigation, Hiring Flow terminology, mobile UX
