@@ -15,7 +15,8 @@ import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Search, Heart, X, ChevronRight, MapPin, Clock,
-  Star, Briefcase, ArrowRight, BadgeCheck, CircleCheck, Eye, SlidersHorizontal, RotateCcw
+  Star, Briefcase, ArrowRight, BadgeCheck, CircleCheck, Eye,
+  SlidersHorizontal, RotateCcw, Shield, FileText, Award, ArrowLeft
 } from "lucide-react";
 
 // Format name as "First L."
@@ -102,6 +103,204 @@ const getHighlights = (pro) => {
   return bullets.slice(0, 3);
 };
 
+const CLINICAL_CERTS_SET = new Set(["bls", "acls", "pals", "nrp", "tncc", "ccrn", "cen", "cnl"]);
+
+const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) => {
+  if (!pro) return null;
+  const tier = TIER_BADGE[pro.match_tier] || TIER_BADGE.none;
+  const certs = (pro.certifications || []).map(c => typeof c === "string" ? { name: c } : c).filter(c => c?.name);
+  const clinicalCerts = certs.filter(c => CLINICAL_CERTS_SET.has(c.name?.toLowerCase()));
+  const licenses = certs.filter(c => !CLINICAL_CERTS_SET.has(c.name?.toLowerCase()) && c.name?.length <= 5);
+
+  return (
+    <div data-testid="pro-profile-view" className="fixed inset-0 z-[100] bg-background flex flex-col">
+      {/* Header bar */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b bg-card shrink-0">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} data-testid="profile-back-btn">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <p className="text-sm font-semibold text-foreground flex-1">Pro Profile</p>
+        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${tier.className}`}>{tier.text}</span>
+      </div>
+
+      {/* Scrollable content */}
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-5 pb-28">
+          {/* Identity */}
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary shrink-0">
+              {pro.full_name?.charAt(0) || "?"}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">{formatName(pro.full_name)}</h2>
+              <p className="text-sm text-muted-foreground">{formatRole(pro.specialty, pro.years_experience)}</p>
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Available Now
+              </span>
+            </div>
+          </div>
+
+          {/* Professional Summary */}
+          {pro.bio && (
+            <section>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Professional Summary</h3>
+              <p className="text-sm text-foreground/80 leading-relaxed">{pro.bio}</p>
+            </section>
+          )}
+
+          {/* Experience Highlights */}
+          {(() => {
+            const highlights = getHighlights(pro);
+            // Add more from bio if available
+            if (pro.bio) {
+              const extra = pro.bio.split(/[.\n]/)
+                .map(s => s.trim())
+                .filter(s => s.length > 10 && s.length < 80 && !highlights.includes(s))
+                .slice(0, 5 - highlights.length);
+              highlights.push(...extra);
+            }
+            return highlights.length > 0 ? (
+              <section>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Experience Highlights</h3>
+                <ul className="space-y-1">
+                  {highlights.slice(0, 5).map((b, i) => (
+                    <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
+                      <span className="text-primary mt-0.5 shrink-0">&bull;</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null;
+          })()}
+
+          {/* Licenses & Certifications */}
+          {certs.length > 0 && (
+            <section>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Licenses & Certifications</h3>
+              <div className="space-y-2">
+                {licenses.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Licenses</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {licenses.map((c, i) => (
+                        <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-medium">
+                          {c.name}
+                          {c.expiration && <span className="text-[9px] text-muted-foreground ml-1">exp {c.expiration}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {clinicalCerts.length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1">Clinical Certifications</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {clinicalCerts.map((c, i) => (
+                        <span key={i} className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 font-medium">
+                          {c.name?.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Verification & Compliance */}
+          <section>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Verification & Compliance</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${pro.verified_references > 0 ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" : "bg-muted/50 border-transparent"}`}>
+                <BadgeCheck className={`w-4 h-4 ${pro.verified_references > 0 ? "text-green-600" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="text-[11px] font-medium text-foreground">{pro.verified_references > 0 ? "Verified Pro" : "Not Yet Verified"}</p>
+                  <p className="text-[9px] text-muted-foreground">{pro.verified_references} verified ref{pro.verified_references !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-2 p-2.5 rounded-lg border ${pro.vault_documents >= 3 ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800" : "bg-muted/50 border-transparent"}`}>
+                <CircleCheck className={`w-4 h-4 ${pro.vault_documents >= 3 ? "text-blue-600" : "text-muted-foreground"}`} />
+                <div>
+                  <p className="text-[11px] font-medium text-foreground">{pro.vault_documents >= 3 ? "Compliance Ready" : "Docs In Progress"}</p>
+                  <p className="text-[9px] text-muted-foreground">{pro.vault_documents} document{pro.vault_documents !== 1 ? "s" : ""} uploaded</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Work Preferences */}
+          <section>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Work Preferences</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {pro.preferred_locations?.length > 0 && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Location</p>
+                    <p className="text-[11px] font-medium text-foreground">{pro.preferred_locations.join(", ")}</p>
+                  </div>
+                </div>
+              )}
+              {pro.preferred_shift && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Shift</p>
+                    <p className="text-[11px] font-medium text-foreground">{pro.preferred_shift}</p>
+                  </div>
+                </div>
+              )}
+              {pro.years_experience && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <Award className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Experience</p>
+                    <p className="text-[11px] font-medium text-foreground">{pro.years_experience} years</p>
+                  </div>
+                </div>
+              )}
+              {pro.skills?.length > 0 && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50">
+                  <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Skills</p>
+                    <p className="text-[11px] font-medium text-foreground truncate">{pro.skills.slice(0, 3).map(s => typeof s === "string" ? s : s?.name || "").join(", ")}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!pro.preferred_locations?.length && !pro.preferred_shift && (
+              <p className="text-[11px] text-muted-foreground mt-1">No preferences specified</p>
+            )}
+          </section>
+
+          {/* Context line */}
+          {pro.context_reasons?.length > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+              {pro.context_reasons.map((r, i) => (
+                <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                  <Star className="w-3 h-3 shrink-0" /> {r}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Sticky actions */}
+      <div className="border-t bg-card p-3 pb-24 sm:pb-3 flex items-center gap-3 shrink-0">
+        <Button data-testid="profile-pass-btn" variant="outline" className="flex-1 h-11 border-destructive/50 text-destructive hover:bg-destructive hover:text-white" onClick={() => { onPass(pro.id); onClose(); }} disabled={acting}>
+          <X className="w-4 h-4 mr-1.5" /> Pass
+        </Button>
+        <Button data-testid="profile-interested-btn" className="flex-[2] h-11 bg-green-500 hover:bg-green-600 text-white" onClick={() => { onInterested(pro.id); onClose(); }} disabled={acting}>
+          <Heart className="w-4 h-4 mr-1.5" /> Interested
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const BrowseProsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -116,6 +315,7 @@ const BrowseProsPage = () => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState({ specialty: "", location: "", minExp: "", maxExp: "", shift: "", certification: "" });
   const [activeFilterCount, setActiveFilterCount] = useState(0);
+  const [profilePro, setProfilePro] = useState(null);
 
   const fetchPros = useCallback(async (includeAll = false, filterParams = null) => {
     try {
@@ -397,7 +597,7 @@ const BrowseProsPage = () => {
                   size="lg"
                   variant="outline"
                   className="w-10 h-10 rounded-full border-2 border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary active:scale-90 transition-all"
-                  onClick={() => navigate(`/poster/candidates/list`)}
+                  onClick={() => setProfilePro(current)}
                   disabled={acting}
                 >
                   <Eye className="w-4 h-4" />
@@ -447,6 +647,18 @@ const BrowseProsPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Full Profile View */}
+        {profilePro && (
+          <ProProfileView
+            pro={profilePro}
+            jobs={jobs}
+            onClose={() => setProfilePro(null)}
+            onInterested={handleInterested}
+            onPass={handlePass}
+            acting={acting}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
