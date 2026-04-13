@@ -104,13 +104,19 @@ function sortDocs(a, b) {
 }
 
 // ── Dedup: keep only latest per category+subtype ───────
+// Prefer docs with file_url, then by uploaded_at newest
 function dedup(docs) {
   const active = [];
   const replaced = [];
-  const seen = new Map(); // key → best doc
+  const seen = new Map();
 
-  // Sort newest first so we pick the latest
-  const sorted = [...docs].sort((a, b) => (b.uploaded_at || "").localeCompare(a.uploaded_at || ""));
+  // Sort: prefer docs with file_url first, then by uploaded_at newest
+  const sorted = [...docs].sort((a, b) => {
+    const aHasFile = a.file_url ? 1 : 0;
+    const bHasFile = b.file_url ? 1 : 0;
+    if (bHasFile !== aHasFile) return bHasFile - aHasFile;
+    return (b.uploaded_at || "").localeCompare(a.uploaded_at || "");
+  });
   for (const doc of sorted) {
     if (doc.verification_status === "archived") {
       replaced.push(doc);
@@ -118,7 +124,6 @@ function dedup(docs) {
     }
     const key = `${normalizeCategory(doc.category)}:${(doc.subtype || doc.file_name || "").toLowerCase()}`;
     if (seen.has(key)) {
-      // This is an older duplicate — mark as replaced
       replaced.push({ ...doc, verification_status: "archived" });
     } else {
       seen.set(key, doc);
