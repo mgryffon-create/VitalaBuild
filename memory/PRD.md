@@ -9,13 +9,18 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: ResizeObserver Root Cause Fix (April 2025)
+- **Root cause**: Radix Select's `SelectContent` used dynamic CSS variables (`--radix-select-content-available-height`, `--radix-select-trigger-height`) set by internal ResizeObserver, creating a measurement→resize→measurement feedback loop
+- **Fix**: Modified `/app/frontend/src/components/ui/select.jsx` — replaced `max-h-[--radix-select-content-available-height]` with static `max-h-96`, removed `h-[var(--radix-select-trigger-height)]` from Viewport, removed `origin-[--radix-select-content-transform-origin]`
+- **Removed** global error suppression from `index.js` — no longer needed since root cause is fixed
+- Verified all dropdowns (Specialty, Availability, Shift, Job Type, Travel Readiness) work without errors
+
 ### Phase 2: Preferences Tab Fixes (April 2025)
-- **Location Autocomplete**: Replaced raw text input with searchable typeahead (LocationAutocomplete.jsx) suggesting ~200 US cities in "City, ST" format. Supports chips, keyboard nav, and multiple selections.
-- **ResizeObserver Fix**: Improved global error suppression in index.js to catch both "completed" and "limit exceeded" variants.
-- **SeekerProfile Model Fix**: Added missing fields (education, full_name, license_number, etc.) and `extra='ignore'` to prevent 422 errors on save.
+- LocationAutocomplete with ~200 US cities in "City, ST" format
+- SeekerProfile model fix (missing fields + extra='ignore')
 
 ### Phase 2: Single-Type Document Upload (April 2025)
-- One upload = one type with radio-style single-select. Medical exception: post-upload dialog for related sibling types only.
+- One upload = one type, medical exception for related sibling types
 
 ### Phase 2: Structured Document Upload System (April 2025)
 - 3-step category-first wizard, 5 categories, Medical split into Vaccinations + TB/Clearance
