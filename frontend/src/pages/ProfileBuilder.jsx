@@ -17,6 +17,8 @@ import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
 import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
+import SuggestionInput from "@/components/SuggestionInput";
+import { getSkillSuggestions, getHighlightSuggestions } from "@/config/specialtySuggestions";
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -429,8 +431,6 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     expiration_date: "",
     result: ""
   });
-  const [newHighlight, setNewHighlight] = useState("");
-  const [newSkill, setNewSkill] = useState("");
 
   const benefitOptions = [
     "Health Insurance",
@@ -640,26 +640,19 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
               <Award className="w-5 h-5 text-primary" />
               Experience Highlights
             </CardTitle>
-            <CardDescription>Add 3-5 concise highlights employers will see (e.g., "ICU + Trauma experience")</CardDescription>
+            <CardDescription>Add 3-5 concise highlights employers will see</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {(profile.experience_highlights || []).length > 0 && (
-              <div className="space-y-1.5">
-                {profile.experience_highlights.map((h, i) => (
-                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                    <span className="text-primary text-sm">&bull;</span>
-                    <span className="text-sm flex-1">{h}</span>
-                    <button type="button" onClick={() => removeFromArray("experience_highlights", i)} className="text-muted-foreground hover:text-destructive"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(profile.experience_highlights || []).length < 5 && (
-              <div className="flex gap-2">
-                <Input data-testid="new-highlight-input" placeholder="e.g., Wound care + post-op patients" value={newHighlight} onChange={(e) => setNewHighlight(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newHighlight.trim()) { e.preventDefault(); addToArray("experience_highlights", newHighlight.trim()); setNewHighlight(""); }}} />
-                <Button type="button" variant="outline" onClick={() => { if (newHighlight.trim()) { addToArray("experience_highlights", newHighlight.trim()); setNewHighlight(""); }}}><Plus className="w-4 h-4" /></Button>
-              </div>
-            )}
+          <CardContent>
+            <SuggestionInput
+              items={profile.experience_highlights || []}
+              suggestions={getHighlightSuggestions(profile.specialty)}
+              onAdd={(val) => addToArray("experience_highlights", val)}
+              onRemove={(idx) => removeFromArray("experience_highlights", idx)}
+              placeholder="Search highlights or type your own..."
+              maxItems={5}
+              testId="highlights"
+              chipVariant="secondary"
+            />
           </CardContent>
         </Card>
 
@@ -672,19 +665,16 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </CardTitle>
             <CardDescription>Specific skills relevant to your practice</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-1.5">
-              {(profile.skills || []).map((s, i) => (
-                <Badge key={i} variant="outline" className="flex items-center gap-1">
-                  {typeof s === "string" ? s : s?.name || ""}
-                  <button type="button" onClick={() => removeFromArray("skills", i)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button>
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input data-testid="new-skill-input" placeholder="e.g., IV Therapy, Wound Assessment" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSkill.trim()) { e.preventDefault(); addToArray("skills", newSkill.trim()); setNewSkill(""); }}} />
-              <Button type="button" variant="outline" onClick={() => { if (newSkill.trim()) { addToArray("skills", newSkill.trim()); setNewSkill(""); }}}><Plus className="w-4 h-4" /></Button>
-            </div>
+          <CardContent>
+            <SuggestionInput
+              items={profile.skills || []}
+              suggestions={getSkillSuggestions(profile.specialty)}
+              onAdd={(val) => addToArray("skills", val)}
+              onRemove={(idx) => removeFromArray("skills", idx)}
+              placeholder="Search skills or type your own..."
+              maxItems={15}
+              testId="skills"
+            />
           </CardContent>
         </Card>
       </TabsContent>
