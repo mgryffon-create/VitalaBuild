@@ -56,7 +56,7 @@ const CandidateContextPanel = ({ candidateId, onClose }) => {
   return (
     <div data-testid="candidate-context-panel" className="w-72 border-l bg-card flex flex-col overflow-hidden">
       <div className="p-3 border-b flex items-center justify-between">
-        <p className="text-xs font-semibold text-foreground">Candidate Profile</p>
+        <p className="text-xs font-semibold text-foreground">Applicant Profile</p>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
           <PanelRightClose className="w-3.5 h-3.5" />
         </Button>
@@ -184,7 +184,7 @@ const EmployerMessagingPage = () => {
           id: c.candidate_id,
           candidate_id: c.candidate_id,
           job_id: c.job_id,
-          name: c.seeker?.full_name || "Candidate",
+          name: c.seeker?.full_name || "Applicant",
           specialty: c.seeker?.specialty,
           stage: c.stage,
           last_message: c.last_message,
@@ -199,7 +199,7 @@ const EmployerMessagingPage = () => {
           id: m.seeker?.id || m.id,
           candidate_id: m.seeker?.id,
           match_id: m.id,
-          name: m.seeker?.full_name || "Candidate",
+          name: m.seeker?.full_name || "Applicant",
           specialty: m.seeker?.specialty,
           stage: "matched",
           last_message: null,
@@ -315,7 +315,7 @@ const EmployerMessagingPage = () => {
           {/* Left: Conversation list */}
           <div className={`w-full lg:w-80 flex-shrink-0 flex flex-col border rounded-l-xl bg-card ${selected ? "hidden lg:flex" : "flex"}`}>
             <div className="p-2 border-b flex gap-1 overflow-x-auto">
-              {[{ id: "all", label: "All" }, { id: "interested", label: "New" }, { id: "matched", label: "Matched" }, { id: "interviewing", label: "Interview" }].map((f) => (
+              {[{ id: "all", label: "All" }, { id: "interested", label: "Applicants" }, { id: "matched", label: "Matched" }, { id: "interviewing", label: "Interview" }].map((f) => (
                 <button key={f.id} onClick={() => setFilter(f.id)} data-testid={`filter-${f.id}`} className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors ${filter === f.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
                   {f.label}
                 </button>

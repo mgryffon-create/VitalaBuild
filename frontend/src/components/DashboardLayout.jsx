@@ -32,7 +32,7 @@ const seekerNavItems = [
 const posterNavItems = [
   { label: "Dashboard", icon: Home, path: "/poster" },
   { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Candidates", icon: Users, path: "/poster/pipeline" },
+  { label: "Applicants", icon: Users, path: "/poster/pipeline" },
   { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
   { label: "Profile", icon: User, path: "/poster/profile" },
 ];
@@ -171,7 +171,7 @@ const seekerBottomNav = [
 const posterBottomNav = [
   { label: "Dashboard", icon: Home, path: "/poster" },
   { label: "Post Job", icon: Briefcase, path: "/poster/jobs/new" },
-  { label: "Candidates", icon: Users, path: "/poster/pipeline" },
+  { label: "Applicants", icon: Users, path: "/poster/pipeline" },
   { label: "Matches", icon: MessageCircle, path: "/poster/messages" },
   { label: "Profile", icon: User, path: "/poster/profile" },
 ];

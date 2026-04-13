@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 const STATUS_CONFIG = {
-  pending:    { label: "Interested",  className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  pending:    { label: "Applicant",   className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
   matched:    { label: "Matched",     className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
   offer_sent: { label: "Offer Sent",  className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
 };
@@ -141,9 +141,9 @@ const EmployerCandidatesPage = () => {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Candidates</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Applicants</h1>
             <p className="text-xs sm:text-sm text-muted-foreground">
-              {candidates.length} candidate{candidates.length !== 1 ? "s" : ""} across {jobs.length} job{jobs.length !== 1 ? "s" : ""}
+              {candidates.length} applicant{candidates.length !== 1 ? "s" : ""} across {jobs.length} job{jobs.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -157,7 +157,7 @@ const EmployerCandidatesPage = () => {
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold text-foreground">{counts.pending}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Interested</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Applicants</p>
               </div>
             </CardContent>
           </Card>
@@ -210,9 +210,9 @@ const EmployerCandidatesPage = () => {
           <Card>
             <CardContent className="py-16 text-center">
               <Users className="w-14 h-14 mx-auto mb-4 text-muted-foreground/40" />
-              <h2 className="text-lg font-semibold text-foreground mb-2">No candidates yet</h2>
+              <h2 className="text-lg font-semibold text-foreground mb-2">No applicants yet</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Candidates will appear here when seekers express interest in your jobs.
+                Applicants will appear here when seekers express interest in your jobs.
               </p>
               <Button variant="outline" onClick={() => navigate("/poster")}>Back to Dashboard</Button>
             </CardContent>

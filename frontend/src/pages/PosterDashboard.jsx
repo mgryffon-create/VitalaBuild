@@ -162,7 +162,7 @@ const PosterDashboard = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               Welcome back, {user?.full_name?.split(" ")[0] || "there"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best candidates.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best applicants.</p>
           </div>
         </div>
         <Button
@@ -192,7 +192,7 @@ const PosterDashboard = () => {
               <div className="w-11 h-11 rounded-xl bg-green-500/10 flex items-center justify-center">
                 <Users className="w-5 h-5 text-green-600" />
               </div>
-              <p className="font-medium text-sm text-foreground leading-tight">View<br/>Candidates</p>
+              <p className="font-medium text-sm text-foreground leading-tight">View<br/>Applicants</p>
             </button>
             <button
               data-testid="qa-view-matches"
@@ -229,7 +229,7 @@ const PosterDashboard = () => {
             <div className="flex items-center -mx-1.5 z-10"><ArrowRight className="w-3 h-3 text-muted-foreground/40" /></div>
             <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-candidates" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors border-r">
               <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-600">2</div>
-              <p className="text-xs font-semibold text-foreground mt-1">Candidates</p>
+              <p className="text-xs font-semibold text-foreground mt-1">Applicants</p>
               <p className="text-lg font-bold text-green-600">{candidateCount}</p>
               <p className="text-[9px] text-muted-foreground">waiting</p>
             </button>
@@ -267,7 +267,7 @@ const PosterDashboard = () => {
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm text-foreground truncate">{c.candidate?.full_name || "Candidate"}</p>
+                            <p className="font-medium text-sm text-foreground truncate">{c.candidate?.full_name || "Applicant"}</p>
                             {isCleared && <Badge className="bg-green-100 text-green-700 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" /> Cleared</Badge>}
                             {isFlagged && <Badge className="bg-red-100 text-red-700 text-[9px]"><Flag className="w-2.5 h-2.5 mr-0.5" /> Flagged</Badge>}
                           </div>
@@ -309,7 +309,7 @@ const PosterDashboard = () => {
                 <div className="text-center py-16">
                   <Briefcase className="w-14 h-14 mx-auto mb-4 text-muted-foreground/40" />
                   <p className="text-lg font-medium text-foreground">No jobs posted yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">Create your first job posting to start finding candidates</p>
+                  <p className="text-sm text-muted-foreground mb-4">Create your first job posting to start finding applicants</p>
                   <Button data-testid="create-first-job-btn" onClick={() => navigate("/poster/jobs/new")} className="bg-primary hover:bg-primary/90">
                     Post Your First Job
                   </Button>
@@ -339,7 +339,7 @@ const PosterDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Button data-testid={`view-candidates-${job.id}`} variant="outline" size="sm" onClick={() => navigate("/poster/pipeline")} className="flex-1 sm:flex-none text-xs sm:text-sm h-8 sm:h-9">
-                            <Eye className="w-3.5 h-3.5 mr-1" /> Candidates
+                            <Eye className="w-3.5 h-3.5 mr-1" /> Applicants
                           </Button>
                           <Button data-testid={`edit-job-${job.id}`} variant="ghost" size="sm" onClick={() => navigate(`/poster/jobs/${job.id}/edit`)} className="h-8 sm:h-9 w-8 sm:w-9 p-0">
                             <Edit className="w-3.5 h-3.5" />

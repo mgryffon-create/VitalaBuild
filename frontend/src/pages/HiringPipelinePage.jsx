@@ -15,11 +15,11 @@ import {
 } from "lucide-react";
 
 const STAGES = [
-  { id: "interested", label: "Interested", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+  { id: "interested", label: "Applicants", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
   { id: "matched", label: "Matched", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
   { id: "interviewing", label: "Interviewing", color: "border-blue-400", bg: "bg-blue-50 dark:bg-blue-950/20", badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
   { id: "offer_sent", label: "Offer Sent", color: "border-purple-400", bg: "bg-purple-50 dark:bg-purple-950/20", badge: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
-  { id: "hired", label: "Hired", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  { id: "hired", label: "Onboarding", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
 ];
 
 const NEXT_STAGE = { interested: "matched", matched: "interviewing", interviewing: "offer_sent", offer_sent: "hired" };
@@ -32,7 +32,7 @@ const NudgeBanner = ({ nudges, onAction }) => {
     <div data-testid="nudge-banner" className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
       <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
         <Bell className="w-4 h-4" />
-        <p className="text-xs font-semibold">Action Needed — {nudges.length} candidate{nudges.length > 1 ? "s" : ""} waiting</p>
+        <p className="text-xs font-semibold">Action Needed — {nudges.length} applicant{nudges.length > 1 ? "s" : ""} waiting</p>
       </div>
       {top.map((n) => (
         <div key={`${n.candidate_id}_${n.job_id}`} className="flex items-center justify-between gap-2 pl-6">
@@ -74,7 +74,7 @@ const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds }) => {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="font-medium text-xs text-foreground truncate">{c.seeker?.full_name || "Candidate"}</p>
+              <p className="font-medium text-xs text-foreground truncate">{c.seeker?.full_name || "Applicant"}</p>
               {c.has_verified_refs && <ShieldCheck className="w-3 h-3 text-green-600 shrink-0" />}
               {isNudged && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
             </div>
@@ -168,7 +168,7 @@ const HiringPipelinePage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Hiring Pipeline</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">{stats.total || 0} candidates across all stages</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">{stats.total || 0} applicants across all stages</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <BarChart className="w-4 h-4" />
@@ -207,7 +207,7 @@ const HiringPipelinePage = () => {
                 <ScrollArea className="p-2" style={{ maxHeight: "calc(100vh - 22rem)" }}>
                   {cards.length === 0 ? (
                     <div className="py-8 text-center">
-                      <p className="text-[10px] text-muted-foreground">No candidates</p>
+                      <p className="text-[10px] text-muted-foreground">No applicants</p>
                     </div>
                   ) : (
                     cards.map((c) => (
