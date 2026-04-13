@@ -11,8 +11,8 @@ import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
-  Search, Heart, X, ChevronRight, ChevronUp, MapPin, Clock, ShieldCheck,
-  FileText, Star, Briefcase, User, ArrowRight, BadgeCheck, CircleCheck, Eye
+  Search, Heart, X, ChevronRight, MapPin, Clock,
+  Star, Briefcase, ArrowRight, BadgeCheck, CircleCheck, Eye
 } from "lucide-react";
 
 // Format name as "First L."
@@ -23,48 +23,73 @@ const formatName = (name) => {
   return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
 };
 
-// Shorten specialty label
-const shortSpecialty = (s) => {
-  if (!s) return null;
-  return s.replace(/\(.*?\)\s*-?\s*/, "").replace("Registered Nurse", "RN").replace("Licensed Practical Nurse", "LPN").replace("Certified Nursing Assistant", "CNA").trim();
+// Format role line: "RN • Wound Care • 3 yrs"
+const formatRole = (specialty, years) => {
+  const parts = [];
+  if (specialty) {
+    // Extract abbreviation and sub-specialty
+    const abbr = specialty.match(/\(([A-Z]+)\)/)?.[1];
+    const sub = specialty.replace(/.*\)\s*-?\s*/, "").trim();
+    if (abbr && sub) {
+      parts.push(abbr);
+      parts.push(sub);
+    } else {
+      parts.push(
+        specialty
+          .replace("Registered Nurse", "RN")
+          .replace("Licensed Practical Nurse", "LPN")
+          .replace("Certified Nursing Assistant", "CNA")
+          .replace(/\(.*?\)\s*-?\s*/, "")
+          .trim()
+      );
+    }
+  }
+  if (years) parts.push(`${years} yrs`);
+  return parts.join(" \u2022 ") || "Healthcare Pro";
 };
 
-// Generate "Why this Pro?" based on job match
-const whyThisPro = (pro, jobs) => {
-  if (!jobs?.length) return null;
-  const jobSpecialties = jobs.map(j => (j.title || "").toLowerCase());
-  const proSpec = (pro.specialty || "").toLowerCase();
-  for (const js of jobSpecialties) {
-    if (proSpec && js.includes("icu") && proSpec.includes("icu")) return "Matches your ICU role";
-    if (proSpec && js.includes("travel") && proSpec.includes("travel")) return "Travel experience matches";
-    if (proSpec && js.includes("er") && (proSpec.includes("er") || proSpec.includes("emergency"))) return "ER experience matches";
-  }
-  if (pro.preferred_shift) {
-    const shift = pro.preferred_shift.toLowerCase();
-    if (shift.includes("night")) return "Available for night shift";
-    if (shift.includes("day")) return "Available for day shift";
-  }
-  if (pro.preferred_locations?.length && jobs.some(j => (j.title || "").toLowerCase().includes(pro.preferred_locations[0]?.toLowerCase()?.split(",")[0])))
-    return `Near your location`;
-  if (pro.verified_references > 0) return "Has verified references";
-  if (pro.years_experience >= 5) return `${pro.years_experience}+ years of experience`;
-  if (pro.profile_complete) return "Complete profile";
-  return null;
+// Match quality label from score
+const matchLabel = (score) => {
+  if (score >= 70) return { text: "Strong Match", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
+  if (score >= 45) return { text: "Good Match", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" };
+  return { text: "Potential Match", className: "bg-muted text-muted-foreground" };
 };
 
-// Build highlight bullets from available data
-const buildHighlights = (pro) => {
+// Known clinical certifications worth showing
+const CLINICAL_CERTS = new Set(["bls", "acls", "pals", "nrp", "tncc", "ccrn", "cen", "cnl", "np", "rn", "lpn", "cna"]);
+
+// Build 2-3 smart highlights — no filler, no duplicates
+const getHighlights = (pro) => {
   const bullets = [];
+
+  // 1. Skills-based highlight (if real skills exist)
   if (pro.skills?.length > 0) {
-    const top = pro.skills.slice(0, 2).map(s => typeof s === "string" ? s : s?.skill || s?.name || "").filter(Boolean);
-    if (top.length) bullets.push(top.join(" + ") + " experience");
+    const realSkills = pro.skills
+      .slice(0, 3)
+      .map(s => typeof s === "string" ? s : s?.skill || s?.name || "")
+      .filter(s => s.length > 1 && s.length < 40);
+    if (realSkills.length) bullets.push(realSkills.join(", "));
   }
-  const certs = (pro.certifications || []).slice(0, 4).map(c => typeof c === "string" ? c : c?.name || c?.title || "").filter(Boolean);
-  if (certs.length) bullets.push(certs.join(", ") + " certified");
-  if (pro.bio) {
-    const short = pro.bio.split(/[.\n]/).find(s => s.trim().length > 10 && s.trim().length < 80);
-    if (short && bullets.length < 3) bullets.push(short.trim());
+
+  // 2. Clinical certifications only (filter out non-clinical role abbreviations)
+  const certs = (pro.certifications || [])
+    .map(c => typeof c === "string" ? c : c?.name || c?.title || "")
+    .filter(c => c && CLINICAL_CERTS.has(c.toLowerCase()));
+  if (certs.length) {
+    bullets.push(`${certs.join(", ")} certified`);
   }
+
+  // 3. Bio snippet — only if it adds value (not generic "RN with X years")
+  if (pro.bio && bullets.length < 3) {
+    const sentences = pro.bio.split(/[.\n]/).map(s => s.trim()).filter(s => s.length > 10 && s.length < 80);
+    const useful = sentences.find(s =>
+      !s.toLowerCase().match(/^(rn|lpn|cna|nurse|healthcare)\s+(with|having)\s+\d/) &&
+      !s.toLowerCase().startsWith("seeking") &&
+      !s.toLowerCase().startsWith("looking for")
+    );
+    if (useful) bullets.push(useful);
+  }
+
   return bullets.slice(0, 3);
 };
 
@@ -173,50 +198,51 @@ const BrowseProsPage = () => {
             {/* Pro Card */}
             <Card data-testid={`pro-card-${current.id}`} className="overflow-hidden">
               <CardContent className="p-0">
-                {/* Top: Identity row */}
-                <div className="p-4 pb-3 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-base font-bold text-primary shrink-0">
+                {/* Header: avatar + name + role */}
+                <div className="p-4 pb-2 flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
                     {current.full_name?.charAt(0) || "?"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-base font-semibold text-foreground leading-tight">{formatName(current.full_name)}</h2>
-                    <p className="text-sm text-muted-foreground leading-tight">
-                      {shortSpecialty(current.specialty) || "Healthcare Pro"}
-                      {current.years_experience ? ` \u2022 ${current.years_experience} yrs` : ""}
-                    </p>
+                    <p className="text-[13px] text-muted-foreground leading-tight">{formatRole(current.specialty, current.years_experience)}</p>
                   </div>
+                  {/* Match quality label */}
+                  {current.match_score > 0 && (
+                    <span data-testid="match-label" className={`text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${matchLabel(current.match_score).className}`}>
+                      {matchLabel(current.match_score).text}
+                    </span>
+                  )}
                 </div>
 
-                {/* Meta row: location, shift, availability */}
-                <div className="px-4 pb-3 flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground">
+                {/* Availability — prominent */}
+                <div className="px-4 pb-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Available Now
+                  </span>
                   {current.preferred_locations?.length > 0 && (
-                    <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" /> {current.preferred_locations[0]}</span>
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5"><MapPin className="w-3 h-3" /> {current.preferred_locations[0]}</span>
                   )}
                   {current.preferred_shift && (
-                    <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {current.preferred_shift}</span>
-                  )}
-                  <Badge variant="outline" className="text-[9px] h-5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800">Available</Badge>
-                </div>
-
-                {/* Badges row */}
-                <div className="px-4 pb-3 flex items-center gap-2">
-                  {current.verified_references > 0 && (
-                    <span data-testid="badge-verified" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                      <BadgeCheck className="w-3 h-3" /> Verified Pro
-                    </span>
-                  )}
-                  {current.vault_documents >= 3 && (
-                    <span data-testid="badge-compliance" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                      <CircleCheck className="w-3 h-3" /> Compliance Ready
-                    </span>
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5"><Clock className="w-3 h-3" /> {current.preferred_shift}</span>
                   )}
                 </div>
 
-                {/* Highlight bullets */}
-                {buildHighlights(current).length > 0 && (
-                  <div className="px-4 pb-3">
-                    <ul className="space-y-1">
-                      {buildHighlights(current).map((b, i) => (
+                {/* Trust badges */}
+                <div className="px-4 pb-2 flex items-center gap-2">
+                  <span data-testid="badge-verified" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${current.verified_references > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
+                    <BadgeCheck className="w-3 h-3" /> {current.verified_references > 0 ? "Verified Pro" : "Unverified"}
+                  </span>
+                  <span data-testid="badge-compliance" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${current.vault_documents >= 3 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
+                    <CircleCheck className="w-3 h-3" /> {current.vault_documents >= 3 ? "Compliance Ready" : "Docs Pending"}
+                  </span>
+                </div>
+
+                {/* Highlights — 2-3 short bullets */}
+                {getHighlights(current).length > 0 && (
+                  <div className="px-4 pb-2">
+                    <ul className="space-y-0.5">
+                      {getHighlights(current).map((b, i) => (
                         <li key={i} className="text-xs text-foreground/80 flex items-start gap-1.5">
                           <span className="text-primary mt-0.5 shrink-0">&bull;</span>
                           <span>{b}</span>
@@ -226,7 +252,7 @@ const BrowseProsPage = () => {
                   </div>
                 )}
 
-                {/* "Why this Pro?" — server-ranked reasons */}
+                {/* Context: why this pro — from server ranking */}
                 {current.match_reasons?.length > 0 && (
                   <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 space-y-0.5">
                     {current.match_reasons.map((r, i) => (
@@ -234,26 +260,6 @@ const BrowseProsPage = () => {
                         <Star className="w-3 h-3 shrink-0" /> {r}
                       </p>
                     ))}
-                  </div>
-                )}
-                {!current.match_reasons?.length && whyThisPro(current, jobs) && (
-                  <div className="mx-4 mb-3 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
-                    <p data-testid="why-this-pro" className="text-[10px] text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                      <Star className="w-3 h-3 shrink-0" /> {whyThisPro(current, jobs)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Match score bar */}
-                {current.match_score > 0 && (
-                  <div className="mx-4 mb-3 flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${current.match_score >= 70 ? "bg-green-500" : current.match_score >= 40 ? "bg-amber-500" : "bg-muted-foreground/30"}`}
-                        style={{ width: `${current.match_score}%` }}
-                      />
-                    </div>
-                    <span className="text-[9px] text-muted-foreground shrink-0">{current.match_score}% match</span>
                   </div>
                 )}
               </CardContent>
