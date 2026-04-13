@@ -27,7 +27,7 @@ const PosterDashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [jobs, setJobs] = useState([]);
-  const [candidateCount, setCandidateCount] = useState(0);
+  const [candidateCounts, setCandidateCounts] = useState({ total: 0, applicants: 0, matched: 0 });
   const [offerCount, setOfferCount] = useState(0);
   const [onboardingCases, setOnboardingCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,11 @@ const PosterDashboard = () => {
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
-      setCandidateCount(candidatesRes.data.length);
+      setCandidateCounts({
+        total: candidatesRes.data.length,
+        applicants: candidatesRes.data.filter(c => c.status === "pending").length,
+        matched: candidatesRes.data.filter(c => c.status === "matched").length,
+      });
       setOfferCount(offersRes.data.length);
       setVerificationStatus(verifyRes.data);
       setOnboardingCases(onbRes.data);
@@ -162,7 +166,7 @@ const PosterDashboard = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               Welcome back, {user?.full_name?.split(" ")[0] || "there"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best applicants.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your job postings and find the best pros.</p>
           </div>
         </div>
         <Button
@@ -221,23 +225,28 @@ const PosterDashboard = () => {
         <section data-testid="section-hiring-flow">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Hiring Pipeline</h2>
           <div className="flex items-stretch rounded-xl border bg-card overflow-hidden">
-            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors border-r">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">1</div>
-              <p className="text-xs font-semibold text-foreground mt-1">Active Jobs</p>
-              <p className="text-lg font-bold text-primary">{stats?.active_jobs || 0}</p>
+            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 hover:bg-muted/40 transition-colors border-r">
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">1</div>
+              <p className="text-[10px] font-semibold text-foreground mt-1">Active Jobs</p>
+              <p className="text-base font-bold text-primary">{stats?.active_jobs || 0}</p>
             </button>
-            <div className="flex items-center -mx-1.5 z-10"><ArrowRight className="w-3 h-3 text-muted-foreground/40" /></div>
-            <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-candidates" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors border-r">
-              <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-600">2</div>
-              <p className="text-xs font-semibold text-foreground mt-1">Applicants</p>
-              <p className="text-lg font-bold text-green-600">{candidateCount}</p>
-              <p className="text-[9px] text-muted-foreground">waiting</p>
+            <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
+            <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-applicants" className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 hover:bg-muted/40 transition-colors border-r">
+              <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center text-[10px] font-bold text-amber-600">2</div>
+              <p className="text-[10px] font-semibold text-foreground mt-1">Applicants</p>
+              <p className="text-base font-bold text-amber-600">{candidateCounts.applicants}</p>
             </button>
-            <div className="flex items-center -mx-1.5 z-10"><ArrowRight className="w-3 h-3 text-muted-foreground/40" /></div>
-            <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex-1 flex flex-col items-center justify-center gap-1 py-4 px-2 hover:bg-muted/40 transition-colors">
-              <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-xs font-bold text-blue-600">3</div>
-              <p className="text-xs font-semibold text-foreground mt-1">Offers Sent</p>
-              <p className="text-lg font-bold text-blue-600">{offerCount}</p>
+            <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
+            <button onClick={() => navigate("/poster/messages")} data-testid="flow-matches" className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 hover:bg-muted/40 transition-colors border-r">
+              <div className="w-7 h-7 rounded-full bg-green-500/10 flex items-center justify-center text-[10px] font-bold text-green-600">3</div>
+              <p className="text-[10px] font-semibold text-foreground mt-1">Matches</p>
+              <p className="text-base font-bold text-green-600">{candidateCounts.matched}</p>
+            </button>
+            <div className="flex items-center -mx-1 z-10"><ArrowRight className="w-2.5 h-2.5 text-muted-foreground/40" /></div>
+            <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 hover:bg-muted/40 transition-colors">
+              <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center text-[10px] font-bold text-blue-600">4</div>
+              <p className="text-[10px] font-semibold text-foreground mt-1">Offers</p>
+              <p className="text-base font-bold text-blue-600">{offerCount}</p>
             </button>
           </div>
         </section>
@@ -309,7 +318,7 @@ const PosterDashboard = () => {
                 <div className="text-center py-16">
                   <Briefcase className="w-14 h-14 mx-auto mb-4 text-muted-foreground/40" />
                   <p className="text-lg font-medium text-foreground">No jobs posted yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">Create your first job posting to start finding applicants</p>
+                  <p className="text-sm text-muted-foreground mb-4">Create your first job posting to start finding pros</p>
                   <Button data-testid="create-first-job-btn" onClick={() => navigate("/poster/jobs/new")} className="bg-primary hover:bg-primary/90">
                     Post Your First Job
                   </Button>

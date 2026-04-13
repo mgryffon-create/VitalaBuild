@@ -100,7 +100,7 @@ const AuthPage = () => {
             The Secure Platform for Healthcare Hiring
           </h1>
           <p className="text-white/80 text-lg max-w-md">
-            Manage your credentials, connect with top facilities, and take the next step in your healthcare career.
+            Manage your credentials, match with top facilities, and take the next step in your healthcare career.
           </p>
         </div>
         

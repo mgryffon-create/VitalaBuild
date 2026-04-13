@@ -77,7 +77,7 @@ const LandingPage = () => {
               </h1>
 
               <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed">
-                A secure platform to manage credentials, connect with top facilities, and find your next opportunity.
+                A secure platform to manage credentials, match with top facilities, and find your next opportunity.
               </p>
 
               {/* Primary CTA — above the fold on mobile */}
