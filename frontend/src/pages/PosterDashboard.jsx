@@ -236,10 +236,39 @@ const PosterDashboard = () => {
           </div>
         </section>
 
+        {/* Hiring Flow Steps */}
+        <section data-testid="section-hiring-flow">
+          <div className="flex items-center rounded-xl border bg-card p-2 gap-0.5">
+            <button onClick={() => navigate("/poster/jobs/new")} data-testid="flow-jobs" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-primary">1</div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-foreground">Jobs</p>
+                <p className="text-[9px] text-muted-foreground">{stats?.active_jobs || 0} active</p>
+              </div>
+            </button>
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+            <button onClick={() => navigate("/poster/pipeline")} data-testid="flow-candidates" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-green-600">2</div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-foreground">Candidates</p>
+                <p className="text-[9px] text-muted-foreground">{candidateCount} waiting</p>
+              </div>
+            </button>
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+            <button onClick={() => navigate("/poster/offers-sent")} data-testid="flow-offers" className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-colors flex-1 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 text-[10px] font-bold text-blue-600">3</div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-foreground">Offers</p>
+                <p className="text-[9px] text-muted-foreground">{offerCount} sent</p>
+              </div>
+            </button>
+          </div>
+        </section>
+
         {/* Stats */}
         <section data-testid="section-employer-stats">
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => {}}>
+            <Card className="cursor-pointer hover:border-primary/40 transition-colors" onClick={() => navigate("/poster/jobs/new")}>
               <CardContent className="p-3 sm:p-5 flex items-center gap-3">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
@@ -371,7 +400,7 @@ const PosterDashboard = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button data-testid={`view-candidates-${job.id}`} variant="outline" size="sm" onClick={() => navigate("/poster/candidates")} className="flex-1 sm:flex-none text-xs sm:text-sm h-8 sm:h-9">
+                          <Button data-testid={`view-candidates-${job.id}`} variant="outline" size="sm" onClick={() => navigate("/poster/pipeline")} className="flex-1 sm:flex-none text-xs sm:text-sm h-8 sm:h-9">
                             <Eye className="w-3.5 h-3.5 mr-1" /> Candidates
                           </Button>
                           <Button data-testid={`edit-job-${job.id}`} variant="ghost" size="sm" onClick={() => navigate(`/poster/jobs/${job.id}/edit`)} className="h-8 sm:h-9 w-8 sm:w-9 p-0">
