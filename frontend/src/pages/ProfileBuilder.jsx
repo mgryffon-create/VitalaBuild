@@ -16,7 +16,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
-import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, Circle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight } from "lucide-react";
+import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, Circle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight, Trash2 } from "lucide-react";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import SuggestionInput from "@/components/SuggestionInput";
 import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
@@ -596,6 +596,40 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     is_current: false,
     responsibilities: ""
   });
+  const [editingWorkIndex, setEditingWorkIndex] = useState(null); // null = add mode, number = edit mode
+
+  const startEditWork = (index) => {
+    const job = (profile.work_history || [])[index];
+    if (!job) return;
+    setNewWorkHistory({
+      facility_name: job.facility_name || "",
+      position: job.position || "",
+      department: job.department || "",
+      start_date: job.start_date || "",
+      end_date: job.end_date || "",
+      is_current: job.is_current || false,
+      responsibilities: job.responsibilities || "",
+    });
+    setEditingWorkIndex(index);
+  };
+
+  const cancelEditWork = () => {
+    setEditingWorkIndex(null);
+    setNewWorkHistory({ facility_name: "", position: "", department: "", start_date: "", end_date: "", is_current: false, responsibilities: "" });
+  };
+
+  const saveWorkEntry = () => {
+    if (!newWorkHistory.facility_name || !newWorkHistory.position) {
+      return;
+    }
+    if (editingWorkIndex !== null) {
+      updateArrayItem("work_history", editingWorkIndex, newWorkHistory);
+      setEditingWorkIndex(null);
+    } else {
+      addToArray("work_history", newWorkHistory);
+    }
+    setNewWorkHistory({ facility_name: "", position: "", department: "", start_date: "", end_date: "", is_current: false, responsibilities: "" });
+  };
 
   const benefitOptions = [
     "Health Insurance",
@@ -828,44 +862,65 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             {(profile.work_history || []).length > 0 && (
               <div className="space-y-3 mb-6">
                 {profile.work_history.map((job, index) => (
-                  <div key={index} className="p-4 border border-border rounded-xl bg-muted/30">
+                  <div key={index} data-testid={`work-entry-${index}`} className={`p-4 border rounded-xl transition-colors ${editingWorkIndex === index ? "border-primary bg-primary/5" : "border-border bg-muted/30"}`}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-foreground">{job.position}</h4>
+                          <h4 className="font-semibold text-foreground">{job.position || "Untitled Position"}</h4>
                           {job.is_current && (
                             <Badge className="bg-secondary/10 text-secondary text-xs">Current</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <Building className="w-3 h-3" /> {job.facility_name}
-                          {job.department && <span> • {job.department}</span>}
+                          <Building className="w-3 h-3" /> {job.facility_name || "Unknown Facility"}
+                          {job.department && <span> &bull; {job.department}</span>}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {job.start_date} - {job.is_current ? "Present" : job.end_date}
+                          {job.start_date || "N/A"} - {job.is_current ? "Present" : job.end_date || "N/A"}
                         </p>
                         {job.responsibilities && (
-                          <p className="text-sm text-muted-foreground mt-2">{job.responsibilities}</p>
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{job.responsibilities}</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFromArray("work_history", index)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                      <div className="flex gap-1 shrink-0 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`edit-work-${index}`}
+                          onClick={() => editingWorkIndex === index ? cancelEditWork() : startEditWork(index)}
+                          className="h-8 px-2 text-muted-foreground hover:text-primary"
+                        >
+                          {editingWorkIndex === index ? <X className="w-4 h-4" /> : <Settings className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`delete-work-${index}`}
+                          onClick={() => { removeFromArray("work_history", index); if (editingWorkIndex === index) cancelEditWork(); }}
+                          className="h-8 px-2 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Add New Work History */}
+            {/* Add / Edit Work History */}
             <div className="p-4 border border-dashed border-border rounded-xl space-y-4">
-              <p className="text-sm font-medium text-foreground">Add Work Experience</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">
+                  {editingWorkIndex !== null ? `Editing: ${(profile.work_history || [])[editingWorkIndex]?.position || "Entry"}` : "Add Work Experience"}
+                </p>
+                {editingWorkIndex !== null && (
+                  <Button variant="ghost" size="sm" onClick={cancelEditWork} className="text-muted-foreground h-7 text-xs" data-testid="cancel-edit-work">
+                    Cancel
+                  </Button>
+                )}
+              </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Facility/Hospital Name</Label>
@@ -938,28 +993,23 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 />
               </div>
               <Button
-                data-testid="add-work-btn"
+                data-testid={editingWorkIndex !== null ? "save-work-btn" : "add-work-btn"}
                 type="button"
-                variant="outline"
+                variant={editingWorkIndex !== null ? "default" : "outline"}
                 className="w-full"
                 onClick={() => {
                   if (newWorkHistory.facility_name && newWorkHistory.position) {
-                    addToArray("work_history", newWorkHistory);
-                    setNewWorkHistory({
-                      facility_name: "",
-                      position: "",
-                      department: "",
-                      start_date: "",
-                      end_date: "",
-                      is_current: false,
-                      responsibilities: ""
-                    });
+                    saveWorkEntry();
                   } else {
                     toast.error("Please enter facility name and position");
                   }
                 }}
               >
-                <Plus className="w-4 h-4 mr-2" /> Add Work Experience
+                {editingWorkIndex !== null ? (
+                  <><Save className="w-4 h-4 mr-2" /> Save Changes</>
+                ) : (
+                  <><Plus className="w-4 h-4 mr-2" /> Add Work Experience</>
+                )}
               </Button>
             </div>
           </CardContent>
