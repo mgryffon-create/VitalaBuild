@@ -22,21 +22,24 @@ const SeekerDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [jobsAvailable, setJobsAvailable] = useState(0);
+  const [profileCompletion, setProfileCompletion] = useState(null);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [statsRes, docsRes, matchesRes, profileRes, jobsRes] = await Promise.all([
+      const [statsRes, docsRes, matchesRes, profileRes, jobsRes, completionRes] = await Promise.all([
         axios.get(`${API}/stats`),
         axios.get(`${API}/documents/expiring`),
         axios.get(`${API}/matches`),
         axios.get(`${API}/profile/seeker`).catch(() => ({ data: null })),
         axios.get(`${API}/swipe/jobs`).catch(() => ({ data: [] })),
+        axios.get(`${API}/profile/completion`).catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       setExpiringDocs(docsRes.data);
       setRecentMatches(matchesRes.data.slice(0, 3));
       setProfile(profileRes.data);
       setJobsAvailable(Array.isArray(jobsRes.data) ? jobsRes.data.length : 0);
+      setProfileCompletion(completionRes.data);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -121,6 +124,24 @@ const SeekerDashboard = () => {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Profile Completion */}
+        {profileCompletion && !profileCompletion.complete && (
+          <div data-testid="profile-completion-bar" className="flex items-center gap-3 p-3 rounded-xl border bg-card">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="font-medium text-foreground">Profile {profileCompletion.percentage}% complete</span>
+                <span className="text-muted-foreground">{profileCompletion.filled}/{profileCompletion.total}</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${profileCompletion.percentage >= 80 ? "bg-green-500" : profileCompletion.percentage >= 50 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${profileCompletion.percentage}%` }} />
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => navigate("/seeker/profile")} data-testid="complete-profile-dash-btn">
+              Complete
+            </Button>
+          </div>
         )}
 
         {/* ── Quick Actions (compact, near top) ──────────── */}

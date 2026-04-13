@@ -860,6 +860,62 @@ async def get_seeker_profile(current_user: dict = Depends(get_current_user)):
     profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0})
     return profile or {}
 
+
+@api_router.get("/profile/completion")
+async def get_profile_completion(current_user: dict = Depends(get_current_user)):
+    """Get profile completion status for onboarding gating"""
+    if current_user["role"] == "seeker":
+        profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+        checks = {
+            "specialty": bool(profile.get("specialty")),
+            "years_experience": bool(profile.get("years_experience")),
+            "availability": bool(profile.get("availability")),
+            "preferred_shift": bool(profile.get("preferred_shift")),
+            "travel_readiness": bool(profile.get("travel_readiness")),
+            "job_type_preference": bool(profile.get("job_type_preference")),
+            "experience_highlights": len(profile.get("experience_highlights", []) or []) >= 2,
+            "certifications_or_licenses": bool(profile.get("certifications")) or bool(profile.get("licenses")),
+        }
+        filled = sum(1 for v in checks.values() if v)
+        total = len(checks)
+        return {
+            "role": "seeker",
+            "complete": filled == total,
+            "percentage": round(filled / total * 100),
+            "filled": filled,
+            "total": total,
+            "checks": checks,
+        }
+    elif current_user["role"] == "poster":
+        profile = await db.poster_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+        job_count = await db.jobs.count_documents({"poster_id": current_user["id"]})
+        # Check if at least one job has required fields
+        complete_job = await db.jobs.find_one({
+            "poster_id": current_user["id"],
+            "specialty": {"$exists": True, "$ne": None, "$ne": ""},
+            "location": {"$exists": True, "$ne": None, "$ne": ""},
+        }, {"_id": 0, "id": 1})
+        checks = {
+            "company_name": bool(profile.get("company_name")),
+            "company_description": bool(profile.get("company_description")),
+            "contact_info": bool(profile.get("contact_info")),
+            "has_job_posted": job_count > 0,
+            "has_complete_job": bool(complete_job),
+        }
+        filled = sum(1 for v in checks.values() if v)
+        total = len(checks)
+        return {
+            "role": "poster",
+            "complete": filled == total,
+            "percentage": round(filled / total * 100),
+            "filled": filled,
+            "total": total,
+            "checks": checks,
+        }
+    return {"role": current_user["role"], "complete": True, "percentage": 100, "filled": 0, "total": 0, "checks": {}}
+
+
+
 @api_router.put("/profile/seeker")
 async def update_seeker_profile(profile: SeekerProfile, current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "seeker":

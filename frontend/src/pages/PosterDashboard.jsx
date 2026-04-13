@@ -39,16 +39,18 @@ const PosterDashboard = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [verifyStep, setVerifyStep] = useState("email");
   const [sendingVerification, setSendingVerification] = useState(false);
+  const [profileCompletion, setProfileCompletion] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, jobsRes, candidatesRes, offersRes, verifyRes, onbRes] = await Promise.all([
+      const [statsRes, jobsRes, candidatesRes, offersRes, verifyRes, onbRes, completionRes] = await Promise.all([
         axios.get(`${API}/stats`),
         axios.get(`${API}/jobs`),
         axios.get(`${API}/employer/candidates`).catch(() => ({ data: [] })),
         axios.get(`${API}/hiring/offers`).catch(() => ({ data: [] })),
         axios.get(`${API}/employer/verification-status`).catch(() => ({ data: null })),
         axios.get(`${API}/onboarding/cases`).catch(() => ({ data: [] })),
+        axios.get(`${API}/profile/completion`).catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);

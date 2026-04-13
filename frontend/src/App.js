@@ -24,6 +24,7 @@ import SwipeBinsPage from "@/pages/SwipeBinsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
 import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
 import BrowseProsPage from "@/pages/BrowseProsPage";
+import OnboardingGate from "@/components/OnboardingGate";
 import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
@@ -195,7 +196,7 @@ function App() {
             path="/seeker/swipe"
             element={
               <ProtectedRoute allowedRoles={["seeker"]}>
-                <SwipePage />
+                <OnboardingGate><SwipePage /></OnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -227,7 +228,7 @@ function App() {
             path="/seeker/offers"
             element={
               <ProtectedRoute allowedRoles={["seeker"]}>
-                <MyOffersPage />
+                <OnboardingGate><MyOffersPage /></OnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -325,7 +326,7 @@ function App() {
             path="/poster/candidates"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <BrowseProsPage />
+                <OnboardingGate><BrowseProsPage /></OnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -381,7 +382,7 @@ function App() {
             path="/poster/offers-sent"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <HiringSuitePage />
+                <OnboardingGate><HiringSuitePage /></OnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -391,7 +392,7 @@ function App() {
             path="/matches"
             element={
               <ProtectedRoute>
-                <MatchesPage />
+                <OnboardingGate><MatchesPage /></OnboardingGate>
               </ProtectedRoute>
             }
           />
