@@ -259,9 +259,18 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
                 </div>
               )}
               {pro.skills?.length > 0 && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/50 col-span-2">
-                  <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div><p className="text-[10px] text-muted-foreground">Skills</p><p className="text-[11px] font-medium text-foreground">{pro.skills.slice(0, 5).map(s => typeof s === "string" ? s : s?.name || "").join(", ")}</p></div>
+                <div className="col-span-2">
+                  <p className="text-[10px] text-muted-foreground mb-1.5">Clinical Skills</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pro.skills.slice(0, 4).map((s, i) => (
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                        {typeof s === "string" ? s : s?.name || ""}
+                      </span>
+                    ))}
+                    {pro.skills.length > 4 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">+{pro.skills.length - 4} more</span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
