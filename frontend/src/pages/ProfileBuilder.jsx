@@ -1226,6 +1226,98 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
           </CardContent>
         </Card>
 
+        {/* Work Environment Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Work Environment Preferences
+            </CardTitle>
+            <CardDescription>Help us match you with facilities that fit your style</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Schedule Stability</Label>
+                <Select value={profile.schedule_stability_importance || ""} onValueChange={(v) => updateField("schedule_stability_importance", v)}>
+                  <SelectTrigger data-testid="schedule-stability-select"><SelectValue placeholder="How important?" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low — Flexible</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High — Very important</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Overtime Preference</Label>
+                <Select value={profile.overtime_preference || ""} onValueChange={(v) => updateField("overtime_preference", v)}>
+                  <SelectTrigger data-testid="overtime-pref-select"><SelectValue placeholder="Your preference" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Avoid overtime">Avoid overtime</SelectItem>
+                    <SelectItem value="Open to overtime">Open to overtime</SelectItem>
+                    <SelectItem value="Prefer overtime">Prefer overtime</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Overtime Pressure Tolerance</Label>
+                <Select value={profile.overtime_pressure_tolerance || ""} onValueChange={(v) => updateField("overtime_pressure_tolerance", v)}>
+                  <SelectTrigger data-testid="ot-pressure-select"><SelectValue placeholder="Tolerance level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Not acceptable">Not acceptable</SelectItem>
+                    <SelectItem value="Acceptable occasionally">Acceptable occasionally</SelectItem>
+                    <SelectItem value="Comfortable with frequent overtime">Comfortable with frequent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Shift Cancellation Tolerance</Label>
+                <Select value={profile.shift_cancellation_tolerance || ""} onValueChange={(v) => updateField("shift_cancellation_tolerance", v)}>
+                  <SelectTrigger data-testid="cancel-tolerance-select"><SelectValue placeholder="Tolerance level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Not acceptable">Not acceptable</SelectItem>
+                    <SelectItem value="Acceptable occasionally">Acceptable occasionally</SelectItem>
+                    <SelectItem value="Flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Staffing Environment</Label>
+                <Select value={profile.staffing_tolerance || ""} onValueChange={(v) => updateField("staffing_tolerance", v)}>
+                  <SelectTrigger data-testid="staffing-tolerance-select"><SelectValue placeholder="Your comfort level" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Only well-staffed environments">Well-staffed only</SelectItem>
+                    <SelectItem value="Moderate flexibility">Moderate flexibility</SelectItem>
+                    <SelectItem value="Comfortable in high-acuity / short-staffed environments">Comfortable in high-acuity</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Floating Tolerance</Label>
+                <Select value={profile.floating_tolerance || ""} onValueChange={(v) => updateField("floating_tolerance", v)}>
+                  <SelectTrigger data-testid="floating-select"><SelectValue placeholder="Your preference" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Do not float">Do not float</SelectItem>
+                    <SelectItem value="Occasional floating acceptable">Occasional floating OK</SelectItem>
+                    <SelectItem value="Flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Pay Transparency Importance</Label>
+              <Select value={profile.pay_transparency_importance || ""} onValueChange={(v) => updateField("pay_transparency_importance", v)}>
+                <SelectTrigger data-testid="pay-transparency-select"><SelectValue placeholder="How important?" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Critical">Critical — Must be transparent</SelectItem>
+                  <SelectItem value="Important">Important</SelectItem>
+                  <SelectItem value="Flexible">Flexible</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Work Type & Travel */}
         <Card>
           <CardHeader>
@@ -1369,6 +1461,87 @@ const PosterProfileForm = ({ profile, updateField, specialties }) => {
                 className="pl-10"
                 placeholder="123 Main St, City, State 12345"
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Facility Work Environment */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
+            Facility Work Environment
+          </CardTitle>
+          <CardDescription>Help pros understand your work environment for better matching</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Staffing Expectation</Label>
+              <Select value={profile.staffing_expectation || ""} onValueChange={(v) => updateField("staffing_expectation", v)}>
+                <SelectTrigger data-testid="staffing-expect-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Well-staffed">Well-staffed</SelectItem>
+                  <SelectItem value="Moderate">Moderate</SelectItem>
+                  <SelectItem value="High-acuity">High-acuity</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Floating Expectation</Label>
+              <Select value={profile.floating_expectation || ""} onValueChange={(v) => updateField("floating_expectation", v)}>
+                <SelectTrigger data-testid="floating-expect-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="None">None</SelectItem>
+                  <SelectItem value="Occasional">Occasional</SelectItem>
+                  <SelectItem value="Frequent">Frequent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Schedule Structure</Label>
+              <Select value={profile.schedule_structure || ""} onValueChange={(v) => updateField("schedule_structure", v)}>
+                <SelectTrigger data-testid="schedule-struct-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Fixed">Fixed</SelectItem>
+                  <SelectItem value="Rotating">Rotating</SelectItem>
+                  <SelectItem value="Variable">Variable</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Overtime Policy</Label>
+              <Select value={profile.overtime_policy || ""} onValueChange={(v) => updateField("overtime_policy", v)}>
+                <SelectTrigger data-testid="ot-policy-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Rare/optional">Rare / Optional</SelectItem>
+                  <SelectItem value="Available">Available</SelectItem>
+                  <SelectItem value="Expected">Expected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Cancellation Policy</Label>
+              <Select value={profile.cancellation_policy || ""} onValueChange={(v) => updateField("cancellation_policy", v)}>
+                <SelectTrigger data-testid="cancel-policy-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Rare">Rare</SelectItem>
+                  <SelectItem value="Occasional">Occasional</SelectItem>
+                  <SelectItem value="Frequent">Frequent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Contract Accuracy Confidence</Label>
+              <Select value={profile.contract_accuracy_confidence || ""} onValueChange={(v) => updateField("contract_accuracy_confidence", v)}>
+                <SelectTrigger data-testid="contract-accuracy-select"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Moderate">Moderate</SelectItem>
+                  <SelectItem value="Variable">Variable</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

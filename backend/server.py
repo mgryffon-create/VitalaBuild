@@ -485,11 +485,19 @@ class SeekerProfile(BaseModel):
     profile_image: Optional[str] = None
     # Phase 2: Structured employer-facing fields
     preferred_shift: Optional[str] = None
-    availability: Optional[str] = None  # "Available Now", "Available in 2 weeks", "Available in 1 month", "Not Available"
-    travel_readiness: Optional[str] = None  # "Open to travel", "Local only", "Will relocate"
-    job_type_preference: Optional[str] = None  # "Travel Contract", "Per Diem", "Staff/Permanent", "Any"
-    experience_highlights: Optional[List[str]] = None  # 3-5 concise bullets
-    skills: Optional[List[str]] = None  # Structured skills list
+    availability: Optional[str] = None
+    travel_readiness: Optional[str] = None
+    job_type_preference: Optional[str] = None
+    experience_highlights: Optional[List[str]] = None
+    skills: Optional[List[str]] = None
+    # Phase 2: Worker protection preferences
+    schedule_stability_importance: Optional[str] = None  # Low, Medium, High
+    overtime_preference: Optional[str] = None  # Avoid overtime, Open to overtime, Prefer overtime
+    overtime_pressure_tolerance: Optional[str] = None  # Not acceptable, Acceptable occasionally, Comfortable with frequent overtime
+    shift_cancellation_tolerance: Optional[str] = None  # Not acceptable, Acceptable occasionally, Flexible
+    staffing_tolerance: Optional[str] = None  # Only well-staffed environments, Moderate flexibility, Comfortable in high-acuity / short-staffed environments
+    floating_tolerance: Optional[str] = None  # Do not float, Occasional floating acceptable, Flexible
+    pay_transparency_importance: Optional[str] = None  # Critical, Important, Flexible
 
 class PosterProfile(BaseModel):
     company_name: Optional[str] = None
@@ -497,6 +505,13 @@ class PosterProfile(BaseModel):
     company_logo: Optional[str] = None
     contact_info: Optional[Dict[str, Any]] = None
     facility_images: Optional[List[str]] = None
+    # Phase 2: Structured facility profile (required for full access)
+    staffing_expectation: Optional[str] = None  # Well-staffed, Moderate, High-acuity
+    floating_expectation: Optional[str] = None  # None, Occasional, Frequent
+    schedule_structure: Optional[str] = None  # Fixed, Rotating, Variable
+    overtime_policy: Optional[str] = None  # Rare/optional, Available, Expected
+    cancellation_policy: Optional[str] = None  # Rare, Occasional, Frequent
+    contract_accuracy_confidence: Optional[str] = None  # High, Moderate, Variable
 
 class JobPosting(BaseModel):
     title: str
@@ -4466,6 +4481,7 @@ from routes.references import router as references_router
 from routes.resume import router as resume_router
 from routes.billing import router as billing_router
 from routes.pipeline import router as pipeline_router
+from routes.matching import router as matching_router
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
 api_router.include_router(training_router)
@@ -4473,6 +4489,7 @@ api_router.include_router(references_router)
 api_router.include_router(resume_router)
 api_router.include_router(billing_router)
 api_router.include_router(pipeline_router)
+api_router.include_router(matching_router)
 
 # Include the main api_router
 app.include_router(api_router)
