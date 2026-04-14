@@ -10,17 +10,18 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: UI Layout Regression Fix (April 2025)
-- **Root cause**: `lg:flex-col` wrapper with `flex-1` on card area created dead space or overlap depending on viewport
-- **Fix**: removed flex wrapper, normal document flow with minHeight for mobile, card heights responsive to viewport
-- **Result**: all 4 action buttons (Undo, Pass, Details, Interested) fully visible and clickable at all viewports
-- **Role eligibility logic untouched**
+### Phase 2: Acceptance Flow Fix (April 2025)
+- **Root cause**: modal showed both "Accept Candidate" and disabled "Accept to message" — duplicate acceptance concepts
+- **Fix**: stage-based state machine rendering in modal footer:
+  - interested → "Accept Candidate" only
+  - matched/interviewing → "Message" + "Send Offer"
+  - offer_sent → "Message" + "Start Onboarding"
+  - hired → "Message" only
+- **No disabled "Accept to message"** button — removed entirely
+- **Single canonical flow**: Accept → Match created → pipeline synced → messaging enabled
 
-### Phase 2: Strict Role Eligibility System (April 2025)
-- Shared eligibility service, 13 canonical roles, hard-filter in ALL code paths, job + seeker role fields, migration
-
-### Phase 2: State Sync, Vault Verification, Document Validation, Compliance, Prioritization, Interaction Fix, Onboarding, Desktop Swipe, Offer Guardrails, Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
-- (See previous versions)
+### Phase 2: All Prior Features
+- UI layout fix, role eligibility, state sync, vault verification, document validation, compliance, candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, quality gates
 
 ## Test Accounts
 | Role | Email | Password | Role Category |

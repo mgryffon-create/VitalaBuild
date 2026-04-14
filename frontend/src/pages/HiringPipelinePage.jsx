@@ -595,7 +595,7 @@ const HiringPipelinePage = () => {
                   ) : (
                     cards.map((c) => (
                       <PipelineCard
-                        key={`${stage.id}_${c.id}`}
+                        key={`${stage.id}_${c.candidate_id}_${c.job_id}_${c.stage}`}
                         candidate={c}
                         onClick={handleCardClick}
                         nudgeIds={nudgeIds}
