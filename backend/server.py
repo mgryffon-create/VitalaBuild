@@ -2037,29 +2037,39 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
         {"_id": 0}
     ).to_list(500)
 
+    if not liked_swipes:
+        return []
+
+    # Batch queries to avoid N+1
+    user_ids = list(set(sw["user_id"] for sw in liked_swipes))
+    swipe_pairs = [(sw["user_id"], sw["target_id"]) for sw in liked_swipes]
+
+    users_list = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password": 0}).to_list(500)
+    user_map = {u["id"]: u for u in users_list}
+
+    profiles_list = await db.seeker_profiles.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(500)
+    profile_map = {p["user_id"]: p for p in profiles_list}
+
+    matches_list = await db.matches.find(
+        {"seeker_id": {"$in": user_ids}, "job_id": {"$in": job_ids}}, {"_id": 0}
+    ).to_list(500)
+    match_map = {(m["seeker_id"], m["job_id"]): m for m in matches_list}
+
+    offers_list = await db.employment_offers.find(
+        {"seeker_id": {"$in": user_ids}, "job_id": {"$in": job_ids}}, {"_id": 0}
+    ).to_list(500)
+    offer_map = {(o["seeker_id"], o["job_id"]): o for o in offers_list}
+
     candidates = []
     for sw in liked_swipes:
-        seeker = await db.users.find_one({"id": sw["user_id"]}, {"_id": 0, "password": 0})
+        seeker = user_map.get(sw["user_id"])
         if not seeker:
             continue
 
-        seeker_profile = await db.seeker_profiles.find_one(
-            {"user_id": sw["user_id"]}, {"_id": 0}
-        )
-
+        seeker_profile = profile_map.get(sw["user_id"])
         job = job_map.get(sw["target_id"], {})
-
-        # Check for mutual match
-        match = await db.matches.find_one(
-            {"seeker_id": sw["user_id"], "job_id": sw["target_id"]},
-            {"_id": 0}
-        )
-
-        # Check for offer
-        offer = await db.employment_offers.find_one(
-            {"seeker_id": sw["user_id"], "job_id": sw["target_id"]},
-            {"_id": 0}
-        )
+        match = match_map.get((sw["user_id"], sw["target_id"]))
+        offer = offer_map.get((sw["user_id"], sw["target_id"]))
 
         status = "pending"
         match_id = None
