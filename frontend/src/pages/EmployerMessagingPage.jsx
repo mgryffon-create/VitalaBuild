@@ -191,6 +191,7 @@ const EmployerMessagingPage = () => {
         convos.push({
           id: c.candidate_id,
           candidate_id: c.candidate_id,
+          match_id: c.match_id || null,
           job_id: c.job_id,
           name: c.seeker?.full_name || "Applicant",
           specialty: c.seeker?.specialty,
@@ -245,10 +246,15 @@ const EmployerMessagingPage = () => {
   const fetchMessages = useCallback(async () => {
     if (!selected) return;
     try {
-      const swipe = await axios.get(`${API}/matches`);
-      const match = swipe.data.find((m) => m.seeker?.id === selected.candidate_id);
-      if (match) {
-        const res = await axios.get(`${API}/matches/${match.id}/messages`);
+      // Use match_id from pipeline data if available, otherwise look up
+      let matchId = selected.match_id;
+      if (!matchId) {
+        const swipe = await axios.get(`${API}/matches`);
+        const match = swipe.data.find((m) => m.seeker?.id === selected.candidate_id);
+        matchId = match?.id;
+      }
+      if (matchId) {
+        const res = await axios.get(`${API}/matches/${matchId}/messages`);
         setMessages(res.data);
       } else {
         setMessages([]);
@@ -266,10 +272,15 @@ const EmployerMessagingPage = () => {
     if (!content || !selected) return;
     setSending(true);
     try {
-      const swipe = await axios.get(`${API}/matches`);
-      const match = swipe.data.find((m) => m.seeker?.id === selected.candidate_id);
-      if (!match) { toast.error("Accept this candidate first to start messaging"); setSending(false); return; }
-      await axios.post(`${API}/matches/${match.id}/messages`, { content });
+      // Use match_id from pipeline data if available, otherwise look up
+      let matchId = selected.match_id;
+      if (!matchId) {
+        const swipe = await axios.get(`${API}/matches`);
+        const match = swipe.data.find((m) => m.seeker?.id === selected.candidate_id);
+        matchId = match?.id;
+      }
+      if (!matchId) { toast.error("Accept this candidate first to start messaging"); setSending(false); return; }
+      await axios.post(`${API}/matches/${matchId}/messages`, { content });
       setNewMsg("");
       fetchMessages();
     } catch (err) {

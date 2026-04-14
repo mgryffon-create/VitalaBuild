@@ -209,10 +209,16 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
                     "status_label": status_label,
                 }
 
+        # Look up match record (for messaging integration)
+        match_record = await db.matches.find_one(
+            {"seeker_id": sw["user_id"], "job_id": sw["target_id"]}, {"_id": 0, "id": 1}
+        )
+
         candidates.append({
             "id": f"{sw['user_id']}_{sw['target_id']}",
             "candidate_id": sw["user_id"],
             "job_id": sw["target_id"],
+            "match_id": match_record["id"] if match_record else None,
             "stage": stage,
             "notes": notes,
             "updated_at": updated,
@@ -265,6 +271,24 @@ async def update_stage(candidate_id: str, job_id: str, update: StageUpdate, curr
         {"$set": {"stage": update.stage, "notes": update.notes or "", "updated_at": now_iso}},
         upsert=True,
     )
+
+    # When moving to "matched" or later, create a Match record (idempotent)
+    if update.stage in ("matched", "interviewing", "offer_sent", "hired"):
+        existing_match = await db.matches.find_one(
+            {"seeker_id": candidate_id, "job_id": job_id}
+        )
+        if not existing_match:
+            match_id = str(uuid.uuid4())
+            await db.matches.insert_one({
+                "id": match_id,
+                "seeker_id": candidate_id,
+                "poster_id": current_user["id"],
+                "job_id": job_id,
+                "status": "active",
+                "created_at": now_iso,
+            })
+            await log_audit(db, current_user["id"], "match_created", "match", match_id,
+                            details={"candidate_id": candidate_id, "job_id": job_id, "source": "pipeline"})
 
     # If moving to "hired", trigger billing
     if update.stage == "hired":

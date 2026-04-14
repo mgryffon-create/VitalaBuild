@@ -2232,9 +2232,17 @@ async def accept_candidate(seeker_id: str, job_id: str, current_user: dict = Dep
         "seeker_id": seeker_id,
         "poster_id": current_user["id"],
         "job_id": job_id,
+        "status": "active",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.matches.insert_one(match_data)
+
+    # Also update pipeline stage to matched
+    await db.pipeline_stages.update_one(
+        {"candidate_id": seeker_id, "employer_id": current_user["id"], "job_id": job_id},
+        {"$set": {"stage": "matched", "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
 
     return {"message": "Candidate accepted", "match_id": match_id}
 
