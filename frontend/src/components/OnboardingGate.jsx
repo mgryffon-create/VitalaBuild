@@ -71,7 +71,11 @@ const OnboardingGate = ({ children }) => {
         <CardContent className="p-6 space-y-5">
           <div className="text-center">
             <h2 className="text-lg font-bold text-foreground">Complete Your Profile</h2>
-            <p className="text-sm text-muted-foreground mt-1">Finish setting up to unlock all features</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {user?.role === "seeker"
+                ? "Add your license and role to start viewing jobs"
+                : "Finish setting up to unlock all features"}
+            </p>
           </div>
 
           {/* Progress bar */}

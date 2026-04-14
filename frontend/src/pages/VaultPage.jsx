@@ -419,7 +419,10 @@ const VaultPage = () => {
               <h3 className="font-semibold text-foreground mb-1">
                 {activeTab === "all" ? "No documents yet" : `No ${CATEGORY_META[activeTab]?.label || activeTab} documents`}
               </h3>
-              <p className="text-sm text-muted-foreground mb-4">Your documents are stored securely and shared only when you choose.</p>
+              <p className="text-sm text-muted-foreground mb-1">Your documents are stored securely and shared only when you choose.</p>
+              <p className="text-xs text-muted-foreground/70 mb-4">
+                These documents help you get hired faster — you can upload them anytime. Nothing is required to browse jobs.
+              </p>
               <Button variant="outline" onClick={openUpload}><Upload className="w-4 h-4 mr-1.5" /> Upload Your First Document</Button>
             </CardContent>
           </Card>

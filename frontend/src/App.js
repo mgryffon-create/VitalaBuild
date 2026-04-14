@@ -39,6 +39,7 @@ import HiringPipelinePage from "@/pages/HiringPipelinePage";
 import EmployerMessagingPage from "@/pages/EmployerMessagingPage";
 import EmployerOnboardingFlow from "@/pages/EmployerOnboardingFlow";
 import EmployerOnboardingGate from "@/components/EmployerOnboardingGate";
+import { SeekerOnboardingWrapper } from "@/components/SeekerWalkthrough";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -218,7 +219,7 @@ function App() {
             path="/seeker/swipe"
             element={
               <ProtectedRoute allowedRoles={["seeker"]}>
-                <OnboardingGate><SwipePage /></OnboardingGate>
+                <SeekerOnboardingWrapper><OnboardingGate><SwipePage /></OnboardingGate></SeekerOnboardingWrapper>
               </ProtectedRoute>
             }
           />
