@@ -266,6 +266,17 @@ async def update_stage(candidate_id: str, job_id: str, update: StageUpdate, curr
         raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {STAGES}")
 
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    # HARD FILTER: role eligibility before any stage advancement
+    job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    profile = await db.seeker_profiles.find_one({"user_id": candidate_id}, {"_id": 0}) or {}
+    from eligibility import check_role_eligibility
+    elig = check_role_eligibility(profile, job)
+    if not elig["eligible"]:
+        raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+
     await db.pipeline_stages.update_one(
         {"candidate_id": candidate_id, "employer_id": current_user["id"], "job_id": job_id},
         {"$set": {"stage": update.stage, "notes": update.notes or "", "updated_at": now_iso}},

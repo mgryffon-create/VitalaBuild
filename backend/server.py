@@ -18,6 +18,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES
 from audit_log import log_audit
+from eligibility import check_role_eligibility, get_seeker_role, get_accepted_roles_for_job, normalize_role_from_specialty, CANONICAL_ROLES
 from training_service import create_training_course, assign_training, get_compliance_summary
 
 # SendGrid and Twilio imports (Phase 1: Twilio disabled, SendGrid mocked)
@@ -554,6 +555,8 @@ class JobPosting(BaseModel):
     profile_sufficient_for_initial_review: Optional[bool] = True
     required_additional_fields: Optional[str] = None
     compliance_requirements: Optional[List[str]] = None  # job-specific requirements
+    primary_role_category: Optional[str] = None  # Canonical role: CNA, LPN, RN, NP, etc.
+    accepted_role_categories: Optional[List[str]] = None  # Roles allowed to apply (defaults to primary only)
 
 class JobPostingResponse(BaseModel):
     id: str
@@ -590,6 +593,8 @@ class JobPostingResponse(BaseModel):
     profile_sufficient_for_initial_review: Optional[bool] = True
     required_additional_fields: Optional[str] = None
     compliance_requirements: Optional[List[str]] = None
+    primary_role_category: Optional[str] = None
+    accepted_role_categories: Optional[List[str]] = None
 
 class SwipeAction(BaseModel):
     target_id: str  # job_id for seekers, seeker_id for posters
@@ -1062,6 +1067,13 @@ def calculate_match(seeker_profile: dict, job: dict) -> dict:
     }
 
 # ==================== AUTH ROUTES (moved to routes/auth.py) ====================
+
+# ==================== CANONICAL ROLE TAXONOMY ====================
+
+@api_router.get("/roles/canonical")
+async def get_canonical_roles():
+    """Get canonical role categories for dropdowns"""
+    return {"roles": CANONICAL_ROLES}
 
 # ==================== PROFILE ROUTES ====================
 
@@ -1536,7 +1548,15 @@ async def create_job(job: JobPosting, current_user: dict = Depends(get_current_u
     job_data["is_active"] = True
     job_data["company_name"] = poster_profile.get("company_name") if poster_profile else None
     job_data["company_logo"] = poster_profile.get("company_logo") if poster_profile else None
-    
+
+    # Auto-populate role category from specialty if not explicitly set
+    if not job_data.get("primary_role_category"):
+        derived = normalize_role_from_specialty(job_data.get("specialty", ""))
+        if derived:
+            job_data["primary_role_category"] = derived
+    if not job_data.get("accepted_role_categories") and job_data.get("primary_role_category"):
+        job_data["accepted_role_categories"] = [job_data["primary_role_category"]]
+
     await db.jobs.insert_one(job_data)
     
     return JobPostingResponse(**job_data)
@@ -1593,11 +1613,18 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     # Get active jobs not yet swiped
     jobs = await db.jobs.find({"id": {"$nin": swiped_ids}, "is_active": True}, {"_id": 0}).to_list(100)
     
-    # Calculate tiered match for each job
+    # HARD FILTER: role eligibility — exclude jobs seeker is not qualified for
+    eligible_jobs = []
+    for job in jobs:
+        elig = check_role_eligibility(seeker_profile, job)
+        if elig["eligible"]:
+            eligible_jobs.append(job)
+
+    # Calculate tiered match for each eligible job
     strong = []
     possible = []
     hidden = []
-    for job in jobs:
+    for job in eligible_jobs:
         result = calculate_match(seeker_profile, job)
         job["compatibility_score"] = result["compatibility_score"]
         job["match_tier"] = result["match_tier"]
@@ -1653,6 +1680,10 @@ async def get_swipeable_seekers(job_id: str, current_user: dict = Depends(get_cu
         user = await db.users.find_one({"id": seeker_id}, {"_id": 0, "password": 0})
         profile = await db.seeker_profiles.find_one({"user_id": seeker_id}, {"_id": 0})
         if user and profile:
+            # HARD FILTER: role eligibility
+            elig = check_role_eligibility(profile, job)
+            if not elig["eligible"]:
+                continue
             seeker_data = {**user, **profile}
             seeker_data["compatibility_score"] = calculate_compatibility(profile, job)
             seekers.append(seeker_data)
@@ -1663,6 +1694,23 @@ async def get_swipeable_seekers(job_id: str, current_user: dict = Depends(get_cu
 @api_router.post("/swipe")
 async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """Record a swipe action"""
+    # HARD FILTER: check role eligibility on like/interested actions
+    if action.action == "like":
+        if current_user["role"] == "seeker":
+            job = await db.jobs.find_one({"id": action.target_id}, {"_id": 0})
+            if job:
+                profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+                elig = check_role_eligibility(profile, job)
+                if not elig["eligible"]:
+                    raise HTTPException(status_code=403, detail=elig["reason"] or "Not eligible for this role")
+        elif current_user["role"] == "poster" and job_id:
+            job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
+            profile = await db.seeker_profiles.find_one({"user_id": action.target_id}, {"_id": 0}) or {}
+            if job:
+                elig = check_role_eligibility(profile, job)
+                if not elig["eligible"]:
+                    raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+
     swipe_data = {
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
@@ -1974,12 +2022,16 @@ async def browse_pros(
         )
         vault_count = await db.vault_documents.count_documents({"candidate_id": seeker["id"]})
 
-        # Score against all active jobs — take best match
+        # Score against all active jobs — take best ELIGIBLE match
         best_score = 0
         best_job_id = None
         best_job_title = ""
         best_job_data = None
         for job in employer_jobs_full:
+            # HARD FILTER: role eligibility
+            elig = check_role_eligibility(profile, job)
+            if not elig["eligible"]:
+                continue
             score = calculate_compatibility(profile, job)
             if score > best_score:
                 best_score = score
@@ -2147,6 +2199,12 @@ async def employer_express_interest(body: EmployerInterestBody, current_user: di
     if not seeker:
         raise HTTPException(status_code=404, detail="Pro not found")
 
+    # HARD FILTER: role eligibility
+    profile = await db.seeker_profiles.find_one({"user_id": body.seeker_id}, {"_id": 0}) or {}
+    elig = check_role_eligibility(profile, job)
+    if not elig["eligible"]:
+        raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+
     # Check for duplicate
     existing = await db.swipes.find_one({
         "user_id": body.seeker_id, "target_id": body.job_id, "action": "like"
@@ -2219,6 +2277,12 @@ async def accept_candidate(seeker_id: str, job_id: str, current_user: dict = Dep
     swipe = await db.swipes.find_one({"user_id": seeker_id, "target_id": job_id, "action": "like"})
     if not swipe:
         raise HTTPException(status_code=404, detail="Candidate has not expressed interest in this job")
+
+    # HARD FILTER: role eligibility
+    profile = await db.seeker_profiles.find_one({"user_id": seeker_id}, {"_id": 0}) or {}
+    elig = check_role_eligibility(profile, job)
+    if not elig["eligible"]:
+        raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
 
     # Check if match already exists
     existing = await db.matches.find_one({"seeker_id": seeker_id, "job_id": job_id})
@@ -2343,7 +2407,15 @@ async def reconsider_swipe(swipe_id: str, new_action: str, current_user: dict = 
     return {"message": "Swipe updated", **match_result}
 
 async def create_match(seeker_id: str, job_id: str, poster_id: str):
-    """Create a match between seeker and job"""
+    """Create a match between seeker and job — with role eligibility check"""
+    # HARD FILTER: role eligibility
+    profile = await db.seeker_profiles.find_one({"user_id": seeker_id}, {"_id": 0}) or {}
+    job = await db.jobs.find_one({"id": job_id}, {"_id": 0}) or {}
+    elig = check_role_eligibility(profile, job)
+    if not elig["eligible"]:
+        logging.getLogger(__name__).warning("Match blocked by role eligibility: seeker=%s job=%s reason=%s", seeker_id, job_id, elig["log_reason"])
+        return {"matched": False, "reason": elig["reason"]}
+
     # Check if match already exists
     existing = await db.matches.find_one({
         "seeker_id": seeker_id,
@@ -3799,7 +3871,13 @@ async def create_employment_offer(offer: EmploymentOffer, current_user: dict = D
     job = await db.jobs.find_one({"id": offer.job_id, "poster_id": current_user["id"]})
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
+    # HARD FILTER: role eligibility
+    profile = await db.seeker_profiles.find_one({"user_id": offer.seeker_id}, {"_id": 0}) or {}
+    elig = check_role_eligibility(profile, job)
+    if not elig["eligible"]:
+        raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+
     offer_id = str(uuid.uuid4())
     offer_data = {
         "id": offer_id,

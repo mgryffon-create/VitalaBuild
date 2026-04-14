@@ -32,6 +32,27 @@ const SECTIONS = [
 ];
 
 const JOB_TYPES = ["Travel Contract", "Per Diem", "Staff/Permanent", "PRN", "Local Contract"];
+
+const CANONICAL_ROLES = [
+  "CNA", "LPN", "RN", "NP", "CRNA", "PA",
+  "RT", "OT", "PT", "ST", "MEDICAL_ASSISTANT", "PHLEBOTOMIST", "RADIOLOGY_TECH",
+];
+
+const ROLE_LABELS = {
+  CNA: "CNA / Nurse Aide / PCT",
+  LPN: "LPN / LVN",
+  RN: "RN / Registered Nurse",
+  NP: "NP / Nurse Practitioner",
+  CRNA: "CRNA / Nurse Anesthetist",
+  PA: "PA / Physician Assistant",
+  RT: "Respiratory Therapist",
+  OT: "Occupational Therapist",
+  PT: "Physical Therapist",
+  ST: "Speech-Language Pathologist",
+  MEDICAL_ASSISTANT: "Medical Assistant",
+  PHLEBOTOMIST: "Phlebotomist",
+  RADIOLOGY_TECH: "Radiology Technologist",
+};
 const DURATIONS = ["4 weeks", "8 weeks", "13 weeks", "26 weeks", "52 weeks", "Permanent", "Ongoing"];
 const SHIFT_TYPES = ["Day Shift (7a-7p)", "Night Shift (7p-7a)", "Day Shift (8 hr)", "Evening Shift", "Rotating", "Flexible"];
 const STIPEND_OPTIONS = ["Housing included", "Housing stipend", "M&IE stipend", "Travel reimbursement", "Not included"];
@@ -140,6 +161,7 @@ const JobFormPage = () => {
     base_rate: "", guaranteed_hours: "36", weekly_stipend: "", overtime_rate: "",
     benefits: [], time_off_policy: "", requirements: [], certifications_required: [],
     experience_required: "", specialty: "", shift_type: "", start_date: "", weekly_hours: "",
+    primary_role_category: "", accepted_role_categories: [],
     application_workflow_type: "in_platform_only", external_application_url: "",
     external_application_stage: "", profile_sufficient_for_initial_review: true, required_additional_fields: "",
     compliance_requirements: [],
@@ -184,6 +206,7 @@ const JobFormPage = () => {
   const requiredFields = {
     title: !isWeakTitle(job.title),
     specialty: !!job.specialty,
+    role_category: !!job.primary_role_category,
     location: !!job.location,
     description: descriptionValid,
     shift_type: !!job.shift_type,
@@ -204,7 +227,7 @@ const JobFormPage = () => {
 
   // Section-level errors
   const sectionErrors = new Set();
-  if (!requiredFields.title || !requiredFields.specialty || !requiredFields.location || !requiredFields.description) sectionErrors.add("basic");
+  if (!requiredFields.title || !requiredFields.specialty || !requiredFields.role_category || !requiredFields.location || !requiredFields.description) sectionErrors.add("basic");
   if (!requiredFields.shift_type || !requiredFields.start_date || (isTravelContract && !requiredFields.duration)) sectionErrors.add("schedule");
   if (!requiredFields.pay || !requiredFields.pay_confirmed || (isTravelContract && !requiredFields.stipend)) sectionErrors.add("compensation");
 
@@ -334,6 +357,27 @@ const JobFormPage = () => {
                     testId="job-location"
                     placeholder="Search city (e.g., Los Angeles, CA)"
                   />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Role Category *</Label>
+                  <Select value={job.primary_role_category} onValueChange={(v) => setJob((p) => ({ ...p, primary_role_category: v, accepted_role_categories: p.accepted_role_categories.length === 0 || (p.accepted_role_categories.length === 1 && p.accepted_role_categories[0] === p.primary_role_category) ? [v] : p.accepted_role_categories }))}>
+                    <SelectTrigger data-testid="job-role-select"><SelectValue placeholder="Select role category" /></SelectTrigger>
+                    <SelectContent>{CANONICAL_ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Also Accept (optional)</Label>
+                  <Select value="" onValueChange={(v) => { if (v && !job.accepted_role_categories.includes(v)) setJob((p) => ({ ...p, accepted_role_categories: [...p.accepted_role_categories, v] })); }}>
+                    <SelectTrigger data-testid="job-accepted-roles-select"><SelectValue placeholder="Add alternate role" /></SelectTrigger>
+                    <SelectContent>{CANONICAL_ROLES.filter((r) => r !== job.primary_role_category && !job.accepted_role_categories.includes(r)).map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>)}</SelectContent>
+                  </Select>
+                  {job.accepted_role_categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">{job.accepted_role_categories.map((r) => (
+                      <Badge key={r} variant="secondary" className="text-xs">{ROLE_LABELS[r] || r} {r !== job.primary_role_category && <button type="button" onClick={() => setJob((p) => ({ ...p, accepted_role_categories: p.accepted_role_categories.filter((x) => x !== r) }))} className="ml-1 text-destructive"><X className="w-3 h-3" /></button>}</Badge>
+                    ))}</div>
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
