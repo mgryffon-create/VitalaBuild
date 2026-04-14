@@ -1,0 +1,155 @@
+{
+  "summary": "Employer Candidate Interaction Fix testing complete. All features verified: (1) Clicking pipeline card opens profile modal (NOT auto-advancing), (2) Modal shows candidate details with stage-appropriate actions, (3) Confirmation dialog required before stage advancement, (4) Messaging gated for unmatched candidates with 'Accept to message' disabled button and blocking UI on messaging page, (5) Matched candidates have active Message button. Fixed backend bug in /api/pipeline/nudges endpoint (MongoDB projection error).",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": [
+    "Backend: GET /api/pipeline/candidates returns 200 with all 5 stages",
+    "Backend: GET /api/pipeline/nudges returns 200 (after fix)",
+    "Backend: PUT /api/pipeline/candidates/{id}/{job_id}/stage works for valid stages",
+    "Backend: PUT /api/pipeline/candidates/{id}/{job_id}/stage returns 400 for invalid stage",
+    "Backend: GET /api/pipeline/templates returns list of 4 templates",
+    "Backend: POST /api/pipeline/templates/render works correctly",
+    "Backend: GET /api/pipeline/candidates/{id}/context returns candidate info",
+    "Backend: Seeker cannot access pipeline endpoints (403)",
+    "Frontend: Pipeline page loads with 4 Kanban columns (Applicants, Matches, Offers, Onboarding)",
+    "Frontend: Clicking pipeline card opens CandidateProfileModal (NOT auto-advancing)",
+    "Frontend: Modal shows name, specialty, experience, shift, locations, skills, documents, applied-for job",
+    "Frontend: Modal shows 'Accept to message' (disabled) for Applicants stage",
+    "Frontend: Modal shows 'Accept Candidate' button for Applicants stage",
+    "Frontend: Clicking 'Accept Candidate' opens AlertDialog confirmation",
+    "Frontend: Confirmation dialog has Cancel and Confirm buttons",
+    "Frontend: Cancel button closes dialog without action",
+    "Frontend: Confirm button moves candidate to Matches with success toast",
+    "Frontend: Modal shows active 'Message' button for Matches stage",
+    "Frontend: Modal shows 'Send Offer' button for Matches stage",
+    "Frontend: Modal shows 'Start Onboarding' button for Offers stage",
+    "Frontend: Messaging page shows 'Accept this candidate to start messaging' for unmatched candidates",
+    "Frontend: Messaging input hidden for unmatched candidates (shows blocking text instead)",
+    "Frontend: Messaging templates hidden for unmatched candidates (0 templates visible)",
+    "Frontend: 'Go to Hiring Flow' button present for unmatched candidates"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_pipeline_messaging.py",
+    "/app/test_reports/pytest/pipeline_interaction_results.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Fixed MongoDB projection error in /api/pipeline/nudges - was mixing inclusion and exclusion projections",
+    "HiringPipelinePage correctly implements click-to-open-modal pattern (no auto-progression)",
+    "CandidateProfileModal correctly gates messaging based on stage (canMessage = stage !== 'interested')",
+    "AlertDialog confirmation required before any stage advancement",
+    "EmployerMessagingPage correctly shows blocking UI for 'interested' stage candidates",
+    "All data-testids properly implemented for testing"
+  ],
+
+  "updated_files": [
+    "/app/backend/routes/pipeline.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (25/25 tests passed)",
+    "frontend": "100% (24/24 tests passed)"
+  },
+
+  "test_credentials": {
+    "employer": "employer_test@vitalamatch.com / test123",
+    "seeker": "seeker_test@vitalamatch.com / test123"
+  },
+
+  "seed_data_creation": "Jane Smith moved from Applicants to Matches during testing",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Employer Candidate Interaction Fix fully verified. Key changes: (1) PipelineCard onClick opens CandidateProfileModal instead of auto-advancing, (2) Modal actions based on stage: Applicants get 'Accept to message' (disabled) + 'Accept Candidate'; Matches get 'Message' + 'Send Offer'; Offers get 'Message' + 'Start Onboarding', (3) AlertDialog confirmation required before stage changes, (4) EmployerMessagingPage blocks messaging for 'interested' stage with UserCheck empty state and disabled input. Fixed backend bug: /api/pipeline/nudges had MongoDB projection error (mixing inclusion/exclusion). Test data: Jane Smith was moved to Matches during testing.",
+
+  "features_verified": {
+    "pipeline_card_click_opens_modal": {
+      "expected": "Click card opens modal, NOT auto-advance",
+      "actual": "Modal opens with candidate details",
+      "status": "PASS"
+    },
+    "modal_content_for_applicants": {
+      "name": "Jane Smith",
+      "stage_label": "Applicant",
+      "specialty": "Registered Nurse (RN) - Med-Surg",
+      "experience": "3 years",
+      "shift": "Day Shift",
+      "locations": "FL, GA, Los Angeles, CA",
+      "skills": "BLS, ACLS, Telemetry, Patient assessment, Wound care",
+      "documents": "16 documents",
+      "applied_for": "TEST_Swipe_Structured_Pay_ER_Nurse, Chicago, IL",
+      "status": "PASS"
+    },
+    "modal_actions_applicants_stage": {
+      "message_btn": "'Accept to message' (disabled)",
+      "advance_btn": "'Accept Candidate'",
+      "status": "PASS"
+    },
+    "modal_actions_matched_stage": {
+      "message_btn": "'Message' (enabled)",
+      "advance_btn": "'Send Offer'",
+      "status": "PASS"
+    },
+    "modal_actions_offer_sent_stage": {
+      "message_btn": "'Message' (enabled)",
+      "advance_btn": "'Start Onboarding'",
+      "offer_status": "Displayed (e.g., 'rejected')",
+      "status": "PASS"
+    },
+    "confirmation_dialog": {
+      "opens_on_advance_click": true,
+      "has_cancel_button": true,
+      "has_confirm_button": true,
+      "cancel_closes_dialog": true,
+      "confirm_executes_action": true,
+      "shows_success_toast": "'Candidate moved — Moved to Matches'",
+      "status": "PASS"
+    },
+    "messaging_page_unmatched_gating": {
+      "blocking_message": "'Accept this candidate to start messaging'",
+      "subtitle": "'Move them to Matches from the Hiring Flow first'",
+      "go_to_pipeline_btn": "Present",
+      "input_hidden": true,
+      "templates_hidden": true,
+      "bottom_text": "'Accept this candidate from the Hiring Flow to start messaging'",
+      "status": "PASS"
+    },
+    "kanban_board": {
+      "columns": 4,
+      "applicants_count": 20,
+      "matches_count": 1,
+      "offers_count": 3,
+      "onboarding_count": 0,
+      "status": "PASS"
+    }
+  },
+
+  "bug_fixed": {
+    "endpoint": "/api/pipeline/nudges",
+    "error": "pymongo.errors.OperationFailure: Cannot do inclusion on field full_name in exclusion projection",
+    "root_cause": "MongoDB query was mixing inclusion (full_name: 1) with exclusion (_id: 0, password: 0) projections",
+    "fix": "Changed projection to exclusion only: {_id: 0, password: 0}",
+    "file": "/app/backend/routes/pipeline.py",
+    "line": 216
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

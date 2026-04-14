@@ -4,17 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Users, Briefcase, CheckCircle, Clock, MessageCircle, Send,
-  ArrowRight, ShieldCheck, MapPin, Star, ChevronRight, BarChart,
-  AlertTriangle, Bell, Zap
+  ShieldCheck, MapPin, Star, ChevronRight, BarChart,
+  AlertTriangle, Bell, Award, XCircle, Eye, UserCheck, Loader2,
 } from "lucide-react";
 
-// UI stages — "interviewing" is hidden, merged visually into "Matches"
+// UI stages
 const STAGES = [
   { id: "interested", label: "Applicants", color: "border-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20", badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
   { id: "matched", label: "Matches", subtitle: "Accepted + Interviewing", color: "border-green-400", bg: "bg-green-50 dark:bg-green-950/20", badge: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300", merges: ["interviewing"] },
@@ -22,14 +29,20 @@ const STAGES = [
   { id: "hired", label: "Onboarding", color: "border-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
 ];
 
-// Backend stages still flow through "interviewing" — UI skips it visually
 const NEXT_STAGE = { interested: "matched", matched: "offer_sent", offer_sent: "hired" };
-const NEXT_LABEL = { interested: "Match", matched: "Send Offer", offer_sent: "Onboard" };
+const NEXT_LABEL = { interested: "Accept Candidate", matched: "Send Offer", offer_sent: "Start Onboarding" };
 
-// Sub-stage badges shown on cards within the Matches column
 const SUB_BADGE = {
   matched: { label: "Accepted", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
   interviewing: { label: "Interviewing", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+};
+
+const STAGE_LABEL_MAP = {
+  interested: "Applicant",
+  matched: "Match",
+  interviewing: "Match",
+  offer_sent: "Offer Sent",
+  hired: "Onboarding",
 };
 
 const NudgeBanner = ({ nudges, onAction }) => {
@@ -55,10 +68,7 @@ const NudgeBanner = ({ nudges, onAction }) => {
             onClick={() => onAction(n)}
             data-testid={`nudge-action-${n.candidate_id}`}
           >
-            {n.action === "match" && "Review"}
-            {n.action === "message" && "Message"}
-            {n.action === "advance" && "Advance"}
-            {n.action === "follow_up" && "Follow Up"}
+            Review
           </Button>
         </div>
       ))}
@@ -66,7 +76,8 @@ const NudgeBanner = ({ nudges, onAction }) => {
   );
 };
 
-const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds, showSubBadge }) => {
+/* ── Pipeline Card — click opens profile modal, NO auto-progression ── */
+const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
   const c = candidate;
   const isNudged = nudgeIds.has(c.candidate_id);
   const sub = showSubBadge ? SUB_BADGE[c.stage] : null;
@@ -74,6 +85,7 @@ const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds, showSubBadge }) 
     <Card
       data-testid={`pipeline-card-${c.id}`}
       className={`mb-2 transition-colors cursor-pointer ${isNudged ? "border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800" : "hover:border-primary/30"}`}
+      onClick={() => onClick(c)}
     >
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
@@ -101,28 +113,154 @@ const PipelineCard = ({ candidate, onMove, onMessage, nudgeIds, showSubBadge }) 
               </p>
             )}
           </div>
-        </div>
-        <div className="flex items-center gap-1 mt-2">
-          <Button variant="ghost" size="sm" className="h-6 text-[10px] flex-1 px-1" onClick={(e) => { e.stopPropagation(); onMessage(c); }} data-testid={`msg-${c.id}`}>
-            <MessageCircle className="w-3 h-3 mr-0.5" /> Message
-          </Button>
-          {NEXT_STAGE[c.stage] && (
-            <Button size="sm" className="h-6 text-[10px] flex-1 px-1" onClick={(e) => { e.stopPropagation(); onMove(c, NEXT_STAGE[c.stage]); }} data-testid={`advance-${c.id}`}>
-              {NEXT_LABEL[c.stage]} <ChevronRight className="w-3 h-3 ml-0.5" />
-            </Button>
-          )}
+          <Eye className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-1" />
         </div>
       </CardContent>
     </Card>
   );
 };
 
+/* ── Candidate Profile Modal ── */
+const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoading }) => {
+  const c = candidate;
+  if (!c) return null;
+
+  const stage = c.stage;
+  const canMessage = stage !== "interested";
+  const nextStage = NEXT_STAGE[stage];
+  const nextLabel = NEXT_LABEL[stage];
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto" data-testid="candidate-profile-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+              {c.seeker?.full_name?.charAt(0) || "?"}
+            </div>
+            <div>
+              <span className="block">{c.seeker?.full_name || "Candidate"}</span>
+              <span className="text-xs font-normal text-muted-foreground">{STAGE_LABEL_MAP[stage] || stage}</span>
+            </div>
+          </DialogTitle>
+          <DialogDescription className="sr-only">Candidate profile and actions</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Profile details */}
+          <div className="space-y-2">
+            {c.seeker?.specialty && (
+              <div className="flex items-center gap-2 text-sm">
+                <Briefcase className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span>{c.seeker.specialty}</span>
+              </div>
+            )}
+            {c.seeker?.years_experience > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Star className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span>{c.seeker.years_experience} years experience</span>
+              </div>
+            )}
+            {c.seeker?.preferred_shift && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span>{c.seeker.preferred_shift}</span>
+              </div>
+            )}
+            {c.seeker?.preferred_locations?.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span>{c.seeker.preferred_locations.slice(0, 3).join(", ")}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Skills */}
+          {c.seeker?.skills?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Skills</p>
+              <div className="flex flex-wrap gap-1">
+                {c.seeker.skills.slice(0, 8).map((s, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    {typeof s === 'string' ? s : s?.skill || s?.name || ''}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Trust signals */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {c.has_verified_refs && (
+              <span className="flex items-center gap-1 text-green-600">
+                <ShieldCheck className="w-3.5 h-3.5" /> Verified references
+              </span>
+            )}
+            {c.vault_docs > 0 && (
+              <span className="flex items-center gap-1">
+                <Award className="w-3.5 h-3.5" /> {c.vault_docs} documents
+              </span>
+            )}
+          </div>
+
+          {/* Job context */}
+          {c.job?.title && (
+            <div className="p-3 rounded-lg bg-muted/50">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Applied for</p>
+              <p className="text-sm font-medium">{c.job.title}</p>
+              {c.job.location && <p className="text-xs text-muted-foreground">{c.job.location}</p>}
+            </div>
+          )}
+
+          {/* Offer status (if in offer stage) */}
+          {c.offer_status && (
+            <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800">
+              <p className="text-xs text-purple-600 font-medium">Offer Status: {c.offer_status}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {/* Messaging — gated by stage */}
+          <Button
+            data-testid="modal-message-btn"
+            variant="outline"
+            className="flex-1"
+            disabled={!canMessage || actionLoading}
+            onClick={() => onAction("message", c)}
+          >
+            <MessageCircle className="w-4 h-4 mr-1.5" />
+            {canMessage ? "Message" : "Accept to message"}
+          </Button>
+
+          {/* Stage advancement */}
+          {nextStage && (
+            <Button
+              data-testid="modal-advance-btn"
+              className="flex-1"
+              disabled={actionLoading}
+              onClick={() => onAction("advance", c)}
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
+              {nextLabel}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/* ── Main Page ── */
 const HiringPipelinePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [data, setData] = useState({ candidates: {}, stats: {} });
   const [nudges, setNudges] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null); // {type, candidate, stage}
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchPipeline = useCallback(async () => {
     try {
@@ -141,26 +279,66 @@ const HiringPipelinePage = () => {
 
   useEffect(() => { fetchPipeline(); }, [fetchPipeline]);
 
-  const moveCandidate = async (candidate, newStage) => {
-    try {
-      await axios.put(`${API}/pipeline/candidates/${candidate.candidate_id}/${candidate.job_id}/stage`, { stage: newStage });
-      toast.success(`Moved to ${newStage.replace(/_/g, " ")}`);
-      fetchPipeline();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to move");
+  const handleCardClick = (candidate) => {
+    setSelectedCandidate(candidate);
+  };
+
+  const handleModalAction = (action, candidate) => {
+    if (action === "message") {
+      const stage = candidate.stage;
+      if (stage === "interested") {
+        toast.error("Accept this candidate first to start messaging");
+        return;
+      }
+      setSelectedCandidate(null);
+      navigate(`/poster/messages?candidate=${candidate.candidate_id}`);
+    } else if (action === "advance") {
+      const nextStage = NEXT_STAGE[candidate.stage];
+      if (!nextStage) return;
+      setConfirmAction({ type: "advance", candidate, stage: nextStage });
     }
   };
 
-  const openMessage = (candidate) => {
-    navigate(`/poster/messages?candidate=${candidate.candidate_id}`);
+  const executeAdvance = async () => {
+    if (!confirmAction) return;
+    const { candidate, stage } = confirmAction;
+    setActionLoading(true);
+    try {
+      await axios.put(
+        `${API}/pipeline/candidates/${candidate.candidate_id}/${candidate.job_id}/stage`,
+        { stage }
+      );
+      const label = NEXT_LABEL[candidate.stage] || stage;
+      toast.success(`Candidate moved — ${label.replace("Accept Candidate", "Moved to Matches").replace("Send Offer", "Moved to Offers").replace("Start Onboarding", "Moved to Onboarding")}`);
+      setConfirmAction(null);
+      setSelectedCandidate(null);
+      fetchPipeline();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (typeof detail === "string") {
+        toast.error(detail);
+      } else if (err.response?.status === 409) {
+        toast.error("Conflict — this candidate may have already been moved");
+      } else if (err.response?.status === 404) {
+        toast.error("Candidate or job not found");
+      } else {
+        toast.error("Connection issue — please try again");
+      }
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleNudgeAction = (nudge) => {
-    if (nudge.action === "message" || nudge.action === "follow_up") {
-      navigate(`/poster/messages?candidate=${nudge.candidate_id}`);
+    // Find the candidate in the pipeline data and open their profile
+    const allCandidates = Object.values(data.candidates || {}).flat();
+    const found = allCandidates.find(
+      (c) => c.candidate_id === nudge.candidate_id && c.job_id === nudge.job_id
+    );
+    if (found) {
+      setSelectedCandidate(found);
     } else {
-      // For match/advance, navigate to pipeline (already here) — highlight the card
-      toast.info(`Review ${nudge.candidate_name} in the ${nudge.stage} column`);
+      navigate(`/poster/messages?candidate=${nudge.candidate_id}`);
     }
   };
 
@@ -171,7 +349,7 @@ const HiringPipelinePage = () => {
   const stats = data.stats || {};
   const nudgeIds = new Set(nudges.map((n) => n.candidate_id));
 
-  // Merge backend stage data: "interviewing" cards fold into the "matched" UI column
+  // Merge backend stage data
   const mergedCandidates = {};
   for (const stage of STAGES) {
     const base = data.candidates?.[stage.id] || [];
@@ -181,7 +359,6 @@ const HiringPipelinePage = () => {
     mergedCandidates[stage.id] = merged;
   }
 
-  // Merged stats for the pills
   const mergedStats = {};
   for (const stage of STAGES) {
     const base = stats[stage.id] || 0;
@@ -203,10 +380,8 @@ const HiringPipelinePage = () => {
           </div>
         </div>
 
-        {/* Nudge Banner */}
         <NudgeBanner nudges={nudges} onAction={handleNudgeAction} />
 
-        {/* Stats bar */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STAGES.map((s) => (
             <div key={s.id} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${s.badge}`}>
@@ -241,7 +416,13 @@ const HiringPipelinePage = () => {
                     </div>
                   ) : (
                     cards.map((c) => (
-                      <PipelineCard key={c.id} candidate={c} onMove={moveCandidate} onMessage={openMessage} nudgeIds={nudgeIds} showSubBadge={!!stage.merges} />
+                      <PipelineCard
+                        key={c.id}
+                        candidate={c}
+                        onClick={handleCardClick}
+                        nudgeIds={nudgeIds}
+                        showSubBadge={!!stage.merges}
+                      />
                     ))
                   )}
                 </ScrollArea>
@@ -250,6 +431,40 @@ const HiringPipelinePage = () => {
           })}
         </div>
       </div>
+
+      {/* Candidate Profile Modal */}
+      <CandidateProfileModal
+        candidate={selectedCandidate}
+        open={!!selectedCandidate}
+        onClose={() => setSelectedCandidate(null)}
+        onAction={handleModalAction}
+        actionLoading={actionLoading}
+      />
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmAction} onOpenChange={() => !actionLoading && setConfirmAction(null)}>
+        <AlertDialogContent data-testid="confirm-advance-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.stage === "matched" && `Move ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} to Matches? They'll become an accepted candidate for this role.`}
+              {confirmAction?.stage === "offer_sent" && `Move ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} to Offers? You'll need to create an offer from the Offers page.`}
+              {confirmAction?.stage === "hired" && `Start onboarding for ${confirmAction?.candidate?.seeker?.full_name || "this candidate"}? This will move them to the Onboarding stage.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading} data-testid="confirm-cancel-btn">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeAdvance}
+              disabled={actionLoading}
+              data-testid="confirm-proceed-btn"
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+              {actionLoading ? "Processing..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

@@ -12,7 +12,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import {
   MessageCircle, Send, ArrowLeft, ChevronRight, Shield, MapPin,
   Clock, Award, Briefcase, FileText, User, ExternalLink, PanelRightOpen,
-  PanelRightClose, Star, BookOpen, ShieldCheck, Bell
+  PanelRightClose, Star, BookOpen, ShieldCheck, Bell, UserCheck,
 } from "lucide-react";
 
 const STAGE_BADGE = {
@@ -268,12 +268,18 @@ const EmployerMessagingPage = () => {
     try {
       const swipe = await axios.get(`${API}/matches`);
       const match = swipe.data.find((m) => m.seeker?.id === selected.candidate_id);
-      if (!match) { toast.error("No match found — accept candidate first"); setSending(false); return; }
+      if (!match) { toast.error("Accept this candidate first to start messaging"); setSending(false); return; }
       await axios.post(`${API}/matches/${match.id}/messages`, { content });
       setNewMsg("");
       fetchMessages();
-    } catch {
-      toast.error("Failed to send message");
+    } catch (err) {
+      if (err.response?.status === 404) {
+        toast.error("Candidate not found — they may have been removed");
+      } else if (err.response?.status === 403) {
+        toast.error("You're not authorized to message this candidate");
+      } else {
+        toast.error("Connection issue — please try again");
+      }
     } finally {
       setSending(false);
     }
@@ -416,7 +422,16 @@ const EmployerMessagingPage = () => {
 
               {/* Messages */}
               <ScrollArea className="flex-1 p-3">
-                {messages.length === 0 ? (
+                {selected.stage === "interested" ? (
+                  <div className="text-center py-12">
+                    <UserCheck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+                    <p className="text-sm font-medium text-foreground mb-1">Accept this candidate to start messaging</p>
+                    <p className="text-xs text-muted-foreground mb-4">Move them to Matches from the Hiring Flow first</p>
+                    <Button size="sm" variant="outline" onClick={() => navigate("/poster/pipeline")} data-testid="go-to-pipeline-btn">
+                      Go to Hiring Flow
+                    </Button>
+                  </div>
+                ) : messages.length === 0 ? (
                   <div className="text-center py-8"><MessageCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" /><p className="text-xs text-muted-foreground">Start the conversation</p></div>
                 ) : (
                   <div className="space-y-2">
@@ -436,6 +451,7 @@ const EmployerMessagingPage = () => {
               </ScrollArea>
 
               {/* Quick actions */}
+              {selected.stage !== "interested" && (
               <div className="px-3 py-1.5 border-t flex gap-1 overflow-x-auto">
                 {TEMPLATES.map((t) => (
                   <button key={t.key} onClick={() => applyTemplate(t.key)} data-testid={`tpl-${t.key}`} className="px-2 py-1 rounded-full bg-muted text-[9px] font-medium text-muted-foreground hover:bg-muted/80 whitespace-nowrap shrink-0">
@@ -453,15 +469,20 @@ const EmployerMessagingPage = () => {
                   </button>
                 )}
               </div>
+              )}
 
               {/* Input */}
               <div className="p-3 border-t">
-                <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
-                  <Input data-testid="chat-input" value={newMsg} onChange={(e) => setNewMsg(e.target.value)} placeholder="Type a message..." disabled={sending} className="flex-1 h-9 text-sm" />
-                  <Button data-testid="chat-send-btn" type="submit" disabled={sending || !newMsg.trim()} className="h-9 w-9 p-0">
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </form>
+                {selected.stage === "interested" ? (
+                  <p className="text-xs text-center text-muted-foreground py-1">Accept this candidate from the Hiring Flow to start messaging</p>
+                ) : (
+                  <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+                    <Input data-testid="chat-input" value={newMsg} onChange={(e) => setNewMsg(e.target.value)} placeholder="Type a message..." disabled={sending} className="flex-1 h-9 text-sm" />
+                    <Button data-testid="chat-send-btn" type="submit" disabled={sending || !newMsg.trim()} className="h-9 w-9 p-0">
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                )}
               </div>
             </div>
           ) : (

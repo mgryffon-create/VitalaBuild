@@ -213,7 +213,7 @@ async def get_nudges(current_user: dict = Depends(get_current_user)):
         if days_idle < threshold["days"]:
             continue
 
-        seeker = await db.users.find_one({"id": sw["user_id"]}, {"_id": 0, "password": 0, "full_name": 1})
+        seeker = await db.users.find_one({"id": sw["user_id"]}, {"_id": 0, "password": 0})
         job = job_map.get(sw["target_id"], {})
 
         nudges.append({
