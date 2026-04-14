@@ -6,26 +6,25 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ## Architecture
 - **Backend:** FastAPI + MongoDB (motor) + JWT auth, modular routers
 - **Frontend:** React + Tailwind CSS + Shadcn UI
-- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document expiration verification
+- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document verification
 
 ## What's Been Implemented
 
+### Phase 2: State Synchronization Fix (April 2025)
+- **Root cause**: pipeline update_stage only updated pipeline_stages, never created Match record
+- **Fix**: update_stage creates Match record (idempotent) when moving to matched/interviewing/offer_sent/hired
+- **Bidirectional sync**: accept_candidate also syncs pipeline_stages; pipeline candidates include match_id
+- **Messaging fixed**: uses match_id from pipeline data directly (no redundant API lookup)
+- **Seeker sync**: applications show "matched" (not "pending") when Match record exists
+
 ### Phase 2: Vault Verification — Expiration Date Parsing (April 2025)
-- **GPT-4.1 vision extraction**: background task extracts expiration date from uploaded document images/PDFs
-- **Verification statuses**: verified (match), mismatch (conflict), unverified (parse failed), expired, pending
-- **Compliance integration**: mismatch/expired/missing_expiration NEVER satisfy compliance; verified and unverified (valid user entry) DO satisfy
-- **Date tolerance**: 31-day tolerance for month-level precision matching
-- **Frontend badges**: Verified (green), Mismatch (red + note), Unverified (blue), Verifying... (blue), Expired (red)
-- **Onboarding matching**: match_vault_document returns flagged_issue for mismatch docs
+- GPT-4.1 vision extraction, verification statuses, compliance integration, mismatch detection
 
 ### Phase 2: Document Vault Validation (April 2025)
-- Expirable types blocked without expiration, expired docs allowed for recordkeeping, compliance_status computation
+- Expirable types enforcement, compliance_status computation, strict matching
 
-### Phase 2: Compliance System Overhaul (April 2025)
-- Baseline requirements, job-specific requirements, onboarding progress, auto-match
-
-### Phase 2: All Prior Features
-- Candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, card polish, quality gates, document vault, resume parsing
+### Phase 2: Compliance System, Candidate Prioritization, Interaction Fix, Employer Onboarding, Desktop Swipe, Offer Guardrails, Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
+- (See previous versions for full detail)
 
 ## Test Accounts
 | Role | Email | Password |
@@ -33,6 +32,7 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 | Seeker | seeker_test@vitalamatch.com | test123 |
 | Employer | employer_test@vitalamatch.com | test123 |
 | New Employer | new_employer_test@vitalamatch.com | test123 |
+| Test Seeker | testseeker@test.com | test123 |
 | Admin | admin@vitalamatch.com | admin123 |
 
 ## Prioritized Backlog
