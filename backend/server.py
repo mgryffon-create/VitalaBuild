@@ -4270,6 +4270,13 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
         }
         await db.onboarding_checklists.insert_one(onboarding)
         
+        # SYNC: Update pipeline stage to "hired"
+        await db.pipeline_stages.update_one(
+            {"candidate_id": offer["seeker_id"], "employer_id": offer["poster_id"], "job_id": offer["job_id"]},
+            {"$set": {"stage": "hired", "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+        
         # Create new OnboardingCase with vault-aware requirements
         job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0})
         if job:

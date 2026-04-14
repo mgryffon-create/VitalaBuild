@@ -53,10 +53,10 @@ const OfferBuilderModal = ({ open, onClose, candidate, onSubmitted }) => {
   useEffect(() => {
     if (!candidate || !open) return;
     const today = new Date();
-    const expDate = new Date(today);
-    expDate.setDate(expDate.getDate() + 7);
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() + 14);
+    const expDate = new Date(startDate);
+    expDate.setDate(expDate.getDate() + 7);
     setForm({
       position_title: candidate.job_title || "",
       salary_amount: candidate.job_pay_range?.min || "",
