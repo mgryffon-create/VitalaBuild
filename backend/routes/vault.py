@@ -8,6 +8,7 @@ from shared import (
     HTTPException, uuid, datetime, timezone, aiofiles, os,
 )
 from expiration_verifier import extract_expiration_from_file, determine_verification_status
+from lightweight_parser import lightweight_verify
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +66,11 @@ def _compute_compliance_status(doc: dict) -> str:
     is_exp = _is_expirable(category, subtype)
     verification = doc.get("verification_status", "pending")
 
-    # Mismatch = always blocked
+    # Mismatch or needs_review = always blocked
     if verification == "mismatch":
         return "mismatch"
+    if verification == "needs_review":
+        return "review_needed"
 
     # Missing expiration for expirable type
     if is_exp and not exp_date_str:
@@ -153,25 +156,69 @@ async def serve_vault_file(filename: str, current_user: dict = Depends(get_curre
     return FileResponse(str(file_path))
 
 
-async def _run_expiration_verification(doc_id: str, file_bytes: bytes, content_type: str, user_expiration: str):
-    """Background task: extract expiration date and verify against user entry."""
+async def _run_verification_pipeline(
+    doc_id: str, file_bytes: bytes, content_type: str,
+    user_expiration: str, user_subtype: str, user_name: str = None
+):
+    """Background task: lightweight parse first, then LLM fallback if needed."""
     try:
+        # Step 1: Lightweight text-based verification
+        lw = lightweight_verify(file_bytes, content_type, user_expiration, user_subtype, user_name)
+
+        update_fields = {
+            "parsed_expiration_date": lw.get("parsed_expiration_date"),
+            "verification_status": lw.get("verification_status", "unverified"),
+            "verification_notes": lw.get("verification_notes"),
+            "detected_credentials": lw.get("detected_credentials", []),
+            "detected_name": lw.get("detected_name"),
+            "extraction_quality": lw.get("extraction_quality", "none"),
+            "verification_method": "lightweight_parser",
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # If lightweight parser resolved definitively, save and done
+        if not lw.get("should_run_llm", True):
+            await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
+            # Recompute compliance
+            doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
+            if doc:
+                cs = _compute_compliance_status(doc)
+                await db.vault_documents.update_one({"id": doc_id}, {"$set": {"compliance_status": cs}})
+            logger.info(f"Lightweight verification complete for {doc_id}: {lw['verification_status']}")
+            return
+
+        # Step 2: LLM fallback for deeper analysis
+        logger.info(f"Lightweight inconclusive for {doc_id}, running LLM verification...")
         parsed_result = await extract_expiration_from_file(file_bytes, content_type or "image/jpeg")
         verification = determine_verification_status(user_expiration, parsed_result)
-        update_fields = {
-            "parsed_expiration_date": verification.get("parsed_expiration_date"),
+
+        # Merge: use LLM results but keep lightweight-detected credentials
+        update_fields.update({
+            "parsed_expiration_date": verification.get("parsed_expiration_date") or lw.get("parsed_expiration_date"),
             "verification_status": verification.get("verification_status", "unverified"),
             "verification_notes": verification.get("verification_notes"),
             "verification_confidence": parsed_result.get("confidence"),
-            "verified_at": datetime.now(timezone.utc).isoformat(),
-        }
+            "verification_method": "llm_vision",
+        })
+
         await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
-        logger.info(f"Verification complete for {doc_id}: {verification.get('verification_status')}")
+        # Recompute compliance
+        doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
+        if doc:
+            cs = _compute_compliance_status(doc)
+            await db.vault_documents.update_one({"id": doc_id}, {"$set": {"compliance_status": cs}})
+        logger.info(f"LLM verification complete for {doc_id}: {verification.get('verification_status')}")
+
     except Exception as e:
-        logger.error(f"Verification failed for {doc_id}: {e}")
+        logger.error(f"Verification pipeline failed for {doc_id}: {e}")
         await db.vault_documents.update_one(
             {"id": doc_id},
-            {"$set": {"verification_status": "unverified", "verification_notes": f"Verification error: {str(e)[:200]}"}}
+            {"$set": {
+                "verification_status": "unverified",
+                "verification_notes": f"Verification error: {str(e)[:200]}",
+                "verification_method": "error",
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+            }}
         )
 
 
@@ -221,8 +268,20 @@ async def upload_vault_file(
 
     # Trigger background verification for expirable document types
     if is_expirable and expiration_date:
+        # Get user name for name-matching
+        user_profile = await db.seeker_profiles.find_one(
+            {"user_id": current_user["id"]}, {"_id": 0, "full_name": 1}
+        )
+        user_name = current_user.get("full_name") or (user_profile.get("full_name") if user_profile else None)
         background_tasks.add_task(
-            _run_expiration_verification, doc_id, contents, file.content_type, expiration_date
+            _run_verification_pipeline, doc_id, contents, file.content_type,
+            expiration_date, subtype, user_name
+        )
+    elif is_expirable:
+        # Expirable but no date entered — still try lightweight parsing
+        background_tasks.add_task(
+            _run_verification_pipeline, doc_id, contents, file.content_type,
+            None, subtype, None
         )
 
     return {"id": doc_id, "file_url": file_url, "message": "File uploaded to vault"}

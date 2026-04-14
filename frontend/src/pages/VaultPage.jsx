@@ -90,8 +90,9 @@ function daysUntilExp(expDate) {
 
 function docStatus(doc) {
   if (doc.verification_status === "archived") return { text: "Replaced", className: "bg-muted text-muted-foreground/60", priority: 5 };
-  // Verification-based statuses (from expiration verification)
+  // Verification-based statuses (from lightweight parser or LLM verification)
   if (doc.verification_status === "mismatch") return { text: "Mismatch", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", priority: 0 };
+  if (doc.verification_status === "needs_review") return { text: "Needs Review", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 1 };
   const days = daysUntilExp(doc.expiration_date);
   if (days !== null && days <= 0) return { text: "Expired", className: "bg-destructive text-destructive-foreground", priority: 0 };
   if (doc.verification_status === "verified") {
@@ -457,6 +458,20 @@ const VaultPage = () => {
                           </Badge>
                           {doc.verification_status === "mismatch" && doc.verification_notes && (
                             <p data-testid={`mismatch-note-${doc.id}`} className="text-[9px] text-red-600 dark:text-red-400 mt-0.5">{doc.verification_notes}</p>
+                          )}
+                          {doc.verification_status === "verified" && doc.verification_notes && (
+                            <p data-testid={`verified-note-${doc.id}`} className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">{doc.verification_notes}</p>
+                          )}
+                          {doc.verification_status === "unverified" && doc.verification_notes && (
+                            <p data-testid={`unverified-note-${doc.id}`} className="text-[9px] text-muted-foreground mt-0.5">{doc.verification_notes}</p>
+                          )}
+                          {doc.verification_status === "needs_review" && doc.verification_notes && (
+                            <p data-testid={`review-note-${doc.id}`} className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">{doc.verification_notes}</p>
+                          )}
+                          {doc.verification_method && (
+                            <p className="text-[8px] text-muted-foreground/50 mt-0.5">
+                              {doc.verification_method === "lightweight_parser" ? "Auto-verified" : doc.verification_method === "llm_vision" ? "AI-verified" : ""}
+                            </p>
                           )}
                         </div>
                       </div>
