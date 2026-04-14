@@ -1,0 +1,83 @@
+{
+  "summary": "Acceptance flow fix verified. All stage-based button rendering works correctly: Applicant shows only 'Accept Candidate', Matched shows 'Message' + 'Send Offer', Offer Sent shows 'Message' + 'Start Onboarding', Hired shows 'Message' only. Backend creates Match record on stage transition to 'matched'. Messaging works for matched candidates. Role eligibility enforced.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "HiringPipelinePage",
+        "issues": ["React warning: 'Encountered two children with the same key' - duplicate key 'matched_bd58c6d2-12aa-4bb1-a674-4b12252570d4_ea5d050f-527a-4e97-95c3-793aeab1a6a0' in pipeline rendering. This is a minor issue that doesn't affect functionality but should be fixed for code quality."]
+      }
+    ]
+  },
+
+  "passed_tests": [
+    "Frontend: Applicant modal shows ONLY 'Accept Candidate' button (no 'Accept to message')",
+    "Frontend: Applicant modal does NOT show a disabled Message button",
+    "Frontend: Matched modal shows 'Message' + 'Send Offer' buttons",
+    "Frontend: Offer Sent modal shows 'Message' + 'Start Onboarding'",
+    "Frontend: Clicking 'Accept Candidate' opens confirmation dialog",
+    "Frontend: After confirming Accept, toast says 'Candidate accepted — messaging enabled'",
+    "Frontend: After Accept, candidate moves to Matches column",
+    "Frontend: After Accept, re-clicking candidate shows 'Message' + 'Send Offer' (not 'Accept')",
+    "Frontend: Message button navigates to messaging page",
+    "Frontend: Pipeline Kanban renders correctly with all 4 columns (Applicants, Matches, Offers, Onboarding)",
+    "Frontend: Match badges (Strong/Possible) display on cards (22 badges found)",
+    "Backend: PUT /api/pipeline/candidates/{id}/{job}/stage to 'matched' creates Match record",
+    "Backend: Messaging works for matched candidates (GET and POST messages)",
+    "Backend: Role eligibility still enforced on stage transitions",
+    "Backend: Invalid stage values rejected with 400",
+    "Backend: Unauthorized access rejected with 403"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_pipeline_acceptance_flow.py",
+    "/app/backend/tests/test_state_sync_pipeline_match.py",
+    "/app/test_reports/pytest/pipeline_acceptance_flow_results.xml",
+    "/app/test_reports/pytest/pipeline_acceptance_results.xml"
+  ],
+
+  "action_items": [
+    "MINOR: Fix React duplicate key warning in HiringPipelinePage.jsx - the key generation at line 598 uses `${stage.id}_${c.id}` but there appears to be a duplicate candidate entry causing the warning"
+  ],
+
+  "critical_code_review_comments": [
+    "HiringPipelinePage.jsx DialogFooter (lines 353-431): Stage-based button rendering is correctly implemented with clean state machine logic",
+    "HiringPipelinePage.jsx handleModalAction (line 469): Correctly handles 'message' and 'advance' actions without the old messaging stage guard",
+    "HiringPipelinePage.jsx line 598: Key generation `${stage.id}_${c.id}` may produce duplicates if same candidate appears in merged stages - consider using unique composite key",
+    "Backend pipeline.py lines 286-302: Match creation on stage transition is idempotent and correctly implemented"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_pipeline_acceptance_flow.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (all 12 UI tests passed)"
+  },
+
+  "test_credentials": {
+    "employer": "employer_test@vitalamatch.com / test123",
+    "seeker": "seeker_test@vitalamatch.com / test123"
+  },
+
+  "seed_data_creation": "None - used existing test data",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Acceptance flow fix is complete and verified. The DialogFooter in HiringPipelinePage.jsx now renders stage-specific buttons: interested='Accept Candidate', matched/interviewing='Message'+'Send Offer', offer_sent='Message'+'Start Onboarding', hired='Message' only. The old 'Accept to message' disabled button has been removed. Backend creates Match record when moving to 'matched' stage. Minor React duplicate key warning exists but doesn't affect functionality.",
+
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
