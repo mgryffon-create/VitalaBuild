@@ -10,11 +10,16 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Job-Grouped Recruiter Messaging (April 2025)
+- **Hierarchical conversation list**: Conversations grouped by job posting (Job → Candidates). Each job section shows title, location, matched/interested counts
+- **Collapsible sections**: Click job header to collapse/expand candidate list. ChevronDown when expanded, ChevronRight when collapsed
+- **Per-job candidate entries**: Name + credential badge + specialty + stage badge + last message preview
+- **Cross-job deduplication fix**: Same candidate appearing under multiple jobs now shown correctly (dedup by candidate_id+job_id pair, not just candidate_id)
+- **Filter integration**: All/Applicants/Matches/Offers filters work with grouped list — only shows job groups containing matching candidates
+- **Sorting**: Job groups sorted by candidate count (most active first), candidates within sorted by status priority
+
 ### Phase 2: Recruiter Credential Display (April 2025)
-- **Candidate-first conversation list**: Each thread shows candidate name + credential badge (RN/CNA/LPN) + specialty + job title + stage badge
-- **Chat header hierarchy**: Primary = candidate name + credential, Secondary = "Applied for: [Job Title]" with location/pay
-- **Pipeline card credential badges**: Credential badge next to candidate name in Kanban cards
-- **Backend**: Pipeline API returns `seeker.credential` derived from `eligibility.get_seeker_role()`
+- Credential badges (RN/CNA/LPN) in conversation list, chat header, pipeline cards. Chat header: candidate-primary, job-secondary hierarchy
 
 ### Phase 2: Match/Conversation Detail Usability (April 2025)
 - Full candidate profile panel, privacy-gated contact info, job context prominence, stage-driven sticky actions, back navigation
