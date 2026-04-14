@@ -391,7 +391,7 @@ const PosterDashboard = () => {
                 <div className="text-center py-16">
                   <Briefcase className="w-14 h-14 mx-auto mb-4 text-muted-foreground/40" />
                   <p className="text-lg font-medium text-foreground">No jobs posted yet</p>
-                  <p className="text-sm text-muted-foreground mb-4">Create your first job posting to start finding pros</p>
+                  <p className="text-sm text-muted-foreground mb-4">Post your first job to start receiving candidates</p>
                   <Button data-testid="create-first-job-btn" onClick={() => navigate("/poster/jobs/new")} className="bg-primary hover:bg-primary/90">
                     Post Your First Job
                   </Button>

@@ -516,6 +516,7 @@ class PosterProfile(BaseModel):
     company_logo: Optional[str] = None
     contact_info: Optional[Dict[str, Any]] = None
     facility_images: Optional[List[str]] = None
+    org_type: Optional[str] = None
     # Phase 2: Structured facility profile (required for full access)
     staffing_expectation: Optional[str] = None  # Well-staffed, Moderate, High-acuity
     floating_expectation: Optional[str] = None  # None, Occasional, Frequent

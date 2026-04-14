@@ -37,6 +37,8 @@ import ResumeOnboardingPage from "@/pages/ResumeOnboardingPage";
 import BillingPage from "@/pages/BillingPage";
 import HiringPipelinePage from "@/pages/HiringPipelinePage";
 import EmployerMessagingPage from "@/pages/EmployerMessagingPage";
+import EmployerOnboardingFlow from "@/pages/EmployerOnboardingFlow";
+import EmployerOnboardingGate from "@/components/EmployerOnboardingGate";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -290,7 +292,7 @@ function App() {
             path="/poster"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <PosterDashboard />
+                <EmployerOnboardingGate><PosterDashboard /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -298,7 +300,7 @@ function App() {
             path="/poster/swipe/:jobId"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <SwipePage />
+                <EmployerOnboardingGate><SwipePage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -322,7 +324,7 @@ function App() {
             path="/poster/jobs/:jobId/edit"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <JobFormPage />
+                <EmployerOnboardingGate><JobFormPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -330,7 +332,7 @@ function App() {
             path="/poster/verifications"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <VerificationAdminPage />
+                <EmployerOnboardingGate><VerificationAdminPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -338,7 +340,7 @@ function App() {
             path="/poster/hiring"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <HiringSuitePage />
+                <EmployerOnboardingGate><HiringSuitePage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -346,7 +348,7 @@ function App() {
             path="/poster/candidates"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <OnboardingGate><BrowseProsPage /></OnboardingGate>
+                <EmployerOnboardingGate><BrowseProsPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -354,7 +356,7 @@ function App() {
             path="/poster/candidates/list"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <EmployerCandidatesPage />
+                <EmployerOnboardingGate><EmployerCandidatesPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -362,7 +364,7 @@ function App() {
             path="/poster/onboarding"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <OnboardingPage />
+                <EmployerOnboardingFlow />
               </ProtectedRoute>
             }
           />
@@ -370,7 +372,7 @@ function App() {
             path="/poster/compliance"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <ComplianceDashboardPage />
+                <EmployerOnboardingGate><ComplianceDashboardPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -378,7 +380,7 @@ function App() {
             path="/poster/billing"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <BillingPage />
+                <EmployerOnboardingGate><BillingPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -386,7 +388,7 @@ function App() {
             path="/poster/pipeline"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <HiringPipelinePage />
+                <EmployerOnboardingGate><HiringPipelinePage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -394,7 +396,7 @@ function App() {
             path="/poster/messages"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <EmployerMessagingPage />
+                <EmployerOnboardingGate><EmployerMessagingPage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
@@ -402,7 +404,7 @@ function App() {
             path="/poster/offers-sent"
             element={
               <ProtectedRoute allowedRoles={["poster"]}>
-                <OnboardingGate><HiringSuitePage /></OnboardingGate>
+                <EmployerOnboardingGate><HiringSuitePage /></EmployerOnboardingGate>
               </ProtectedRoute>
             }
           />
