@@ -326,7 +326,7 @@ class DocumentExpirationChecker:
         threshold = datetime.now(timezone.utc) + timedelta(days=30)
         
         # Get all documents
-        docs = await db.documents.find({}, {"_id": 0, "file_data": 0}).to_list(10000)
+        docs = await db.documents.find({}, {"_id": 0, "file_data": 0}).to_list(500)
         
         users_to_notify = {}  # user_id -> list of expiring docs
         
