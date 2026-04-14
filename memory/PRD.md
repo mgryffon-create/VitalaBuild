@@ -6,36 +6,24 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ## Architecture
 - **Backend:** FastAPI + MongoDB (motor) + JWT auth, modular routers
 - **Frontend:** React + Tailwind CSS + Shadcn UI
-- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document verification (LLM fallback)
+- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document verification
 
 ## What's Been Implemented
 
-### Phase 2: Compliance Readiness & Onboarding System (April 2025)
-**Seeker Readiness**
-- Standard Compliance Bundle: BLS, ACLS, RN License, TB Test, Vaccinations, Gov ID, Background Check, Drug Screen
-- GET /api/seeker/readiness: score, level (ready_to_work/partially_ready/needs_documents), per-item status
-- Dashboard readiness card: percentage, color-coded item badges, "Upload Documents" CTA
+### Phase 2: Seeker Onboarding Walkthrough (April 2025)
+- **4-step guided walkthrough**: Welcome → Requirements → Document Vault → What Happens Next
+- **Shows only for first-time users** with incomplete profiles on /seeker/swipe
+- **Progressive completion**: Only license + role required to browse. Documents optional, onboarding items after offer only
+- **Vault explanation**: "Upload once, use everywhere" + "You do NOT need everything right now" with grouped items
+- **Skip/remember**: Skippable at any step. localStorage remembers per user. Completed profiles skip entirely
+- **Contextual guidance**: OnboardingGate shows "Add your license and role to start viewing jobs". Vault empty state explains documents help you get hired faster
 
-**Typed Signature**
-- Offer acceptance requires typed full legal name
-- Backend validates (400 if missing/short), stores typed_signature + signature_timestamp
-- UI: electronic signature section with legal agreement text
+### Phase 2: E2E Bug Fixes (April 2025)
+- **Offer Builder default dates**: expiration now defaults to start_date + 7 days (was incorrectly before start_date)
+- **Pipeline stage sync on hire**: `respond_to_offer` now updates pipeline_stages to "hired" on acceptance
 
-**Job Documents**
-- POST/GET /api/jobs/{job_id}/documents: employer uploads per-job onboarding packets, policies, training
-- Stored in `job_documents` collection (NOT vault)
-- Auto-attached to onboarding checklist after hire
-
-**External Systems**
-- POST/GET /api/employer/external-systems: track background check, drug screening, training, e-signature providers
-- System name + type + optional URL
-- No external integrations — coordination tracking only
-
-**Onboarding Checklist API**
-- GET /api/onboarding/{case_id}/checklist: unified bidirectional view (employer + seeker see same data)
-- Sections: documents, tasks, external
-- PUT /api/onboarding/{case_id}/items/{item_id}/status: update item + recompute case status
-- Progress tracking: total, completed, pending, flagged, percent
+### Phase 2: Compliance Readiness & Onboarding (April 2025)
+- Readiness score, typed signature, job documents, external systems, onboarding checklist API
 
 ### Phase 2: Lightweight Document Verification (April 2025)
 - PyMuPDF text extraction, regex date/credential detection, LLM fallback
@@ -46,41 +34,23 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ### Phase 2: Structured Offer System (April 2025)
 - Offer Builder modal, employment documents, structured seeker offer view
 
-### Phase 2: Offer State Sync, Credential Verification, Job-Grouped Messaging, Recruiter Credential Display, Match/Conversation Detail, Hiring Flow UX Overhaul (April 2025)
-
-## Data Model Additions
-
-### Standard Compliance Bundle (computed, not stored)
-BLS, ACLS, RN License, TB Test, Vaccinations, Gov ID, Background Check, Drug Screen
-
-### job_documents collection
-```
-{id, job_id, employer_id, document_type, action_required, title, file_name, file_url, file_size, uploaded_at}
-```
-
-### external_systems collection
-```
-{id, employer_id, system_name, system_type, url, created_at}
-```
-
-### Onboarding checklist (unified API)
-```
-GET /onboarding/{case_id}/checklist → {case, progress, sections: {documents, tasks, external}, job_documents, external_systems}
-```
+### Phase 2: All Other Features (April 2025)
+- Offer state sync, credential verification, job-grouped messaging, recruiter credential display, match/conversation detail, hiring flow UX overhaul, acceptance flow, role eligibility, vault verification, compliance, candidate prioritization, onboarding, swipe, offer guardrails, tiered matching, structured pay
 
 ## Test Accounts
-| Role | Email | Password |
-|---|---|---|
-| Seeker | seeker_test@vitalamatch.com | test123 |
-| Employer | employer_test@vitalamatch.com | test123 |
-| Test Seeker | testseeker@test.com | test123 |
-| Admin | admin@vitalamatch.com | admin123 |
+| Role | Email | Password | Notes |
+|---|---|---|---|
+| Seeker | seeker_test@vitalamatch.com | test123 | Jane Smith, RN, complete profile |
+| Employer | employer_test@vitalamatch.com | test123 | Test Employer, complete |
+| New Seeker | newseeker_e2e@test.com | test123 | Incomplete, shows walkthrough |
+| Test Seeker | testseeker@test.com | test123 | Incomplete profile |
+| Admin | admin@vitalamatch.com | admin123 | Admin panel |
 
 ## Prioritized Backlog
 ### P0
 - Seeker profile Role Category selector (normalized_role_category in ProfileBuilder.jsx)
 ### P1
-- Onboarding Checklist UI pages (employer + seeker bidirectional views)
+- Onboarding Checklist UI pages (bidirectional employer + seeker views)
 - Interview Scheduling Integration
 - Pipeline Analytics Dashboard
 ### P2
