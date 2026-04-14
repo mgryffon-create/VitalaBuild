@@ -10,17 +10,18 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Offer State Synchronization (April 2025)
+- **Write path fix**: `create_employment_offer` now also updates `pipeline_stages` to `offer_sent` (canonical sync)
+- **Read path fix**: `get_seeker_applications` returns `offer_id` + full offer object (`position_title`, `salary_amount`, `salary_type`, `start_date`, `expiration_date`, `status`)
+- **Pipeline fallback**: Seeker applications check `pipeline_stages` collection for `offer_sent` if no offer record found (covers employer-advanced-stage case)
+- **Seeker UI**: "Offer Received" purple badge replaces "Matched" when offer exists. Offer banner shows position title, salary, start date, and "View & Respond to Offer" CTA
+- **State consistency**: Employer and seeker now always see the same canonical state for offers
+
 ### Phase 2: Credential Verification Layer (April 2025)
-- **Verification statuses**: Each credential now shows Verified (green, vault-backed), Needs Review (amber, vault doc with issues), or Unverified (gray, self-reported only)
-- **Cross-referencing engine**: `_compute_verified_credentials()` matches profile certifications against vault documents by subtype name matching
-- **Compliance summary**: Top-level badge derived from credential verification — Compliance Ready / Partially Verified / Verification Needed
-- **Honest display**: No ShieldCheck icons for unverified credentials. Gray dot + "Unverified" label for self-reported only
-- **Pipeline modal**: Color-coded certification badges with summary line ("2 self-reported · 2 total")
-- **Messaging profile panel**: Each cert shows status label badge, credential summary section with level and count
-- **Future-ready**: Status model supports later OCR/parsing promoting credentials between unverified → needs_review → verified
+- Cross-referencing self-reported certs with vault docs. Verified/Needs Review/Unverified statuses. Compliance summary.
 
 ### Phase 2: Job-Grouped Recruiter Messaging (April 2025)
-- Hierarchical conversation list grouped by job posting. Collapsible sections. Cross-job dedup fix.
+- Hierarchical conversation list grouped by job. Collapsible sections.
 
 ### Phase 2: Recruiter Credential Display (April 2025)
 - Credential badges (RN/CNA/LPN) in conversation list, chat header, pipeline cards.
