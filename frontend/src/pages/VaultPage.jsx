@@ -19,6 +19,9 @@ import {
 import { DOCUMENT_CATEGORIES, getTypesForCategory, getGroupsForCategory } from "@/config/documentTypes";
 import DocumentPreview from "@/components/DocumentPreview";
 
+// ── Expirable document types (must have expiration date) ──
+const EXPIRABLE_CATEGORIES = new Set(["certification", "license", "identification"]);
+
 // ── Category metadata ──────────────────────────────────
 const CATEGORY_META = {
   medical:        { label: "Medical Records",  icon: Heart,          color: "text-red-600 bg-red-100 dark:bg-red-900/30" },
@@ -235,6 +238,11 @@ const VaultPage = () => {
   const handleUpload = async () => {
     if (!selectedCategory || !selectedType) { toast.error("Please select a category and document type"); return; }
     if (!selectedFile) { toast.error("Please select a file"); return; }
+    // Enforce expiration date for expirable document types
+    if (EXPIRABLE_CATEGORIES.has(selectedCategory) && !form.expiration_date) {
+      toast.error("Expiration date is required for this document type");
+      return;
+    }
     setUploading(true); setUploadProgress(0);
     try {
       const formData = new FormData();
@@ -557,7 +565,7 @@ const VaultPage = () => {
                 {uploading && uploadProgress > 0 && (<div className="w-full bg-muted rounded-full h-1.5 mt-1"><div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} /></div>)}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Expiration Date</Label><Input type="date" data-testid="vault-expiration-input" value={form.expiration_date} onChange={(e) => setForm((p) => ({ ...p, expiration_date: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label>Expiration Date{EXPIRABLE_CATEGORIES.has(selectedCategory) ? <span className="text-red-500 ml-0.5">*</span> : ""}</Label><Input type="date" data-testid="vault-expiration-input" value={form.expiration_date} onChange={(e) => setForm((p) => ({ ...p, expiration_date: e.target.value }))} />{EXPIRABLE_CATEGORIES.has(selectedCategory) && !form.expiration_date && <p className="text-xs text-red-500">Required for this document type</p>}</div>
                 <div className="space-y-1.5"><Label>State</Label><Input value={form.state} onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))} placeholder="e.g., CA" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">

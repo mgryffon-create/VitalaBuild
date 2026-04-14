@@ -102,10 +102,16 @@ def match_vault_document(requirement_rule, vault_docs):
     """
     Try to match a requirement to an existing vault document.
     Returns (status, matched_doc, notes).
+    
+    Strict rules:
+    - Only the most recent active version counts (sorted by uploaded_at desc)
+    - Expirable documents without expiration_date → missing_expiration (never satisfies)
+    - Expired documents → document_expired (never satisfies)
+    - Wrong type → not matched
+    - Rejected verification → skipped
     """
     vault_match = requirement_rule.get("vault_match")
     if not vault_match:
-        # No vault match possible (external vendor requirement)
         return "pending_external_check", None, "Requires external vendor action"
 
     category = vault_match["category"]
@@ -113,6 +119,7 @@ def match_vault_document(requirement_rule, vault_docs):
     max_age_months = vault_match.get("max_age_months")
     now = datetime.now(timezone.utc)
 
+    # Filter to matching category + subtype
     candidates = []
     for doc in vault_docs:
         if doc.get("category") != category:
@@ -122,24 +129,39 @@ def match_vault_document(requirement_rule, vault_docs):
         candidates.append(doc)
 
     if not candidates:
-        # No matching document found at all
         if requirement_rule.get("fulfillment_source") == "external_vendor":
             return "pending_external_check", None, "No matching vault document; requires external action"
         return "missing_document", None, "No matching document in vault"
 
-    # Pick the best candidate (most recent, valid)
+    # Sort by uploaded_at descending — only the most recent active version counts
+    candidates.sort(key=lambda d: d.get("uploaded_at", ""), reverse=True)
+
     best = None
     best_status = None
     best_notes = None
 
     for doc in candidates:
+        verification = doc.get("verification_status", "unverified")
+
+        # Skip rejected documents entirely
+        if verification == "rejected":
+            continue
+
         exp_date = _parse_date(doc.get("expiration_date"))
         doc_date = _parse_date(doc.get("document_date") or doc.get("uploaded_at"))
-        verification = doc.get("verification_status", "unverified")
+
+        # Expirable type without expiration date → cannot satisfy
+        is_expirable = category in ("certification", "license", "identification")
+        if is_expirable and not doc.get("expiration_date"):
+            if best_status is None:
+                best = doc
+                best_status = "missing_expiration"
+                best_notes = "Expiration date required but missing"
+            continue
 
         # Check expiration
         if exp_date and exp_date < now:
-            if best_status != "satisfied_from_vault":
+            if best_status not in ("satisfied_from_vault",):
                 best = doc
                 best_status = "document_expired"
                 best_notes = f"Document expired on {exp_date.strftime('%Y-%m-%d')}"
@@ -163,14 +185,11 @@ def match_vault_document(requirement_rule, vault_docs):
                 best_notes = "Document exists but verification is pending"
             continue
 
-        if verification == "rejected":
-            continue
-
-        # Valid document found
+        # Valid document found — all checks passed
         best = doc
         best_status = "satisfied_from_vault"
         best_notes = f"Matched to vault document: {doc.get('subtype', doc.get('category'))}"
-        break  # Best possible match
+        break  # Best possible match — most recent valid doc
 
     if best is None:
         if requirement_rule.get("fulfillment_source") == "external_vendor":

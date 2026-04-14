@@ -9,11 +9,78 @@ from shared import (
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 
+# Document types/subtypes that MUST have an expiration date
+EXPIRABLE_SUBTYPES = {
+    # Certifications
+    "BLS", "ACLS", "PALS", "CPR", "CPR_BLS", "CNA Certificate",
+    # Licenses
+    "RN License", "RN_license", "CNA License", "CNA_license",
+    "LPN License", "LPN_license", "LVN License", "LVN_license",
+    "DEA License",
+    # Identification
+    "Driver's License", "drivers_license", "Passport", "passport",
+    "State ID", "state_id",
+    # Insurance
+    "Professional Liability Insurance",
+}
+
+# Categories where ALL subtypes are expirable
+EXPIRABLE_CATEGORIES = {"certification", "license", "identification"}
+
+
+def _is_expirable(category: str, subtype: str) -> bool:
+    """Check if a document type requires an expiration date."""
+    if category in EXPIRABLE_CATEGORIES:
+        return True
+    if subtype and subtype in EXPIRABLE_SUBTYPES:
+        return True
+    return False
+
+
+def _validate_expiration(category: str, subtype: str, expiration_date: str):
+    """Raise HTTPException if an expirable document is missing expiration date."""
+    if _is_expirable(category or "", subtype or "") and not expiration_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Expiration date is required for this document type"
+        )
+
+
+def _compute_compliance_status(doc: dict) -> str:
+    """Compute compliance status for a single vault document."""
+    category = doc.get("category", "")
+    subtype = doc.get("subtype", "")
+    exp_date_str = doc.get("expiration_date")
+    is_exp = _is_expirable(category, subtype)
+
+    if is_exp and not exp_date_str:
+        return "missing_expiration"
+
+    if exp_date_str:
+        try:
+            if "T" in exp_date_str:
+                exp = datetime.fromisoformat(exp_date_str.replace("Z", "+00:00")).date()
+            else:
+                exp = datetime.strptime(exp_date_str, "%Y-%m-%d").date()
+            if exp < datetime.now(timezone.utc).date():
+                return "expired"
+        except (ValueError, TypeError):
+            pass
+
+    verification = doc.get("verification_status", "pending")
+    if verification == "rejected":
+        return "review_needed"
+    if verification == "pending":
+        return "review_needed"
+
+    return "complete"
+
 
 @router.post("/documents")
 async def create_vault_document(doc: VaultDocumentCreate, current_user: dict = Depends(get_current_user)):
     if doc.category not in VAULT_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {VAULT_CATEGORIES}")
+    _validate_expiration(doc.category, doc.subtype, doc.expiration_date)
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     doc_data = {
@@ -69,6 +136,7 @@ async def upload_vault_file(
 ):
     if category not in VAULT_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {VAULT_CATEGORIES}")
+    _validate_expiration(category, subtype, expiration_date)
     allowed = (".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".doc", ".docx")
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in allowed:
@@ -104,6 +172,8 @@ async def get_vault_documents(current_user: dict = Depends(get_current_user)):
     docs = await db.vault_documents.find(
         {"candidate_id": current_user["id"]}, {"_id": 0, "file_data": 0}
     ).sort("uploaded_at", -1).to_list(200)
+    for doc in docs:
+        doc["compliance_status"] = _compute_compliance_status(doc)
     return docs
 
 
@@ -114,6 +184,7 @@ async def get_vault_document(doc_id: str, current_user: dict = Depends(get_curre
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    doc["compliance_status"] = _compute_compliance_status(doc)
     return doc
 
 
@@ -181,4 +252,13 @@ async def get_vault_categories():
                 ],
             },
         }
+    }
+
+
+@router.get("/expirable-types")
+async def get_expirable_types():
+    """Return list of expirable subtypes and categories for frontend validation."""
+    return {
+        "expirable_subtypes": sorted(EXPIRABLE_SUBTYPES),
+        "expirable_categories": sorted(EXPIRABLE_CATEGORIES),
     }
