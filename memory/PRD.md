@@ -9,20 +9,21 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Desktop Swipe Layout Fix (April 2025)
-- Flex column layout on desktop: `lg:flex lg:flex-col lg:h-[calc(100vh-160px)]`
-- Card stack uses `lg:flex-1 lg:overflow-hidden` to constrain height within flex
-- Action bar uses `lg:shrink-0 lg:pt-5 lg:pb-2` — guaranteed visible, never clipped
-- Card height: `lg:h-[min(440px,calc(100vh-300px))]` — substantial but leaves room for buttons
-- Verified: all 4 buttons + labels bottom < 742px in 800px viewport
+### Phase 2: Employer Onboarding Flow (April 2025)
+- **3-step flow**: intro slides (3 slides) → profile form (name, org type, location, description) → redirect to job creation
+- **EmployerOnboardingGate**: wraps all /poster/* routes except /poster/onboarding, /poster/jobs/new, /poster/profile
+- **Completion logic**: profile saved AND at least 1 valid job posted → dashboard unlocked
+- **Backend**: PosterProfile model accepts org_type; existing profile/completion endpoint handles checks
+- **Job quality**: enforced by existing JobFormPage quality gates (structured pay, 9 required fields, pay range validation)
+- **Dashboard**: 0-jobs state shows "Post your first job to start receiving candidates"
 
-### Phase 2: Desktop Swipe Experience (April 2025)
-- Container max-w-2xl on desktop, 3-card stack, enlarged buttons, scaled text, shadow depth
+### Phase 2: Desktop Swipe Layout Fix (April 2025)
+- Flex column layout, reserved action bar, buttons guaranteed visible
 
 ### Phase 2: Offer Acceptance Guardrails (April 2025)
-- Conflict detection, hard blocks + soft warnings, 409 acceptance blocking, enriched employment records
+- Conflict detection, hard blocks + soft warnings, 409 acceptance blocking
 
-### Phase 2: Card Polish, Tiered Matching, Structured Pay, Quality Gates, Prior Features
+### Phase 2: Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
 - (See previous versions for full detail)
 
 ## Test Accounts
@@ -30,6 +31,7 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 |---|---|---|
 | Seeker | seeker_test@vitalamatch.com | test123 |
 | Employer | employer_test@vitalamatch.com | test123 |
+| New Employer | new_employer_test@vitalamatch.com | test123 |
 | Admin | admin@vitalamatch.com | admin123 |
 
 ## Prioritized Backlog
