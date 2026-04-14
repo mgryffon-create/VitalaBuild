@@ -322,12 +322,21 @@ class EmploymentOffer(BaseModel):
     seeker_id: str
     position_title: str
     salary_amount: float
-    salary_type: str = "annual"
+    salary_type: str = "hourly"
     start_date: str
     expiration_date: str
     conditions: List[str] = []
     benefits_summary: Optional[str] = None
     additional_terms: Optional[str] = None
+    contract_length: Optional[str] = None
+    shift_details: Optional[str] = None
+    overtime_rate: Optional[float] = None
+    sign_on_bonus: Optional[float] = None
+    completion_bonus: Optional[float] = None
+    housing_stipend: Optional[float] = None
+    travel_stipend: Optional[float] = None
+    approved_time_off: Optional[str] = None
+    custom_notes: Optional[str] = None
 
 class OfferResponse(BaseModel):
     accepted: bool

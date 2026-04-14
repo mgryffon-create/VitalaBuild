@@ -331,36 +331,94 @@ const MyOffersPage = () => {
                   ))}
                 </div>
               )}
-              {/* Offer summary */}
-              <div className="p-4 bg-muted rounded-xl space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Pay Rate</p>
-                    <p className="font-medium text-foreground">
-                      ${reviewOffer.salary_amount?.toLocaleString()} / {reviewOffer.salary_type || "hr"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Start Date</p>
-                    <p className="font-medium text-foreground">
-                      {reviewOffer.start_date ? new Date(reviewOffer.start_date).toLocaleDateString() : "TBD"}
-                    </p>
+              {/* Offer summary — structured sections */}
+              <div className="space-y-4">
+                {/* Pay & Schedule */}
+                <div className="p-4 bg-muted rounded-xl space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pay & Schedule</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Pay Rate</p>
+                      <p className="font-semibold text-foreground text-base">
+                        ${reviewOffer.salary_amount?.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">/ {reviewOffer.salary_type || "hr"}</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Start Date</p>
+                      <p className="font-medium text-foreground">
+                        {reviewOffer.start_date ? new Date(reviewOffer.start_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"}
+                      </p>
+                    </div>
+                    {reviewOffer.shift_details && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Shift</p>
+                        <p className="font-medium text-foreground">{reviewOffer.shift_details}</p>
+                      </div>
+                    )}
+                    {reviewOffer.contract_length && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Contract</p>
+                        <p className="font-medium text-foreground">{reviewOffer.contract_length}</p>
+                      </div>
+                    )}
+                    {reviewOffer.overtime_rate > 0 && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Overtime</p>
+                        <p className="font-medium text-foreground">${reviewOffer.overtime_rate}/hr</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Compensation extras */}
+                {(reviewOffer.sign_on_bonus > 0 || reviewOffer.completion_bonus > 0 || reviewOffer.housing_stipend > 0 || reviewOffer.travel_stipend > 0 || reviewOffer.approved_time_off) && (
+                  <div className="p-4 bg-green-50/50 dark:bg-green-950/10 rounded-xl border border-green-100 dark:border-green-900/30 space-y-2">
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide">Compensation Extras</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {reviewOffer.sign_on_bonus > 0 && (
+                        <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-green-600" /><span>Sign-on: <strong>${reviewOffer.sign_on_bonus.toLocaleString()}</strong></span></div>
+                      )}
+                      {reviewOffer.completion_bonus > 0 && (
+                        <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-green-600" /><span>Completion: <strong>${reviewOffer.completion_bonus.toLocaleString()}</strong></span></div>
+                      )}
+                      {reviewOffer.housing_stipend > 0 && (
+                        <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-green-600" /><span>Housing: <strong>${reviewOffer.housing_stipend.toLocaleString()}/mo</strong></span></div>
+                      )}
+                      {reviewOffer.travel_stipend > 0 && (
+                        <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-green-600" /><span>Travel: <strong>${reviewOffer.travel_stipend.toLocaleString()}</strong></span></div>
+                      )}
+                    </div>
+                    {reviewOffer.approved_time_off && (
+                      <p className="text-sm text-foreground flex items-center gap-1.5 mt-1"><Clock className="w-3.5 h-3.5 text-green-600" /> PTO: {reviewOffer.approved_time_off}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Benefits */}
                 {reviewOffer.benefits_summary && (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Benefits</p>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Benefits</p>
                     <p className="text-sm text-foreground">{reviewOffer.benefits_summary}</p>
                   </div>
                 )}
+
+                {/* Conditions */}
                 {reviewOffer.conditions?.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Conditions</p>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">Conditions</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {reviewOffer.conditions.map((c, i) => (
                         <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Custom notes from employer */}
+                {reviewOffer.custom_notes && (
+                  <div className="p-3 bg-blue-50/50 dark:bg-blue-950/10 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                    <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Note from Employer</p>
+                    <p className="text-sm text-foreground">{reviewOffer.custom_notes}</p>
                   </div>
                 )}
               </div>

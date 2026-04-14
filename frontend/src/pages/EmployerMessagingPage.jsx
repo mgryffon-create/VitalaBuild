@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
@@ -13,7 +18,7 @@ import {
   MessageCircle, Send, ArrowLeft, ChevronRight, ChevronDown, Shield, MapPin,
   Clock, Award, Briefcase, FileText, User, ExternalLink, PanelRightOpen,
   PanelRightClose, Star, ShieldCheck, Bell, UserCheck, Phone, Mail,
-  XCircle, Eye, Loader2, CheckCircle, Building, DollarSign, Lock,
+  XCircle, Eye, Loader2, CheckCircle, Building, DollarSign, Lock, Calendar,
 } from "lucide-react";
 
 const STAGE_BADGE = {
@@ -38,6 +43,199 @@ const TEMPLATES = [
   { key: "application_request", label: "Send Application" },
   { key: "offer_notification", label: "Notify Offer" },
 ];
+
+/* ── Offer Builder Modal ── */
+const OfferBuilderModal = ({ open, onClose, candidate, onSubmitted }) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({});
+
+  // Pre-fill from candidate/job data
+  useEffect(() => {
+    if (!candidate || !open) return;
+    const today = new Date();
+    const expDate = new Date(today);
+    expDate.setDate(expDate.getDate() + 7);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() + 14);
+    setForm({
+      position_title: candidate.job_title || "",
+      salary_amount: candidate.job_pay_range?.min || "",
+      salary_type: "hourly",
+      start_date: startDate.toISOString().split("T")[0],
+      expiration_date: expDate.toISOString().split("T")[0],
+      shift_details: "",
+      contract_length: "",
+      overtime_rate: "",
+      sign_on_bonus: "",
+      completion_bonus: "",
+      housing_stipend: "",
+      travel_stipend: "",
+      approved_time_off: "",
+      conditions: "",
+      benefits_summary: "",
+      custom_notes: "",
+    });
+  }, [candidate, open]);
+
+  const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async () => {
+    if (!form.position_title || !form.salary_amount || !form.start_date || !form.expiration_date) {
+      toast.error("Please fill in position title, pay rate, start date, and expiration date");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload = {
+        match_id: candidate.match_id,
+        job_id: candidate.job_id,
+        seeker_id: candidate.candidate_id,
+        position_title: form.position_title,
+        salary_amount: parseFloat(form.salary_amount) || 0,
+        salary_type: form.salary_type,
+        start_date: form.start_date,
+        expiration_date: form.expiration_date,
+        shift_details: form.shift_details || null,
+        contract_length: form.contract_length || null,
+        overtime_rate: form.overtime_rate ? parseFloat(form.overtime_rate) : null,
+        sign_on_bonus: form.sign_on_bonus ? parseFloat(form.sign_on_bonus) : null,
+        completion_bonus: form.completion_bonus ? parseFloat(form.completion_bonus) : null,
+        housing_stipend: form.housing_stipend ? parseFloat(form.housing_stipend) : null,
+        travel_stipend: form.travel_stipend ? parseFloat(form.travel_stipend) : null,
+        approved_time_off: form.approved_time_off || null,
+        conditions: form.conditions ? form.conditions.split("\n").filter(Boolean) : [],
+        benefits_summary: form.benefits_summary || null,
+        custom_notes: form.custom_notes || null,
+      };
+      await axios.post(`${API}/hiring/offers`, payload);
+      toast.success("Offer sent to candidate");
+      onClose();
+      onSubmitted();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Failed to send offer");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!candidate) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="offer-builder-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="w-5 h-5 text-primary" />
+            Send Offer
+          </DialogTitle>
+          <DialogDescription>
+            Create an offer for <span className="font-medium text-foreground">{candidate.name}</span> — {candidate.job_title}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Core fields */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Position Title *</Label>
+              <Input data-testid="offer-position-title" value={form.position_title || ""} onChange={(e) => updateField("position_title", e.target.value)} placeholder="e.g., ICU Travel Nurse" className="h-9 mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Pay Rate *</Label>
+                <div className="flex gap-1.5 mt-1">
+                  <Input data-testid="offer-salary" type="number" value={form.salary_amount || ""} onChange={(e) => updateField("salary_amount", e.target.value)} placeholder="0" className="h-9 flex-1" />
+                  <select data-testid="offer-salary-type" value={form.salary_type || "hourly"} onChange={(e) => updateField("salary_type", e.target.value)} className="h-9 px-2 rounded-md border bg-background text-xs">
+                    <option value="hourly">/hr</option>
+                    <option value="weekly">/wk</option>
+                    <option value="annual">/yr</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Overtime Rate</Label>
+                <Input data-testid="offer-overtime" type="number" value={form.overtime_rate || ""} onChange={(e) => updateField("overtime_rate", e.target.value)} placeholder="$/hr" className="h-9 mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Start Date *</Label>
+                <Input data-testid="offer-start-date" type="date" value={form.start_date || ""} onChange={(e) => updateField("start_date", e.target.value)} className="h-9 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Offer Expires *</Label>
+                <Input data-testid="offer-expiration" type="date" value={form.expiration_date || ""} onChange={(e) => updateField("expiration_date", e.target.value)} className="h-9 mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Shift Details</Label>
+                <Input data-testid="offer-shift" value={form.shift_details || ""} onChange={(e) => updateField("shift_details", e.target.value)} placeholder="e.g., 7p-7a, 3x12" className="h-9 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Contract Length</Label>
+                <Input data-testid="offer-contract-length" value={form.contract_length || ""} onChange={(e) => updateField("contract_length", e.target.value)} placeholder="e.g., 13 weeks" className="h-9 mt-1" />
+              </div>
+            </div>
+          </div>
+
+          {/* Compensation extras */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Compensation Extras</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Sign-On Bonus</Label>
+                <Input data-testid="offer-sign-on" type="number" value={form.sign_on_bonus || ""} onChange={(e) => updateField("sign_on_bonus", e.target.value)} placeholder="$" className="h-9 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Completion Bonus</Label>
+                <Input data-testid="offer-completion" type="number" value={form.completion_bonus || ""} onChange={(e) => updateField("completion_bonus", e.target.value)} placeholder="$" className="h-9 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Housing Stipend</Label>
+                <Input data-testid="offer-housing" type="number" value={form.housing_stipend || ""} onChange={(e) => updateField("housing_stipend", e.target.value)} placeholder="$/month" className="h-9 mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">Travel Stipend</Label>
+                <Input data-testid="offer-travel" type="number" value={form.travel_stipend || ""} onChange={(e) => updateField("travel_stipend", e.target.value)} placeholder="$" className="h-9 mt-1" />
+              </div>
+            </div>
+          </div>
+
+          {/* Additional details */}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Approved Time Off</Label>
+              <Input data-testid="offer-time-off" value={form.approved_time_off || ""} onChange={(e) => updateField("approved_time_off", e.target.value)} placeholder="e.g., 2 days PTO per month" className="h-9 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Benefits Summary</Label>
+              <Textarea data-testid="offer-benefits" value={form.benefits_summary || ""} onChange={(e) => updateField("benefits_summary", e.target.value)} placeholder="Health insurance, 401k match, etc." className="min-h-[60px] mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Conditions (one per line)</Label>
+              <Textarea data-testid="offer-conditions" value={form.conditions || ""} onChange={(e) => updateField("conditions", e.target.value)} placeholder="Background check&#10;Drug screening&#10;License verification" className="min-h-[60px] mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Custom Notes</Label>
+              <Textarea data-testid="offer-custom-notes" value={form.custom_notes || ""} onChange={(e) => updateField("custom_notes", e.target.value)} placeholder="Any additional details for the candidate..." className="min-h-[60px] mt-1" />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="flex-1">Cancel</Button>
+          <Button data-testid="offer-submit-btn" onClick={handleSubmit} disabled={submitting} className="flex-1">
+            {submitting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
+            {submitting ? "Sending..." : "Send Offer"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 /* ── Full Candidate Profile Panel (scrollable content + sticky actions) ── */
 const CandidateProfilePanel = ({ candidateId, jobId, stage, onClose, onStageAction, actionLoading }) => {
@@ -443,6 +641,7 @@ const EmployerMessagingPage = () => {
   const [jobExtLinks, setJobExtLinks] = useState({});
   const [stageActionLoading, setStageActionLoading] = useState(false);
   const [collapsedJobs, setCollapsedJobs] = useState(new Set());
+  const [offerBuilderTarget, setOfferBuilderTarget] = useState(null);
   const endRef = useRef(null);
 
   const fetchData = useCallback(async () => {
@@ -607,13 +806,17 @@ const EmployerMessagingPage = () => {
       navigate(`/poster/hiring?tab=offers`);
       return;
     }
+    if (action === "send_offer") {
+      // Open the Offer Builder modal
+      setOfferBuilderTarget(selected);
+      return;
+    }
 
     setStageActionLoading(true);
     try {
       const stageMap = {
         accept: "matched",
         pass: "passed",
-        send_offer: "offer_sent",
       };
       const newStage = stageMap[action];
       if (!newStage) return;
@@ -937,6 +1140,14 @@ const EmployerMessagingPage = () => {
             />
           )}
         </div>
+
+        {/* Offer Builder Modal */}
+        <OfferBuilderModal
+          open={!!offerBuilderTarget}
+          onClose={() => setOfferBuilderTarget(null)}
+          candidate={offerBuilderTarget}
+          onSubmitted={() => { setOfferBuilderTarget(null); fetchData(); }}
+        />
       </div>
     </DashboardLayout>
   );

@@ -653,12 +653,22 @@ class EmploymentOffer(BaseModel):
     seeker_id: str
     position_title: str
     salary_amount: float
-    salary_type: str = "annual"  # annual, hourly
+    salary_type: str = "hourly"  # hourly, weekly, annual
     start_date: str
     expiration_date: str
     conditions: List[str] = []
     benefits_summary: Optional[str] = None
     additional_terms: Optional[str] = None
+    # New structured fields for Offer Builder
+    contract_length: Optional[str] = None
+    shift_details: Optional[str] = None
+    overtime_rate: Optional[float] = None
+    sign_on_bonus: Optional[float] = None
+    completion_bonus: Optional[float] = None
+    housing_stipend: Optional[float] = None
+    travel_stipend: Optional[float] = None
+    approved_time_off: Optional[str] = None
+    custom_notes: Optional[str] = None
 
 class OfferResponse(BaseModel):
     accepted: bool
@@ -3917,12 +3927,36 @@ async def create_employment_offer(offer: EmploymentOffer, current_user: dict = D
         "conditions": offer.conditions,
         "benefits_summary": offer.benefits_summary,
         "additional_terms": offer.additional_terms,
+        "contract_length": offer.contract_length,
+        "shift_details": offer.shift_details,
+        "overtime_rate": offer.overtime_rate,
+        "sign_on_bonus": offer.sign_on_bonus,
+        "completion_bonus": offer.completion_bonus,
+        "housing_stipend": offer.housing_stipend,
+        "travel_stipend": offer.travel_stipend,
+        "approved_time_off": offer.approved_time_off,
+        "custom_notes": offer.custom_notes,
         "status": "pending",  # pending, accepted, rejected, withdrawn, expired
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
     await db.employment_offers.insert_one(offer_data)
+    
+    # Auto-create employment document record (NOT in credential vault)
+    emp_doc = {
+        "id": str(uuid.uuid4()),
+        "offer_id": offer_id,
+        "match_id": offer.match_id,
+        "job_id": offer.job_id,
+        "candidate_id": offer.seeker_id,
+        "employer_id": current_user["id"],
+        "document_type": "offer_letter",
+        "title": f"Offer: {offer.position_title}",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "active",
+    }
+    await db.employment_documents.insert_one(emp_doc)
     
     # SYNC: update pipeline stage to offer_sent (canonical state)
     await db.pipeline_stages.update_one(
@@ -4190,6 +4224,29 @@ async def withdraw_offer(offer_id: str, current_user: dict = Depends(get_current
     )
     
     return {"message": "Offer withdrawn"}
+
+# ----- Employment Documents (separate from credential vault) -----
+
+@api_router.get("/employment-documents")
+async def get_employment_documents(current_user: dict = Depends(get_current_user)):
+    """Get employment documents for current user (offer letters, contracts — NOT credential vault)."""
+    query = {"candidate_id": current_user["id"]} if current_user["role"] == "seeker" else {"employer_id": current_user["id"]}
+    docs = await db.employment_documents.find(query, {"_id": 0}).sort("generated_at", -1).to_list(100)
+    # Enrich with offer details
+    for doc in docs:
+        if doc.get("offer_id"):
+            offer = await db.employment_offers.find_one({"id": doc["offer_id"]}, {"_id": 0})
+            if offer:
+                doc["offer"] = {
+                    "position_title": offer.get("position_title"),
+                    "salary_amount": offer.get("salary_amount"),
+                    "salary_type": offer.get("salary_type"),
+                    "start_date": offer.get("start_date"),
+                    "status": offer.get("status"),
+                }
+                job = await db.jobs.find_one({"id": offer.get("job_id")}, {"_id": 0, "title": 1, "location": 1})
+                doc["job"] = {"title": job.get("title"), "location": job.get("location")} if job else None
+    return docs
 
 # ----- Onboarding -----
 

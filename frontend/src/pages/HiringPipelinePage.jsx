@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -568,6 +571,121 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
   );
 };
 
+/* ── Pipeline Offer Builder ── */
+const PipelineOfferBuilder = ({ open, onClose, candidate, onSubmitted }) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({});
+
+  useEffect(() => {
+    if (!candidate || !open) return;
+    const today = new Date();
+    const expDate = new Date(today); expDate.setDate(expDate.getDate() + 7);
+    const startDate = new Date(today); startDate.setDate(startDate.getDate() + 14);
+    setForm({
+      position_title: candidate.job?.title || "",
+      salary_amount: candidate.job?.pay_range?.min || "",
+      salary_type: "hourly",
+      start_date: startDate.toISOString().split("T")[0],
+      expiration_date: expDate.toISOString().split("T")[0],
+      shift_details: candidate.job?.shift_type || "",
+      contract_length: "", overtime_rate: "", sign_on_bonus: "", completion_bonus: "",
+      housing_stipend: "", travel_stipend: "", approved_time_off: "",
+      conditions: "", benefits_summary: "", custom_notes: "",
+    });
+  }, [candidate, open]);
+
+  const u = (f, v) => setForm((p) => ({ ...p, [f]: v }));
+
+  const handleSubmit = async () => {
+    if (!form.position_title || !form.salary_amount || !form.start_date || !form.expiration_date) {
+      toast.error("Fill in position title, pay rate, start date, and expiration"); return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/hiring/offers`, {
+        match_id: candidate.match_id, job_id: candidate.job_id, seeker_id: candidate.candidate_id,
+        position_title: form.position_title, salary_amount: parseFloat(form.salary_amount) || 0,
+        salary_type: form.salary_type, start_date: form.start_date, expiration_date: form.expiration_date,
+        shift_details: form.shift_details || null, contract_length: form.contract_length || null,
+        overtime_rate: form.overtime_rate ? parseFloat(form.overtime_rate) : null,
+        sign_on_bonus: form.sign_on_bonus ? parseFloat(form.sign_on_bonus) : null,
+        completion_bonus: form.completion_bonus ? parseFloat(form.completion_bonus) : null,
+        housing_stipend: form.housing_stipend ? parseFloat(form.housing_stipend) : null,
+        travel_stipend: form.travel_stipend ? parseFloat(form.travel_stipend) : null,
+        approved_time_off: form.approved_time_off || null,
+        conditions: form.conditions ? form.conditions.split("\n").filter(Boolean) : [],
+        benefits_summary: form.benefits_summary || null, custom_notes: form.custom_notes || null,
+      });
+      toast.success("Offer sent to candidate");
+      onClose(); onSubmitted();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : "Failed to send offer");
+    } finally { setSubmitting(false); }
+  };
+
+  if (!candidate) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="pipeline-offer-builder">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Send className="w-5 h-5 text-primary" /> Send Offer</DialogTitle>
+          <DialogDescription>
+            Offer for <span className="font-medium text-foreground">{candidate.seeker?.full_name}</span> — {candidate.job?.title}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label className="text-xs">Position Title *</Label>
+            <Input data-testid="pipe-offer-title" value={form.position_title || ""} onChange={(e) => u("position_title", e.target.value)} className="h-9 mt-1" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Pay Rate *</Label>
+              <div className="flex gap-1.5 mt-1">
+                <Input data-testid="pipe-offer-salary" type="number" value={form.salary_amount || ""} onChange={(e) => u("salary_amount", e.target.value)} className="h-9 flex-1" />
+                <select value={form.salary_type || "hourly"} onChange={(e) => u("salary_type", e.target.value)} className="h-9 px-2 rounded-md border bg-background text-xs">
+                  <option value="hourly">/hr</option><option value="weekly">/wk</option><option value="annual">/yr</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Overtime Rate</Label>
+              <Input type="number" value={form.overtime_rate || ""} onChange={(e) => u("overtime_rate", e.target.value)} placeholder="$/hr" className="h-9 mt-1" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Start Date *</Label><Input type="date" value={form.start_date || ""} onChange={(e) => u("start_date", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Offer Expires *</Label><Input type="date" value={form.expiration_date || ""} onChange={(e) => u("expiration_date", e.target.value)} className="h-9 mt-1" /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Shift</Label><Input value={form.shift_details || ""} onChange={(e) => u("shift_details", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Contract Length</Label><Input value={form.contract_length || ""} onChange={(e) => u("contract_length", e.target.value)} placeholder="13 weeks" className="h-9 mt-1" /></div>
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Extras</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label className="text-xs">Sign-On Bonus</Label><Input type="number" value={form.sign_on_bonus || ""} onChange={(e) => u("sign_on_bonus", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Completion Bonus</Label><Input type="number" value={form.completion_bonus || ""} onChange={(e) => u("completion_bonus", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Housing Stipend</Label><Input type="number" value={form.housing_stipend || ""} onChange={(e) => u("housing_stipend", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Travel Stipend</Label><Input type="number" value={form.travel_stipend || ""} onChange={(e) => u("travel_stipend", e.target.value)} className="h-9 mt-1" /></div>
+          </div>
+          <div><Label className="text-xs">Benefits</Label><Textarea value={form.benefits_summary || ""} onChange={(e) => u("benefits_summary", e.target.value)} className="min-h-[50px] mt-1" /></div>
+          <div><Label className="text-xs">Conditions</Label><Textarea value={form.conditions || ""} onChange={(e) => u("conditions", e.target.value)} placeholder="One per line" className="min-h-[50px] mt-1" /></div>
+          <div><Label className="text-xs">Custom Notes</Label><Textarea value={form.custom_notes || ""} onChange={(e) => u("custom_notes", e.target.value)} className="min-h-[50px] mt-1" /></div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button data-testid="pipe-offer-submit" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
+            {submitting ? "Sending..." : "Send Offer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 /* ── Main Page ── */
 const HiringPipelinePage = () => {
   const navigate = useNavigate();
@@ -600,6 +718,8 @@ const HiringPipelinePage = () => {
     setSelectedCandidate(candidate);
   };
 
+  const [offerBuilderTarget, setOfferBuilderTarget] = useState(null);
+
   const handleModalAction = (action, candidate) => {
     if (action === "message") {
       setSelectedCandidate(null);
@@ -612,6 +732,12 @@ const HiringPipelinePage = () => {
     } else if (action === "advance") {
       const nextStage = NEXT_STAGE[candidate.stage];
       if (!nextStage) return;
+      // If advancing to offer_sent → open the Offer Builder instead
+      if (nextStage === "offer_sent") {
+        setSelectedCandidate(null);
+        setOfferBuilderTarget(candidate);
+        return;
+      }
       setConfirmAction({ type: "advance", candidate, stage: nextStage });
     }
   };
@@ -797,6 +923,16 @@ const HiringPipelinePage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pipeline Offer Builder */}
+      {offerBuilderTarget && (
+        <PipelineOfferBuilder
+          open={!!offerBuilderTarget}
+          onClose={() => setOfferBuilderTarget(null)}
+          candidate={offerBuilderTarget}
+          onSubmitted={() => { setOfferBuilderTarget(null); fetchPipeline(); }}
+        />
+      )}
     </DashboardLayout>
   );
 };
