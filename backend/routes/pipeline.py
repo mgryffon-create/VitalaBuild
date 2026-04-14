@@ -5,6 +5,7 @@ from shared import (
     HTTPException, uuid, datetime, timezone, BaseModel, Optional, List,
 )
 from datetime import timedelta
+from eligibility import get_seeker_role
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -235,6 +236,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
                 "full_name": seeker.get("full_name"),
                 "email": seeker.get("email"),
                 "specialty": profile.get("specialty") if profile else None,
+                "credential": get_seeker_role(profile) if profile else None,
                 "years_experience": profile.get("years_experience") if profile else None,
                 "preferred_locations": profile.get("preferred_locations", []) if profile else [],
                 "preferred_shift": profile.get("preferred_shift") if profile else None,

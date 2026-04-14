@@ -411,6 +411,7 @@ const EmployerMessagingPage = () => {
           job_pay_range: c.job?.pay_range || null,
           name: c.seeker?.full_name || "Applicant",
           specialty: c.seeker?.specialty,
+          credential: c.seeker?.credential || null,
           stage: c.stage,
           last_message: c.last_message,
           has_verified_refs: c.has_verified_refs,
@@ -430,6 +431,7 @@ const EmployerMessagingPage = () => {
           job_pay_range: m.job?.pay_range || null,
           name: m.seeker?.full_name || "Applicant",
           specialty: m.seeker?.specialty,
+          credential: m.seeker?.credential || null,
           stage: "matched",
           last_message: null,
         });
@@ -623,13 +625,21 @@ const EmployerMessagingPage = () => {
                           {hasNudge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-card" />}
                         </div>
                         <div className="flex-1 min-w-0">
+                          {/* Primary: candidate name + credential */}
                           <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-medium text-foreground truncate">{c.name}</p>
+                            <p data-testid={`convo-name-${c.id}`} className="text-xs font-medium text-foreground truncate">{c.name}</p>
+                            {c.credential && (
+                              <span data-testid={`convo-credential-${c.id}`} className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">{c.credential}</span>
+                            )}
                             {c.has_verified_refs && <Shield className="w-3 h-3 text-green-600 shrink-0" />}
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate">{c.specialty || "Healthcare Professional"}</p>
+                          {/* Specialty detail */}
+                          {c.specialty && (
+                            <p className="text-[10px] text-muted-foreground truncate">{c.specialty}</p>
+                          )}
+                          {/* Job applied for */}
                           {c.job_title && (
-                            <p className="text-[9px] text-primary/70 truncate flex items-center gap-0.5">
+                            <p data-testid={`convo-job-${c.id}`} className="text-[9px] text-muted-foreground/70 truncate flex items-center gap-0.5 mt-0.5">
                               <Briefcase className="w-2.5 h-2.5 shrink-0" /> {c.job_title}
                             </p>
                           )}
@@ -649,18 +659,27 @@ const EmployerMessagingPage = () => {
           {/* Center: Chat */}
           {selected ? (
             <div className="flex-1 flex flex-col border-y border-r rounded-r-xl bg-card min-w-0">
-              {/* Chat Header with job context */}
+              {/* Chat Header — candidate primary, job secondary */}
               <div className="p-3 border-b shrink-0">
                 <div className="flex items-center gap-3">
                   <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 shrink-0" onClick={() => setSelected(null)} data-testid="back-to-list-btn">
                     <ArrowLeft className="w-4 h-4" />
                   </Button>
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-semibold text-primary">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-sm font-semibold text-primary">
                     {selected.name?.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{selected.name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{selected.specialty}</p>
+                    {/* Primary: candidate name + credential */}
+                    <div className="flex items-center gap-1.5">
+                      <p data-testid="chat-header-name" className="text-sm font-semibold text-foreground truncate">{selected.name}</p>
+                      {selected.credential && (
+                        <span data-testid="chat-header-credential" className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">{selected.credential}</span>
+                      )}
+                    </div>
+                    {/* Specialty */}
+                    {selected.specialty && (
+                      <p className="text-[10px] text-muted-foreground truncate">{selected.specialty}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Badge variant="outline" className={`text-[9px] ${STAGE_BADGE[selected.stage] || ""}`}>{STAGE_LABEL[selected.stage] || selected.stage}</Badge>
@@ -669,10 +688,11 @@ const EmployerMessagingPage = () => {
                     {showContext ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
                   </Button>
                 </div>
-                {/* Job context bar */}
+                {/* Secondary: job context */}
                 {selected.job_title && (
                   <div data-testid="job-context-bar" className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
-                    <Briefcase className="w-3 h-3 text-primary shrink-0" />
+                    <Briefcase className="w-3 h-3 text-primary/60 shrink-0" />
+                    <span className="text-muted-foreground">Applied for:</span>
                     <span className="font-medium text-foreground truncate">{selected.job_title}</span>
                     {selected.job_location && (
                       <span className="flex items-center gap-0.5 shrink-0"><MapPin className="w-2.5 h-2.5" />{selected.job_location}</span>

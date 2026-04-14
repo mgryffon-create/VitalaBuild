@@ -105,6 +105,9 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="font-medium text-xs text-foreground truncate">{c.seeker?.full_name || "Applicant"}</p>
+              {c.seeker?.credential && (
+                <span className="text-[7px] px-1 py-0 rounded bg-primary/10 text-primary font-semibold shrink-0">{c.seeker.credential}</span>
+              )}
               {c.has_verified_refs && <ShieldCheck className="w-3 h-3 text-green-600 shrink-0" />}
               {isNudged && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
               {sub && <span className={`text-[8px] px-1.5 py-0 rounded-full font-medium shrink-0 ${sub.className}`}>{sub.label}</span>}
