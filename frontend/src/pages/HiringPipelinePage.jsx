@@ -17,6 +17,7 @@ import {
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Users, Briefcase, CheckCircle, Clock, MessageCircle, Send,
@@ -596,10 +597,14 @@ const PipelineOfferBuilder = ({ open, onClose, candidate, onSubmitted }) => {
 
   const u = (f, v) => setForm((p) => ({ ...p, [f]: v }));
 
+  const dateError = form.start_date && form.expiration_date && form.expiration_date < form.start_date
+    ? "Expiration date cannot be before start date" : null;
+
   const handleSubmit = async () => {
     if (!form.position_title || !form.salary_amount || !form.start_date || !form.expiration_date) {
       toast.error("Fill in position title, pay rate, start date, and expiration"); return;
     }
+    if (dateError) { toast.error(dateError); return; }
     setSubmitting(true);
     try {
       await axios.post(`${API}/hiring/offers`, {
@@ -823,16 +828,9 @@ const HiringPipelinePage = () => {
   return (
     <DashboardLayout>
       <div data-testid="hiring-pipeline-page" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Hiring Flow</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">{stats.total || 0} applicants across all stages</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <BarChart className="w-4 h-4" />
-            <span>{stats.hired || 0} hired</span>
-          </div>
-        </div>
+        <PageHeader title="Hiring Flow" backTo="/poster" subtitle={`${stats.total || 0} applicants across all stages`} actions={
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><BarChart className="w-4 h-4" /><span>{stats.hired || 0} hired</span></div>
+        } />
 
         <NudgeBanner nudges={nudges} onAction={handleNudgeAction} />
 

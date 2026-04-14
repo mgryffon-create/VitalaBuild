@@ -79,11 +79,15 @@ const OfferBuilderModal = ({ open, onClose, candidate, onSubmitted }) => {
 
   const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
+  const dateError = form.start_date && form.expiration_date && form.expiration_date < form.start_date
+    ? "Expiration date cannot be before start date" : null;
+
   const handleSubmit = async () => {
     if (!form.position_title || !form.salary_amount || !form.start_date || !form.expiration_date) {
       toast.error("Please fill in position title, pay rate, start date, and expiration date");
       return;
     }
+    if (dateError) { toast.error(dateError); return; }
     setSubmitting(true);
     try {
       const payload = {
@@ -139,7 +143,7 @@ const OfferBuilderModal = ({ open, onClose, candidate, onSubmitted }) => {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Position Title *</Label>
-              <Input data-testid="offer-position-title" value={form.position_title || ""} onChange={(e) => updateField("position_title", e.target.value)} placeholder="e.g., ICU Travel Nurse" className="h-9 mt-1" />
+              <Input data-testid="offer-position-title" value={form.position_title || ""} onChange={(e) => updateField("position_title", e.target.value)} placeholder="e.g., ICU Travel Nurse" className="h-9 mt-1" autoComplete="organization-title" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -165,9 +169,10 @@ const OfferBuilderModal = ({ open, onClose, candidate, onSubmitted }) => {
               </div>
               <div>
                 <Label className="text-xs">Offer Expires *</Label>
-                <Input data-testid="offer-expiration" type="date" value={form.expiration_date || ""} onChange={(e) => updateField("expiration_date", e.target.value)} className="h-9 mt-1" />
+                <Input data-testid="offer-expiration" type="date" value={form.expiration_date || ""} onChange={(e) => updateField("expiration_date", e.target.value)} className={`h-9 mt-1 ${dateError ? "border-red-500" : ""}`} />
               </div>
             </div>
+            {dateError && <p data-testid="date-error" className="text-xs text-red-500 -mt-1">{dateError}</p>}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Shift Details</Label>

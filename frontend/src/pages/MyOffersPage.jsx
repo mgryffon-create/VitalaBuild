@@ -13,6 +13,7 @@ import {
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Briefcase, DollarSign, Calendar, Clock, MapPin, CheckCircle,
@@ -117,15 +118,9 @@ const MyOffersPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="offers-page" className="space-y-4 sm:space-y-6 max-w-4xl">
-        {/* Header */}
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Offers</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            {offers.length === 0
-              ? "No offers yet — keep finding jobs!"
-              : `${offers.length} offer${offers.length !== 1 ? "s" : ""} received`}
-          </p>
-        </div>
+        <PageHeader title="Offers" backTo="/matches" subtitle={
+          offers.length === 0 ? "No offers yet — keep finding jobs!" : `${offers.length} offer${offers.length !== 1 ? "s" : ""} received`
+        } />
 
         {/* Pending alert */}
         {pendingCount > 0 && (

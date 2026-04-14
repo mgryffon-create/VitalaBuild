@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Calendar, Video, Phone, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -185,14 +186,7 @@ const InterviewsPage = () => {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Interviews</h1>
-            <p className="text-muted-foreground mt-1">
-              {isSeeker ? "Manage your interview invitations" : "Track interview requests"}
-            </p>
-          </div>
-        </div>
+        <PageHeader title="Interviews" backTo={isSeeker ? "/seeker" : "/poster"} subtitle={isSeeker ? "Manage your interview invitations" : "Track interview requests"} />
         
         {isPoster && (
           <Card className="mb-6 bg-primary/5 border-primary/20">

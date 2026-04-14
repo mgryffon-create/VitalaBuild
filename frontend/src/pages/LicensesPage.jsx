@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Shield, Plus, Trash2, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, FileCheck } from "lucide-react";
 
@@ -160,22 +161,9 @@ const LicensesPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="licenses-page" className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">License Verification</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage and verify your professional licenses
-            </p>
-          </div>
-          <Button
-            data-testid="add-license-btn"
-            onClick={() => setShowAddDialog(true)}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Add License
-          </Button>
-        </div>
+        <PageHeader title="License Verification" backTo="/seeker" subtitle="Manage and verify your professional licenses" actions={
+          <Button data-testid="add-license-btn" onClick={() => setShowAddDialog(true)} className="bg-primary hover:bg-primary/90"><Plus className="w-4 h-4 mr-2" /> Add License</Button>
+        } />
 
         {/* Info Card */}
         <Card className="bg-primary/5 border-primary/20">

@@ -157,6 +157,7 @@ const AuthPage = () => {
                           placeholder="you@example.com"
                           className="pl-10"
                           required
+                          autoComplete="email"
                         />
                       </div>
                     </div>
@@ -172,6 +173,7 @@ const AuthPage = () => {
                           placeholder="••••••••"
                           className="pl-10"
                           required
+                          autoComplete="current-password"
                         />
                       </div>
                     </div>
@@ -242,6 +244,7 @@ const AuthPage = () => {
                           placeholder="John Doe"
                           className="pl-10"
                           required
+                          autoComplete="name"
                         />
                       </div>
                     </div>
@@ -257,6 +260,7 @@ const AuthPage = () => {
                           placeholder="you@example.com"
                           className="pl-10"
                           required
+                          autoComplete="email"
                         />
                       </div>
                     </div>
@@ -272,6 +276,7 @@ const AuthPage = () => {
                           placeholder="••••••••"
                           className="pl-10"
                           required
+                          autoComplete="new-password"
                         />
                       </div>
                     </div>
@@ -287,6 +292,7 @@ const AuthPage = () => {
                           placeholder="••••••••"
                           className="pl-10"
                           required
+                          autoComplete="new-password"
                         />
                       </div>
                     </div>

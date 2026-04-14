@@ -333,7 +333,7 @@ const JobFormPage = () => {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>Job Title *</Label>
-                <Input data-testid="job-title-input" value={job.title} onChange={(e) => setJob((p) => ({ ...p, title: e.target.value }))} placeholder="e.g., ICU Registered Nurse" />
+                <Input data-testid="job-title-input" value={job.title} onChange={(e) => setJob((p) => ({ ...p, title: e.target.value }))} placeholder="e.g., ICU Registered Nurse" autoComplete="organization-title" />
                 {isWeakTitle(job.title) && generatedTitle && (
                   <p className="text-xs text-muted-foreground">Seeker-facing title: <strong className="text-foreground">{generatedTitle}</strong></p>
                 )}

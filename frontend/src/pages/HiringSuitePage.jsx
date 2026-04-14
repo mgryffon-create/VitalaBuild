@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import { 
   Briefcase, Send, FileText, Users, Clock, CheckCircle, XCircle, 
@@ -223,12 +224,7 @@ const HiringSuitePage = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Hiring Manager</h1>
-            <p className="text-muted-foreground">Manage onboarding and employee documents</p>
-          </div>
-        </div>
+        <PageHeader title="Hiring Manager" backTo="/poster" subtitle="Manage onboarding and employee documents" />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-1">

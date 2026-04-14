@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/PageHeader";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Bell, Mail, Phone, Save, Settings as SettingsIcon, Smartphone, Download, CheckCircle, XCircle } from "lucide-react";
 import { 
@@ -177,24 +178,11 @@ const SettingsPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="settings-page" className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Settings</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Manage your notification preferences
-            </p>
-          </div>
-          <Button
-            data-testid="save-settings-btn"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? "Saving..." : "Save Changes"}
+        <PageHeader title="Settings" backTo="/seeker" subtitle="Manage your notification preferences" actions={
+          <Button data-testid="save-settings-btn" onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90">
+            <Save className="w-4 h-4 mr-2" />{saving ? "Saving..." : "Save Changes"}
           </Button>
-        </div>
+        } />
 
         {/* Install App Card */}
         <Card className="border-primary/20 bg-primary/5">
