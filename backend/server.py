@@ -1784,6 +1784,8 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
 
         status = "pending"
         match_id = None
+        offer_id = None
+        offer_details = None
         if offer:
             # Use the actual offer status (pending, accepted, rejected, expired)
             offer_status = offer.get("status", "pending")
@@ -1794,9 +1796,29 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
             else:
                 status = "offer_sent"
             match_id = match["id"] if match else None
+            offer_id = offer.get("id")
+            offer_details = {
+                "id": offer.get("id"),
+                "position_title": offer.get("position_title"),
+                "salary_amount": offer.get("salary_amount"),
+                "salary_type": offer.get("salary_type"),
+                "start_date": offer.get("start_date"),
+                "expiration_date": offer.get("expiration_date"),
+                "status": offer.get("status"),
+                "created_at": offer.get("created_at"),
+            }
         elif match:
             status = "matched"
             match_id = match["id"]
+
+        # Fallback: check pipeline_stages for offer_sent (employer advanced stage)
+        if status == "matched":
+            pipe_stage = await db.pipeline_stages.find_one(
+                {"candidate_id": current_user["id"], "job_id": sw["target_id"], "stage": "offer_sent"},
+                {"_id": 0}
+            )
+            if pipe_stage:
+                status = "offer_sent"
 
         poster_profile = await db.poster_profiles.find_one(
             {"user_id": job.get("poster_id")}, {"_id": 0}
@@ -1806,6 +1828,8 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
             "id": sw["id"],
             "job_id": job["id"],
             "match_id": match_id,
+            "offer_id": offer_id,
+            "offer": offer_details,
             "status": status,
             "applied_at": sw.get("created_at"),
             "job": {
@@ -3899,6 +3923,13 @@ async def create_employment_offer(offer: EmploymentOffer, current_user: dict = D
     }
     
     await db.employment_offers.insert_one(offer_data)
+    
+    # SYNC: update pipeline stage to offer_sent (canonical state)
+    await db.pipeline_stages.update_one(
+        {"candidate_id": offer.seeker_id, "employer_id": current_user["id"], "job_id": offer.job_id},
+        {"$set": {"stage": "offer_sent", "updated_at": offer_data["created_at"]}},
+        upsert=True,
+    )
     
     # Notify the seeker
     await NotificationService.send_notification(

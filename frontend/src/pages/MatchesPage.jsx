@@ -9,13 +9,15 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle, Building } from "lucide-react";
+import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle, Building, Gift, ExternalLink } from "lucide-react";
 
 const STATUS_CONFIG = {
-  pending:    { label: "Pending",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200", icon: Clock },
-  matched:    { label: "Matched",    className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200", icon: CheckCircle },
-  offer_sent: { label: "Offer Sent", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Send },
-  offer:      { label: "Offer Sent", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Send },
+  pending:    { label: "Pending",          className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200", icon: Clock },
+  matched:    { label: "Matched",          className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200", icon: CheckCircle },
+  offer_sent: { label: "Offer Received",   className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Gift },
+  offer:      { label: "Offer Received",   className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Gift },
+  accepted:   { label: "Accepted",         className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200", icon: CheckCircle },
+  declined:   { label: "Declined",         className: "bg-muted text-muted-foreground border-border", icon: Clock },
 };
 
 /* ── Item List — extracted as stable component ── */
@@ -67,6 +69,7 @@ const ItemList = ({ items, selected, isSeeker, onSelect }) => (
 
 /* ── Detail/Chat Panel — extracted as stable component with OWN message state ── */
 const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -162,6 +165,46 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* Offer received banner — shown for seekers when offer_sent */}
+      {isSeeker && (item.status === "offer_sent" || item.status === "offer") && (
+        <div data-testid="offer-received-banner" className="mx-3 sm:mx-4 mt-3 p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/30">
+          <div className="flex items-start gap-2.5">
+            <Gift className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">Offer Received</p>
+              {item.offer ? (
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs text-purple-600 dark:text-purple-400">{item.offer.position_title}</p>
+                  {item.offer.salary_amount > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      <DollarSign className="w-3 h-3 inline" />
+                      {item.offer.salary_amount.toLocaleString()}/{item.offer.salary_type || "annual"}
+                    </p>
+                  )}
+                  {item.offer.start_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Start: {item.offer.start_date}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-purple-600/80 dark:text-purple-400/80 mt-0.5">The employer has sent you an offer for this position.</p>
+              )}
+              <Button
+                data-testid="view-offer-btn"
+                size="sm"
+                variant="outline"
+                className="mt-2 h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-100 dark:border-purple-700 dark:text-purple-300"
+                onClick={() => navigate("/seeker/offers")}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                View & Respond to Offer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Messages or pending state */}
       {hasMessaging ? (
@@ -303,7 +346,7 @@ const MatchesPage = () => {
               <CheckCircle className="w-3 h-3" /> Matched: {statusCounts.matched}
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 whitespace-nowrap">
-              <Send className="w-3 h-3" /> Offers: {statusCounts.offer}
+              <Gift className="w-3 h-3" /> Offers: {statusCounts.offer}
             </div>
           </div>
         )}
