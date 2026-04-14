@@ -9,18 +9,19 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Document Vault Validation + Compliance Logic (April 2025)
+- **Expirable types**: certification, license, identification categories MUST have expiration_date — save blocked without it (400 error)
+- **Expired documents**: allowed for recordkeeping but marked `expired`, never satisfy compliance
+- **compliance_status**: computed dynamically on GET — `complete`, `expired`, `missing_expiration`, `review_needed`
+- **Strict matching**: only most recent active version counts, expirable without expiration never satisfies, wrong type never matches
+- **Frontend**: required asterisk + "Required for this document type" hint on expiration field for expirable categories
+- **API**: GET /api/vault/expirable-types returns lists for frontend validation
+
 ### Phase 2: Compliance System Overhaul (April 2025)
-- **Employer Baseline Requirements**: 9 toggleable items (license, BLS, ACLS, TB, vaccinations, I-9, background check, drug screen, govt ID) saved to `compliance_baselines` collection; auto-applied to all new hires
-- **Job-Specific Requirements**: `compliance_requirements` field on job model for facility-specific items (trainings, policy acknowledgements)
-- **Onboarding Progress**: pipeline cards in "hired" column show progress bar (X/Y complete) with status labels (In Progress/Ready/Blocked)
-- **Onboarding Detail**: profile modal shows breakdown (completed, missing, expired, pending external)
-- **Auto-Match**: existing vault matching logic connects candidate documents to requirements automatically (via onboarding_logic.py)
+- Baseline requirements, job-specific requirements, onboarding progress, auto-match
 
-### Phase 2: Candidate Prioritization (April 2025)
-- Match badges, reasons, smart sorting on pipeline cards
-
-### Phase 2: Candidate Interaction Fix (April 2025)
-- Click → profile modal, stage-aware actions, confirmation dialogs, messaging gating
+### Phase 2: Candidate Prioritization + Interaction Fix (April 2025)
+- Match badges, smart sorting, profile modal, stage-aware actions, messaging gating
 
 ### Phase 2: Employer Onboarding, Desktop Swipe, Offer Guardrails, Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
 - (See previous versions for full detail)
