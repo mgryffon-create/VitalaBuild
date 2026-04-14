@@ -18,37 +18,63 @@ const STATUS_CONFIG = {
   offer:      { label: "Offer Sent", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Send },
 };
 
-const MatchesPage = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const isSeeker = user?.role === "seeker";
+/* ── Item List — extracted as stable component ── */
+const ItemList = ({ items, selected, isSeeker, onSelect }) => (
+  <div className="space-y-1 p-2">
+    {items.map((item) => {
+      const id = item.id;
+      const isActive = selected?.id === id;
+      const status = item.status || "matched";
+      const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+      return (
+        <button
+          key={id}
+          data-testid={`match-item-${id}`}
+          onClick={() => onSelect(item)}
+          className={`w-full p-3 rounded-xl text-left transition-all ${
+            isActive ? "bg-primary/10 border border-primary/20" : "hover:bg-muted active:bg-muted"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              {isSeeker ? (
+                <Briefcase className="w-5 h-5 text-primary" />
+              ) : (
+                <span className="text-sm font-semibold text-primary">
+                  {item.seeker?.full_name?.charAt(0) || "?"}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm text-foreground truncate">
+                {isSeeker ? item.job?.title : item.seeker?.full_name}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {isSeeker
+                  ? item.job?.company_name || "Healthcare Facility"
+                  : item.seeker?.specialty || "Medical Professional"}
+              </p>
+            </div>
+            <Badge variant="outline" className={`text-[10px] shrink-0 ${cfg.className}`}>
+              {cfg.label}
+            </Badge>
+          </div>
+        </button>
+      );
+    })}
+  </div>
+);
 
-  const [applications, setApplications] = useState([]);
-  const [legacyMatches, setLegacyMatches] = useState([]);
-  const [selected, setSelected] = useState(null);
+/* ── Detail/Chat Panel — extracted as stable component with OWN message state ── */
+const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      if (isSeeker) {
-        const res = await axios.get(`${API}/seeker/applications`);
-        setApplications(res.data);
-      } else {
-        const res = await axios.get(`${API}/matches`);
-        setLegacyMatches(res.data);
-      }
-    } catch (error) {
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
-    }
-  }, [isSeeker]);
+  const matchId = isSeeker ? item?.match_id : item?.id;
 
-  const fetchMessages = useCallback(async (matchId) => {
+  const fetchMessages = useCallback(async () => {
     if (!matchId) return;
     try {
       const res = await axios.get(`${API}/matches/${matchId}/messages`);
@@ -56,15 +82,11 @@ const MatchesPage = () => {
     } catch {
       setMessages([]);
     }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  }, [matchId]);
 
   useEffect(() => {
-    if (selected?.match_id) fetchMessages(selected.match_id);
-    else if (selected?.id && !isSeeker) fetchMessages(selected.id);
-    else setMessages([]);
-  }, [selected, fetchMessages, isSeeker]);
+    fetchMessages();
+  }, [fetchMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,14 +94,12 @@ const MatchesPage = () => {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-    const matchId = isSeeker ? selected?.match_id : selected?.id;
-    if (!matchId) return;
+    if (!newMessage.trim() || !matchId) return;
     setSending(true);
     try {
       await axios.post(`${API}/matches/${matchId}/messages`, { content: newMessage.trim() });
       setNewMessage("");
-      fetchMessages(matchId);
+      fetchMessages();
     } catch {
       toast.error("Failed to send message");
     } finally {
@@ -87,74 +107,9 @@ const MatchesPage = () => {
     }
   };
 
-  const items = isSeeker ? applications : legacyMatches;
+  const hasMessaging = !!matchId;
 
-  // Status counts for seeker
-  const statusCounts = isSeeker ? {
-    pending: applications.filter(a => a.status === "pending").length,
-    matched: applications.filter(a => a.status === "matched").length,
-    offer: applications.filter(a => a.status === "offer" || a.status === "offer_sent").length,
-  } : null;
-
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  /* ── Item List Component ───────────────────── */
-  const ItemList = ({ onSelect }) => (
-    <div className="space-y-1 p-2">
-      {items.map((item) => {
-        const id = item.id;
-        const isActive = selected?.id === id;
-        const status = item.status || "matched";
-        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-        return (
-          <button
-            key={id}
-            data-testid={`match-item-${id}`}
-            onClick={() => onSelect(item)}
-            className={`w-full p-3 rounded-xl text-left transition-all ${
-              isActive ? "bg-primary/10 border border-primary/20" : "hover:bg-muted active:bg-muted"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                {isSeeker ? (
-                  <Briefcase className="w-5 h-5 text-primary" />
-                ) : (
-                  <span className="text-sm font-semibold text-primary">
-                    {item.seeker?.full_name?.charAt(0) || "?"}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-foreground truncate">
-                  {isSeeker ? item.job?.title : item.seeker?.full_name}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {isSeeker
-                    ? item.job?.company_name || "Healthcare Facility"
-                    : item.seeker?.specialty || "Medical Professional"}
-                </p>
-              </div>
-              <Badge variant="outline" className={`text-[10px] shrink-0 ${cfg.className}`}>
-                {cfg.label}
-              </Badge>
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  /* ── Detail/Chat Panel ─────────────────────── */
-  const DetailPanel = ({ item, onBack }) => (
+  return (
     <div className="flex flex-col h-full">
       {/* Detail Header */}
       <div className="border-b border-border p-3 sm:p-4">
@@ -200,7 +155,7 @@ const MatchesPage = () => {
       </div>
 
       {/* Messages or pending state */}
-      {(item.match_id || !isSeeker) ? (
+      {hasMessaging ? (
         <>
           <ScrollArea className="flex-1 p-3 sm:p-4">
             <div className="space-y-3">
@@ -211,14 +166,14 @@ const MatchesPage = () => {
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
+                  <div key={msg.id} className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[80%] sm:max-w-[70%] px-3 py-2 rounded-2xl text-sm ${
-                      msg.sender_id === user?.id
+                      msg.sender_id === userId
                         ? "bg-primary text-primary-foreground rounded-br-md"
                         : "bg-muted text-foreground rounded-bl-md"
                     }`}>
                       <p>{msg.content}</p>
-                      <p className={`text-[10px] mt-1 ${msg.sender_id === user?.id ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                      <p className={`text-[10px] mt-1 ${msg.sender_id === userId ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
@@ -238,6 +193,7 @@ const MatchesPage = () => {
                 placeholder="Type a message..."
                 disabled={sending}
                 className="flex-1 h-10"
+                autoFocus={false}
               />
               <Button
                 data-testid="send-message-btn"
@@ -264,13 +220,60 @@ const MatchesPage = () => {
       )}
     </div>
   );
+};
+
+/* ── Main Page ── */
+const MatchesPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSeeker = user?.role === "seeker";
+
+  const [applications, setApplications] = useState([]);
+  const [legacyMatches, setLegacyMatches] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      if (isSeeker) {
+        const res = await axios.get(`${API}/seeker/applications`);
+        setApplications(res.data);
+      } else {
+        const res = await axios.get(`${API}/matches`);
+        setLegacyMatches(res.data);
+      }
+    } catch {
+      toast.error("Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  }, [isSeeker]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const items = isSeeker ? applications : legacyMatches;
+
+  const statusCounts = isSeeker ? {
+    pending: applications.filter(a => a.status === "pending").length,
+    matched: applications.filter(a => a.status === "matched").length,
+    offer: applications.filter(a => a.status === "offer" || a.status === "offer_sent").length,
+  } : null;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div data-testid="matches-page">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Matches</h1>
 
-        {/* Status summary for seekers */}
         {isSeeker && items.length > 0 && statusCounts && (
           <div data-testid="matches-status-summary" className="flex gap-2 mb-4 overflow-x-auto pb-1">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 whitespace-nowrap">
@@ -316,14 +319,14 @@ const MatchesPage = () => {
                 </CardHeader>
                 <CardContent className="p-0">
                   <ScrollArea className="h-[calc(100vh-14rem)]">
-                    <ItemList onSelect={setSelected} />
+                    <ItemList items={items} selected={selected} isSeeker={isSeeker} onSelect={setSelected} />
                   </ScrollArea>
                 </CardContent>
               </Card>
 
               <Card className="lg:col-span-2 h-full flex flex-col">
                 {selected ? (
-                  <DetailPanel item={selected} />
+                  <DetailPanel key={selected.id} item={selected} isSeeker={isSeeker} userId={user?.id} />
                 ) : (
                   <CardContent className="flex-1 flex items-center justify-center">
                     <div className="text-center text-muted-foreground">
@@ -335,11 +338,11 @@ const MatchesPage = () => {
               </Card>
             </div>
 
-            {/* Mobile: full-screen toggle between list and detail */}
+            {/* Mobile: full-screen toggle */}
             <div className="lg:hidden">
               {selected ? (
-                <Card className="min-h-[calc(100vh-12rem)]  flex flex-col">
-                  <DetailPanel item={selected} onBack={() => setSelected(null)} />
+                <Card className="min-h-[calc(100vh-12rem)] flex flex-col">
+                  <DetailPanel key={selected.id} item={selected} isSeeker={isSeeker} userId={user?.id} onBack={() => setSelected(null)} />
                 </Card>
               ) : (
                 <Card>
@@ -349,7 +352,7 @@ const MatchesPage = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <ItemList onSelect={setSelected} />
+                    <ItemList items={items} selected={selected} isSeeker={isSeeker} onSelect={setSelected} />
                   </CardContent>
                 </Card>
               )}
