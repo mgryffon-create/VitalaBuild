@@ -3029,19 +3029,36 @@ async def get_feed(current_user: dict = Depends(get_current_user), limit: int = 
     
     posts = await db.feed_posts.find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit).to_list(limit)
     
-    # Enrich posts with user info and like status
+    if not posts:
+        return {"posts": [], "total": 0, "has_more": False}
+
+    # Batch queries to avoid N+1
+    post_user_ids = list(set(p["user_id"] for p in posts))
+    post_ids = [p["id"] for p in posts]
+
+    users_list = await db.users.find({"id": {"$in": post_user_ids}}, {"_id": 0, "password": 0}).to_list(100)
+    feed_user_map = {u["id"]: u for u in users_list}
+
+    seeker_profiles = await db.seeker_profiles.find({"user_id": {"$in": post_user_ids}}, {"_id": 0}).to_list(100)
+    seeker_prof_map = {p["user_id"]: p for p in seeker_profiles}
+
+    poster_profiles = await db.poster_profiles.find({"user_id": {"$in": post_user_ids}}, {"_id": 0}).to_list(100)
+    poster_prof_map = {p["user_id"]: p for p in poster_profiles}
+
+    liked_posts = await db.feed_likes.find({"post_id": {"$in": post_ids}, "user_id": current_user["id"]}, {"_id": 0, "post_id": 1}).to_list(100)
+    liked_set = set(lk["post_id"] for lk in liked_posts)
+
+    # Enrich posts
     enriched_posts = []
     for post in posts:
-        user = await db.users.find_one({"id": post["user_id"]}, {"_id": 0, "password": 0})
+        user = feed_user_map.get(post["user_id"])
         
-        # Get profile info based on role
         if post.get("user_role") == "seeker":
-            profile = await db.seeker_profiles.find_one({"user_id": post["user_id"]}, {"_id": 0})
+            profile = seeker_prof_map.get(post["user_id"])
         else:
-            profile = await db.poster_profiles.find_one({"user_id": post["user_id"]}, {"_id": 0})
+            profile = poster_prof_map.get(post["user_id"])
         
-        # Check if current user liked this post
-        user_liked = await db.feed_likes.find_one({"post_id": post["id"], "user_id": current_user["id"]}) is not None
+        user_liked = post["id"] in liked_set
         
         # Check if user can comment
         can_comment = True
