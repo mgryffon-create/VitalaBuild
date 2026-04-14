@@ -9,16 +9,18 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Candidate Prioritization (April 2025)
-- **Backend**: `_pipeline_match()` in pipeline.py calculates match_tier, match_reasons, compatibility_score per candidate
-- **Sorting**: strong matches first, then possible, then null; secondary by score descending
-- **Card badges**: "Strong" (green) / "Possible" (amber) in top-right of pipeline cards
-- **Match reasons**: 1-2 teal reason lines below specialty on each card
-- **Visual highlight**: green border for strong matches
-- **Modal**: badge + reasons with checkmark icons shown in profile modal
+### Phase 2: Compliance System Overhaul (April 2025)
+- **Employer Baseline Requirements**: 9 toggleable items (license, BLS, ACLS, TB, vaccinations, I-9, background check, drug screen, govt ID) saved to `compliance_baselines` collection; auto-applied to all new hires
+- **Job-Specific Requirements**: `compliance_requirements` field on job model for facility-specific items (trainings, policy acknowledgements)
+- **Onboarding Progress**: pipeline cards in "hired" column show progress bar (X/Y complete) with status labels (In Progress/Ready/Blocked)
+- **Onboarding Detail**: profile modal shows breakdown (completed, missing, expired, pending external)
+- **Auto-Match**: existing vault matching logic connects candidate documents to requirements automatically (via onboarding_logic.py)
 
-### Phase 2: Employer Candidate Interaction Fix (April 2025)
-- Click → profile modal (no auto-progression), stage-aware actions, confirmation dialogs, messaging gating
+### Phase 2: Candidate Prioritization (April 2025)
+- Match badges, reasons, smart sorting on pipeline cards
+
+### Phase 2: Candidate Interaction Fix (April 2025)
+- Click → profile modal, stage-aware actions, confirmation dialogs, messaging gating
 
 ### Phase 2: Employer Onboarding, Desktop Swipe, Offer Guardrails, Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
 - (See previous versions for full detail)
