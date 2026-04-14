@@ -10,6 +10,94 @@ router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
 STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired"]
 
+
+def _pipeline_match(profile: dict, job: dict) -> dict:
+    """Lightweight match calculation for pipeline cards — returns tier + reasons."""
+    if not profile or not job:
+        return {"match_tier": None, "match_reasons": [], "compatibility_score": 0}
+
+    seeker_spec = (profile.get("specialty") or "").lower().strip()
+    job_spec = (job.get("specialty") or "").lower().strip()
+
+    # Role category extraction
+    def _cat(s):
+        for cat in ["CRNA", "NP", "RN", "LPN", "LVN", "CNA", "PCT"]:
+            if cat in s.upper():
+                return cat
+        return s.split("-")[0].strip().split("(")[0].strip().upper()[:10]
+
+    def _sub(s):
+        parts = s.split("-", 1)
+        return parts[1].strip().lower() if len(parts) > 1 else ""
+
+    seeker_cat = _cat(seeker_spec)
+    job_cat = _cat(job_spec)
+    job_sub = _sub(job_spec)
+
+    # Specialty
+    spec_score = 0
+    spec_reason = None
+    if seeker_spec == job_spec:
+        spec_score = 30
+        short = job_sub.title() if job_sub else job_cat
+        spec_reason = f"Matches your {short} specialty" if short else None
+    elif seeker_cat and job_cat and seeker_cat == job_cat:
+        spec_score = 18
+        spec_reason = f"Aligned with your {job_cat} specialty" + (f" in {job_sub.title()}" if job_sub else "")
+    elif seeker_cat and job_cat:
+        spec_score = 5
+
+    # Experience
+    seeker_exp = profile.get("years_experience") or 0
+    required_exp = job.get("experience_required") or 0
+    exp_score = 0
+    exp_reason = None
+    if required_exp == 0 or seeker_exp >= required_exp:
+        exp_score = 25
+        if required_exp > 0:
+            exp_reason = f"Meets the {required_exp}+ year experience requirement"
+    elif seeker_exp >= required_exp - 1:
+        exp_score = 15
+
+    # Certifications
+    raw_certs = profile.get("certifications", [])
+    seeker_certs = set()
+    for c in raw_certs:
+        name = c if isinstance(c, str) else (c.get("name") or "")
+        if name:
+            seeker_certs.add(name.lower().strip())
+    required_certs = [c.lower().strip() for c in (job.get("certifications_required") or [])]
+    cert_score = 15 if not required_certs else int(15 * sum(1 for rc in required_certs if any(rc in sc for sc in seeker_certs)) / len(required_certs))
+    cert_reason = None
+    if required_certs and cert_score >= 15:
+        cert_reason = f"Has required certifications ({', '.join(c.upper() for c in required_certs[:3])})"
+
+    # Shift
+    pref_shift = (profile.get("preferred_shift") or "").lower()
+    job_shift = (job.get("shift_type") or "").lower()
+    shift_score = 5
+    shift_reason = None
+    if pref_shift and job_shift and pref_shift.split()[0] in job_shift:
+        shift_score = 10
+        shift_reason = f"Prefers {job.get('shift_type', '').split('(')[0].strip().lower()} shift"
+
+    total = spec_score + exp_score + cert_score + shift_score + 3 + 3 + 3  # loc + type + timing defaults
+    max_total = 30 + 25 + 15 + 10 + 10 + 5 + 5
+    pct = int((total / max_total) * 100) if max_total > 0 else 50
+
+    # Tier
+    if spec_score >= 18 and exp_score >= 15:
+        tier = "strong"
+    elif spec_score >= 5:
+        tier = "possible"
+    else:
+        tier = None
+
+    # Collect reasons
+    reasons = [r for r in [spec_reason, exp_reason, cert_reason, shift_reason] if r][:2]
+
+    return {"match_tier": tier, "match_reasons": reasons, "compatibility_score": pct}
+
 # Nudge thresholds: how many days of inactivity before suggesting action per stage
 NUDGE_THRESHOLDS = {
     "interested": {"days": 2, "action": "match", "message": "has been waiting — review and match or pass"},
@@ -112,10 +200,15 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             "vault_docs": vault_count,
             "last_message": last_msg,
             "offer_status": offer.get("status") if offer else None,
+            **_pipeline_match(profile or {}, job),
         })
 
-    # Sort: most recently updated first within each stage
-    candidates.sort(key=lambda c: c.get("updated_at", ""), reverse=True)
+    # Sort: strong matches first, then possible, then others; secondary by recency
+    tier_order = {"strong": 0, "possible": 1}
+    candidates.sort(key=lambda c: (
+        tier_order.get(c.get("match_tier"), 2),
+        -(c.get("compatibility_score") or 0),
+    ))
 
     # Group by stage
     grouped = {s: [] for s in STAGES}

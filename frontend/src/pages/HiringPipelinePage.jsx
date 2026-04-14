@@ -81,10 +81,20 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
   const c = candidate;
   const isNudged = nudgeIds.has(c.candidate_id);
   const sub = showSubBadge ? SUB_BADGE[c.stage] : null;
+  const tier = c.match_tier;
+  const reasons = c.match_reasons || [];
+  const isStrong = tier === "strong";
+
   return (
     <Card
       data-testid={`pipeline-card-${c.id}`}
-      className={`mb-2 transition-colors cursor-pointer ${isNudged ? "border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800" : "hover:border-primary/30"}`}
+      className={`mb-2 transition-colors cursor-pointer ${
+        isNudged
+          ? "border-amber-300 dark:border-amber-700 ring-1 ring-amber-200 dark:ring-amber-800"
+          : isStrong
+            ? "border-green-200 dark:border-green-800/60 hover:border-green-300 dark:hover:border-green-700"
+            : "hover:border-primary/30"
+      }`}
       onClick={() => onClick(c)}
     >
       <CardContent className="p-3">
@@ -100,6 +110,14 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
               {sub && <span className={`text-[8px] px-1.5 py-0 rounded-full font-medium shrink-0 ${sub.className}`}>{sub.label}</span>}
             </div>
             <p className="text-[10px] text-muted-foreground truncate">{c.seeker?.specialty || c.job?.title}</p>
+            {/* Match reasons */}
+            {reasons.length > 0 && (
+              <div data-testid={`match-reasons-${c.id}`} className="mt-0.5">
+                {reasons.map((r, i) => (
+                  <p key={i} className="text-[9px] text-primary/70 truncate leading-tight">{r}</p>
+                ))}
+              </div>
+            )}
             {c.seeker?.skills?.length > 0 && (
               <div className="flex flex-wrap gap-0.5 mt-1">
                 {c.seeker.skills.slice(0, 3).map((s, i) => (
@@ -113,7 +131,18 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
               </p>
             )}
           </div>
-          <Eye className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 mt-1" />
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {tier && (
+              <span data-testid={`match-badge-${c.id}`} className={`text-[8px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
+                tier === "strong"
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+              }`}>
+                {tier === "strong" ? "Strong" : "Possible"}
+              </span>
+            )}
+            <Eye className="w-3.5 h-3.5 text-muted-foreground/40" />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -129,6 +158,8 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
   const canMessage = stage !== "interested";
   const nextStage = NEXT_STAGE[stage];
   const nextLabel = NEXT_LABEL[stage];
+  const tier = c.match_tier;
+  const reasons = c.match_reasons || [];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -138,15 +169,36 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
               {c.seeker?.full_name?.charAt(0) || "?"}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <span className="block">{c.seeker?.full_name || "Candidate"}</span>
-              <span className="text-xs font-normal text-muted-foreground">{STAGE_LABEL_MAP[stage] || stage}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-normal text-muted-foreground">{STAGE_LABEL_MAP[stage] || stage}</span>
+                {tier && (
+                  <span data-testid="modal-match-badge" className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                    tier === "strong"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                  }`}>
+                    {tier === "strong" ? "Strong Match" : "Possible Match"}
+                  </span>
+                )}
+              </div>
             </div>
           </DialogTitle>
           <DialogDescription className="sr-only">Candidate profile and actions</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Match reasons */}
+          {reasons.length > 0 && (
+            <div data-testid="modal-match-reasons" className="flex flex-col gap-0.5">
+              {reasons.map((r, i) => (
+                <p key={i} className="text-xs text-primary/80 flex items-center gap-1.5">
+                  <CheckCircle className="w-3 h-3 shrink-0" /> {r}
+                </p>
+              ))}
+            </div>
+          )}
           {/* Profile details */}
           <div className="space-y-2">
             {c.seeker?.specialty && (
