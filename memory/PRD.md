@@ -10,21 +10,17 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Recruiter Credential Display (April 2025)
+- **Candidate-first conversation list**: Each thread shows candidate name + credential badge (RN/CNA/LPN) + specialty + job title + stage badge
+- **Chat header hierarchy**: Primary = candidate name + credential, Secondary = "Applied for: [Job Title]" with location/pay
+- **Pipeline card credential badges**: Credential badge next to candidate name in Kanban cards
+- **Backend**: Pipeline API returns `seeker.credential` derived from `eligibility.get_seeker_role()`
+
 ### Phase 2: Match/Conversation Detail Usability (April 2025)
-- **Full Candidate Profile Panel**: Employer messaging page shows scrollable profile with work history, licenses, certifications, documents, skills, references, bio, compliance status
-- **Privacy-Gated Contact Info**: Phone/email only visible post-match. Pre-match shows "Contact details available after match". Backend enforces — fields omitted from API response when no match exists
-- **Job Context Prominence**: Job title, location, pay range displayed in chat header bar. Conversation list items show job title under each candidate name
-- **Stage-Driven Sticky Actions**: Action bar stays fixed at bottom of profile panel. Buttons derived from canonical state (interested=Accept+Pass, matched=Message+Send Offer, offer_sent=Message+View Offer, hired=Message)
-- **Back Navigation**: Both employer and seeker views have visible back button on desktop and mobile. Returns to pipeline/swipe respectively
-- **Seeker Match Detail Enhancement**: Building icon with employer name, specialty display, pay range, location always visible
+- Full candidate profile panel, privacy-gated contact info, job context prominence, stage-driven sticky actions, back navigation
 
 ### Phase 2: Hiring Flow UX Overhaul (April 2025)
-- **Profile Preview Modal**: Card click opens read-only modal (no mutations)
-- **State-driven actions**: Strictly from canonical state machine. Invalid actions hidden, not disabled
-- **Contextual onboarding guidance**: Inline reminders per candidate state
-- **Pass/Reject flow**: Confirmation dialogs, moves to "passed" stage
-- **Enriched pipeline data**: certifications, vault categories, messages count, pay range, shift type
-- **Actionable error messages**: Specific errors per HTTP status
+- Profile Preview Modal, state-driven actions, contextual guidance, pass/reject flow, enriched pipeline data, actionable error messages
 
 ### Phase 2: All Prior Features
 - Acceptance flow fix, UI layout fix, role eligibility, state sync, vault verification, document validation, compliance, candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, quality gates, messaging composer fix
