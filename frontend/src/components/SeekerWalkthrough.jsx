@@ -78,24 +78,23 @@ const STEPS = [
   {
     id: "vault",
     title: "Your Document Vault",
-    subtitle: "Upload once, use everywhere.",
+    subtitle: "Upload once. Use everywhere.",
     content: (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Your document vault stores your credentials so you never have to re-upload them for every job.
-          Once uploaded, they're reused automatically.
+          Your document vault securely stores your credentials so you don't need to upload them for every job. Once added, they're automatically reused across applications.
         </p>
         <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30">
-          <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">You do NOT need everything right now</p>
+          <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">You don't need to upload everything right away</p>
           <div className="grid grid-cols-2 gap-1.5">
             <div className="text-xs">
-              <p className="font-medium text-foreground mb-1">Helpful later:</p>
+              <p className="font-medium text-foreground mb-1">Recommended to upload now:</p>
               <p className="text-muted-foreground">BLS / ACLS</p>
               <p className="text-muted-foreground">TB test</p>
               <p className="text-muted-foreground">Vaccinations</p>
             </div>
             <div className="text-xs">
-              <p className="font-medium text-foreground mb-1">After offer only:</p>
+              <p className="font-medium text-foreground mb-1">Required after offer:</p>
               <p className="text-muted-foreground">Background check</p>
               <p className="text-muted-foreground">Drug screen</p>
               <p className="text-muted-foreground">I-9 form</p>
@@ -103,7 +102,7 @@ const STEPS = [
           </div>
         </div>
         <p className="text-xs text-muted-foreground text-center">
-          Uploading more documents helps you get hired faster, but is never required to browse jobs.
+          Adding key documents now—like BLS or TB—can help you move through hiring faster once you receive an offer. You can always come back and complete the rest later.
         </p>
       </div>
     ),
