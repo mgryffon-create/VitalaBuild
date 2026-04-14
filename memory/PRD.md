@@ -10,22 +10,26 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Credential Verification Layer (April 2025)
+- **Verification statuses**: Each credential now shows Verified (green, vault-backed), Needs Review (amber, vault doc with issues), or Unverified (gray, self-reported only)
+- **Cross-referencing engine**: `_compute_verified_credentials()` matches profile certifications against vault documents by subtype name matching
+- **Compliance summary**: Top-level badge derived from credential verification — Compliance Ready / Partially Verified / Verification Needed
+- **Honest display**: No ShieldCheck icons for unverified credentials. Gray dot + "Unverified" label for self-reported only
+- **Pipeline modal**: Color-coded certification badges with summary line ("2 self-reported · 2 total")
+- **Messaging profile panel**: Each cert shows status label badge, credential summary section with level and count
+- **Future-ready**: Status model supports later OCR/parsing promoting credentials between unverified → needs_review → verified
+
 ### Phase 2: Job-Grouped Recruiter Messaging (April 2025)
-- **Hierarchical conversation list**: Conversations grouped by job posting (Job → Candidates). Each job section shows title, location, matched/interested counts
-- **Collapsible sections**: Click job header to collapse/expand candidate list. ChevronDown when expanded, ChevronRight when collapsed
-- **Per-job candidate entries**: Name + credential badge + specialty + stage badge + last message preview
-- **Cross-job deduplication fix**: Same candidate appearing under multiple jobs now shown correctly (dedup by candidate_id+job_id pair, not just candidate_id)
-- **Filter integration**: All/Applicants/Matches/Offers filters work with grouped list — only shows job groups containing matching candidates
-- **Sorting**: Job groups sorted by candidate count (most active first), candidates within sorted by status priority
+- Hierarchical conversation list grouped by job posting. Collapsible sections. Cross-job dedup fix.
 
 ### Phase 2: Recruiter Credential Display (April 2025)
-- Credential badges (RN/CNA/LPN) in conversation list, chat header, pipeline cards. Chat header: candidate-primary, job-secondary hierarchy
+- Credential badges (RN/CNA/LPN) in conversation list, chat header, pipeline cards.
 
 ### Phase 2: Match/Conversation Detail Usability (April 2025)
-- Full candidate profile panel, privacy-gated contact info, job context prominence, stage-driven sticky actions, back navigation
+- Full candidate profile panel, privacy-gated contact info, stage-driven sticky actions, back navigation.
 
 ### Phase 2: Hiring Flow UX Overhaul (April 2025)
-- Profile Preview Modal, state-driven actions, contextual guidance, pass/reject flow, enriched pipeline data, actionable error messages
+- Profile Preview Modal, state-driven actions, contextual guidance, pass/reject flow, actionable error messages.
 
 ### Phase 2: All Prior Features
 - Acceptance flow fix, UI layout fix, role eligibility, state sync, vault verification, document validation, compliance, candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, quality gates, messaging composer fix
