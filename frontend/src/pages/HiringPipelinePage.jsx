@@ -84,6 +84,7 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
   const tier = c.match_tier;
   const reasons = c.match_reasons || [];
   const isStrong = tier === "strong";
+  const ob = c.onboarding_progress;
 
   return (
     <Card
@@ -130,6 +131,29 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
                 <MessageCircle className="w-2.5 h-2.5" /> {c.last_message.content}
               </p>
             )}
+            {/* Onboarding progress bar */}
+            {ob && (
+              <div data-testid={`onboarding-progress-${c.id}`} className="mt-1.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className={`text-[8px] font-semibold ${
+                    ob.status_label === "ready" ? "text-green-600" :
+                    ob.status_label === "blocked" ? "text-red-600" : "text-blue-600"
+                  }`}>
+                    {ob.status_label === "ready" ? "Ready" : ob.status_label === "blocked" ? "Blocked" : "In Progress"}
+                  </span>
+                  <span className="text-[8px] text-muted-foreground">{ob.completed}/{ob.total}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      ob.status_label === "ready" ? "bg-green-500" :
+                      ob.status_label === "blocked" ? "bg-red-500" : "bg-blue-500"
+                    }`}
+                    style={{ width: `${ob.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
             {tier && (
@@ -146,6 +170,59 @@ const PipelineCard = ({ candidate, onClick, nudgeIds, showSubBadge }) => {
         </div>
       </CardContent>
     </Card>
+  );
+};
+
+/* ── Onboarding Detail Section (inside modal for hired candidates) ── */
+const OnboardingDetailSection = ({ progress }) => {
+  const ob = progress;
+  if (!ob) return null;
+
+  const statusColor = ob.status_label === "ready" ? "text-green-600" : ob.status_label === "blocked" ? "text-red-600" : "text-blue-600";
+  const barColor = ob.status_label === "ready" ? "bg-green-500" : ob.status_label === "blocked" ? "bg-red-500" : "bg-blue-500";
+
+  return (
+    <div data-testid="onboarding-detail-section" className="space-y-3">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Onboarding Progress</p>
+          <span className={`text-xs font-semibold ${statusColor}`}>
+            {ob.status_label === "ready" ? "Ready" : ob.status_label === "blocked" ? "Blocked" : "In Progress"}
+          </span>
+        </div>
+        <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${ob.percent}%` }} />
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-0.5">{ob.completed} of {ob.total} requirements complete</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {ob.completed > 0 && (
+          <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800">
+            <p className="text-[10px] font-semibold text-green-700 dark:text-green-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</p>
+            <p className="text-lg font-bold text-green-600">{ob.completed}</p>
+          </div>
+        )}
+        {ob.missing > 0 && (
+          <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+            <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Missing</p>
+            <p className="text-lg font-bold text-amber-600">{ob.missing}</p>
+          </div>
+        )}
+        {ob.expired > 0 && (
+          <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800">
+            <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 flex items-center gap-1"><XCircle className="w-3 h-3" /> Expired</p>
+            <p className="text-lg font-bold text-red-600">{ob.expired}</p>
+          </div>
+        )}
+        {ob.pending_external > 0 && (
+          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+            <p className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1"><Clock className="w-3 h-3" /> Pending External</p>
+            <p className="text-lg font-bold text-blue-600">{ob.pending_external}</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -269,6 +346,11 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800">
               <p className="text-xs text-purple-600 font-medium">Offer Status: {c.offer_status}</p>
             </div>
+          )}
+
+          {/* Onboarding progress detail (hired stage) */}
+          {c.onboarding_progress && (
+            <OnboardingDetailSection progress={c.onboarding_progress} />
           )}
         </div>
 

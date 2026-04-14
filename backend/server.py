@@ -553,6 +553,7 @@ class JobPosting(BaseModel):
     external_application_stage: Optional[str] = None
     profile_sufficient_for_initial_review: Optional[bool] = True
     required_additional_fields: Optional[str] = None
+    compliance_requirements: Optional[List[str]] = None  # job-specific requirements
 
 class JobPostingResponse(BaseModel):
     id: str
@@ -588,6 +589,7 @@ class JobPostingResponse(BaseModel):
     external_application_stage: Optional[str] = None
     profile_sufficient_for_initial_review: Optional[bool] = True
     required_additional_fields: Optional[str] = None
+    compliance_requirements: Optional[List[str]] = None
 
 class SwipeAction(BaseModel):
     target_id: str  # job_id for seekers, seeker_id for posters
@@ -4666,6 +4668,53 @@ async def get_specialties():
     }
 
 # ==================== SECURE DOCUMENT VAULT (moved to routes/vault.py) ====================
+
+# ==================== EMPLOYER COMPLIANCE BASELINE ====================
+
+DEFAULT_BASELINE = [
+    {"key": "license", "label": "Professional License", "enabled": True},
+    {"key": "bls", "label": "BLS Certification", "enabled": True},
+    {"key": "acls", "label": "ACLS Certification", "enabled": False},
+    {"key": "tb_test", "label": "TB Test / Screening", "enabled": True},
+    {"key": "vaccinations", "label": "Vaccination Records", "enabled": True},
+    {"key": "i9", "label": "I-9 Employment Eligibility", "enabled": True},
+    {"key": "background_check", "label": "Background Check", "enabled": True},
+    {"key": "drug_screen", "label": "Drug Screen", "enabled": True},
+    {"key": "government_id", "label": "Government-Issued ID", "enabled": True},
+]
+
+@api_router.get("/employer/compliance-baseline")
+async def get_compliance_baseline(current_user: dict = Depends(get_current_user)):
+    """Get employer's baseline compliance requirements"""
+    if current_user["role"] not in ("poster", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    baseline = await db.compliance_baselines.find_one(
+        {"employer_id": current_user["id"]}, {"_id": 0}
+    )
+    if not baseline:
+        return {"employer_id": current_user["id"], "requirements": DEFAULT_BASELINE, "is_default": True}
+    return baseline
+
+
+@api_router.put("/employer/compliance-baseline")
+async def update_compliance_baseline(body: dict, current_user: dict = Depends(get_current_user)):
+    """Save employer's baseline compliance requirements"""
+    if current_user["role"] not in ("poster", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    requirements = body.get("requirements", [])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.compliance_baselines.update_one(
+        {"employer_id": current_user["id"]},
+        {"$set": {
+            "employer_id": current_user["id"],
+            "requirements": requirements,
+            "is_default": False,
+            "updated_at": now_iso,
+        }},
+        upsert=True,
+    )
+    return {"message": "Baseline saved", "requirements": requirements}
+
 
 # ==================== ONBOARDING CASES ====================
 

@@ -179,6 +179,36 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             {"candidate_id": sw["user_id"], "verification_status": "verified"}
         )
 
+        # Onboarding progress (for hired/onboarding candidates)
+        onboarding_progress = None
+        if stage == "hired":
+            ob_case = await db.onboarding_cases.find_one(
+                {"candidate_id": sw["user_id"], "employer_id": current_user["id"], "job_id": sw["target_id"]},
+                {"_id": 0}
+            )
+            if ob_case:
+                ob_reqs = await db.onboarding_requirements.find(
+                    {"onboarding_case_id": ob_case["id"]}, {"_id": 0}
+                ).to_list(50)
+                total = len(ob_reqs)
+                completed = sum(1 for r in ob_reqs if r.get("status") in ("satisfied_from_vault", "completed"))
+                blocked = sum(1 for r in ob_reqs if r.get("status") == "flagged_issue")
+                missing = sum(1 for r in ob_reqs if r.get("status") == "missing_document")
+                expired = sum(1 for r in ob_reqs if r.get("status") == "document_expired")
+                pending_ext = sum(1 for r in ob_reqs if r.get("status") == "pending_external_check")
+                status_label = "ready" if total > 0 and completed == total else "blocked" if blocked > 0 else "in_progress"
+                onboarding_progress = {
+                    "case_id": ob_case["id"],
+                    "total": total,
+                    "completed": completed,
+                    "missing": missing,
+                    "expired": expired,
+                    "pending_external": pending_ext,
+                    "blocked": blocked,
+                    "percent": round((completed / total) * 100) if total > 0 else 0,
+                    "status_label": status_label,
+                }
+
         candidates.append({
             "id": f"{sw['user_id']}_{sw['target_id']}",
             "candidate_id": sw["user_id"],
@@ -200,6 +230,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             "vault_docs": vault_count,
             "last_message": last_msg,
             "offer_status": offer.get("status") if offer else None,
+            "onboarding_progress": onboarding_progress,
             **_pipeline_match(profile or {}, job),
         })
 

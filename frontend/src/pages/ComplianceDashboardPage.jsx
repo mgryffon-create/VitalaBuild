@@ -38,20 +38,24 @@ const ComplianceDashboardPage = () => {
   const [courseForm, setCourseForm] = useState({ title: "", category: "general", credit_hours: 0, duration_minutes: 0 });
   const [candidates, setCandidates] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState([]);
+  const [baselineLoading, setBaselineLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, aRes, cRes, rRes, candRes] = await Promise.all([
+      const [sRes, aRes, cRes, rRes, candRes, blRes] = await Promise.all([
         axios.get(`${API}/training/compliance-summary`),
         axios.get(`${API}/training/assignments`),
         axios.get(`${API}/training/courses`),
         axios.get(`${API}/training/compliance-requirements`),
         axios.get(`${API}/employer/candidates`).catch(() => ({ data: [] })),
+        axios.get(`${API}/employer/compliance-baseline`).catch(() => ({ data: { requirements: [] } })),
       ]);
       setSummary(sRes.data);
       setAssignments(aRes.data);
       setCourses(cRes.data);
       setRequirements(rRes.data);
+      setBaseline(blRes.data.requirements || []);
       // Get unique candidates
       const uniqueUsers = new Map();
       aRes.data.forEach((a) => { if (a.user) uniqueUsers.set(a.user.id, a.user); });
@@ -65,6 +69,22 @@ const ComplianceDashboardPage = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const toggleBaseline = (key) => {
+    setBaseline((prev) => prev.map((r) => r.key === key ? { ...r, enabled: !r.enabled } : r));
+  };
+
+  const saveBaseline = async () => {
+    setBaselineLoading(true);
+    try {
+      await axios.put(`${API}/employer/compliance-baseline`, { requirements: baseline });
+      toast.success("Baseline requirements saved");
+    } catch {
+      toast.error("Failed to save baseline");
+    } finally {
+      setBaselineLoading(false);
+    }
+  };
 
   const handleCreateCourse = async () => {
     if (!courseForm.title) { toast.error("Course title is required"); return; }
@@ -145,6 +165,47 @@ const ComplianceDashboardPage = () => {
             </Card>
           ))}
         </div>
+
+        {/* Baseline Requirements */}
+        <Card data-testid="baseline-requirements-card">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Baseline Requirements</h3>
+                <p className="text-xs text-muted-foreground">Applied automatically to all new hires</p>
+              </div>
+              <Button
+                data-testid="save-baseline-btn"
+                size="sm"
+                onClick={saveBaseline}
+                disabled={baselineLoading}
+              >
+                {baselineLoading ? "Saving..." : "Save"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {baseline.map((req) => (
+                <button
+                  key={req.key}
+                  data-testid={`baseline-${req.key}`}
+                  onClick={() => toggleBaseline(req.key)}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-left transition-colors ${
+                    req.enabled
+                      ? "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/10"
+                      : "border-muted-foreground/20 bg-muted/20 opacity-60"
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
+                    req.enabled ? "bg-green-500 text-white" : "bg-muted-foreground/20"
+                  }`}>
+                    {req.enabled && <CheckCircle className="w-3.5 h-3.5" />}
+                  </div>
+                  <span className="text-xs font-medium text-foreground">{req.label}</span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Assignments Table */}
         <Card>

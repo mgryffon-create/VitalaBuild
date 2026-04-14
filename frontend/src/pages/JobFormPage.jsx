@@ -18,7 +18,7 @@ import { CERTIFICATIONS } from "@/config/fieldSuggestions";
 import {
   Briefcase, MapPin, DollarSign, Clock, Plus, X, Save, ArrowLeft,
   Award, Gift, FileText, Calendar, Cloud, CloudOff, Loader2, Check,
-  ChevronUp, ChevronDown, ExternalLink, Globe, AlertTriangle, Home
+  ChevronUp, ChevronDown, ExternalLink, Globe, AlertTriangle, Home, ShieldCheck
 } from "lucide-react";
 
 const SECTIONS = [
@@ -26,6 +26,7 @@ const SECTIONS = [
   { id: "schedule", label: "Schedule", icon: Clock },
   { id: "compensation", label: "Pay", icon: DollarSign },
   { id: "requirements", label: "Requirements", icon: FileText },
+  { id: "compliance", label: "Compliance", icon: ShieldCheck },
   { id: "workflow", label: "Application", icon: Globe },
   { id: "review", label: "Review", icon: Check },
 ];
@@ -141,11 +142,13 @@ const JobFormPage = () => {
     experience_required: "", specialty: "", shift_type: "", start_date: "", weekly_hours: "",
     application_workflow_type: "in_platform_only", external_application_url: "",
     external_application_stage: "", profile_sufficient_for_initial_review: true, required_additional_fields: "",
+    compliance_requirements: [],
   });
 
   const [newBenefit, setNewBenefit] = useState("");
   const [newRequirement, setNewRequirement] = useState("");
   const [newCert, setNewCert] = useState("");
+  const [newComplianceReq, setNewComplianceReq] = useState("");
   const [payWarningAcknowledged, setPayWarningAcknowledged] = useState(false);
   const isEdit = !!jobId;
 
@@ -496,6 +499,34 @@ const JobFormPage = () => {
                 </div>
                 {job.certifications_required.length > 0 && <div className="flex flex-wrap gap-1.5">{job.certifications_required.map((c, i) => <Badge key={i} variant="outline" className="flex items-center gap-1 py-0.5 px-2 text-xs"><Award className="w-3 h-3" />{c}<button type="button" onClick={() => removeItem("certifications_required", i)} className="ml-0.5 hover:text-destructive"><X className="w-3 h-3" /></button></Badge>)}</div>}
               </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* === JOB-SPECIFIC COMPLIANCE === */}
+          <CollapsibleSection id="compliance" title="Facility-Specific Requirements" icon={ShieldCheck} isActive={activeSection === "compliance"}>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Add requirements specific to this role beyond your baseline compliance (e.g., facility orientation, policy acknowledgements, specialized training).</p>
+              <div className="flex gap-2">
+                <Input
+                  data-testid="compliance-req-input"
+                  value={newComplianceReq}
+                  onChange={(e) => setNewComplianceReq(e.target.value)}
+                  placeholder="e.g., EPIC EMR training, Fall prevention module"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addItem("compliance_requirements", newComplianceReq, setNewComplianceReq))}
+                />
+                <Button data-testid="add-compliance-btn" type="button" variant="outline" size="icon" onClick={() => addItem("compliance_requirements", newComplianceReq, setNewComplianceReq)}><Plus className="w-4 h-4" /></Button>
+              </div>
+              {job.compliance_requirements.length > 0 && (
+                <div className="space-y-1.5">
+                  {job.compliance_requirements.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md text-sm">
+                      <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="flex-1">{r}</span>
+                      <button type="button" onClick={() => removeItem("compliance_requirements", i)} className="text-muted-foreground hover:text-destructive shrink-0"><X className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CollapsibleSection>
 
