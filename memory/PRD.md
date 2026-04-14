@@ -6,39 +6,34 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ## Architecture
 - **Backend:** FastAPI + MongoDB (motor) + JWT auth, modular routers
 - **Frontend:** React + Tailwind CSS + Shadcn UI
-- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document verification
+- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document verification (LLM fallback)
 
 ## What's Been Implemented
 
+### Phase 2: Lightweight Document Verification (April 2025)
+- **Text extraction**: PyMuPDF (fitz) extracts visible text from uploaded PDFs
+- **Date detection**: Regex patterns for MM/DD/YYYY, YYYY-MM-DD, Month DD YYYY, M/D/YY + expiration keyword proximity scoring
+- **Credential detection**: Keyword matching for BLS, ACLS, PALS, CPR, RN, CNA, LPN, LVN, DEA, NPI
+- **Verification pipeline**: Lightweight parser runs first → if inconclusive, falls through to GPT-4.1 Vision LLM
+- **Conservative trust**: matching date+credential → verified; mismatch → needs_review; no text → unverified; expired → needs_review
+- **Status notes**: "Expiration date verified (2027-03-15)", "Entered expiration may not match document date", "No readable expiration detected"
+- **Vault UI**: Shows Needs Review badge, verification notes for all states, Auto-verified/AI-verified labels
+
 ### Phase 2: Platform-Wide UX Consistency (April 2025)
-- **Universal back navigation**: PageHeader component with consistent back button on Pipeline, Hiring Manager, Offers, Matches, Licenses, Settings, Messages pages
-- **Autocomplete/autofill**: Login (email, current-password), Register (name, email, new-password), Job title, Offer position title
-- **Date validation**: Offer Builder enforces expiration >= start date with inline error + submission block
-- **Organic fields preserved**: Messaging composer, notes, descriptions remain autocomplete-free
+- Universal back navigation, autocomplete/autofill, date validation
 
 ### Phase 2: Structured Offer System (April 2025)
 - Offer Builder modal, employment documents, seeker structured offer view
 
-### Phase 2: Offer State Sync (April 2025)
-- Write path sync, seeker "Offer Received" banner
+### Phase 2: Offer State Sync, Credential Verification, Job-Grouped Messaging, Recruiter Credential Display, Match/Conversation Detail, Hiring Flow UX Overhaul (April 2025)
+- Full hiring pipeline, privacy gating, state-driven actions, credential badges, compliance summary
 
-### Phase 2: Credential Verification Layer (April 2025)
-- Verified/Needs Review/Unverified statuses, compliance summary
-
-### Phase 2: Job-Grouped Messaging (April 2025)
-- Conversations grouped by job, collapsible sections
-
-### Phase 2: Recruiter Credential Display (April 2025)
-- Credential badges (RN/CNA/LPN)
-
-### Phase 2: Match/Conversation Detail (April 2025)
-- Full candidate profile panel, privacy-gated contact, stage-driven actions
-
-### Phase 2: Hiring Flow UX Overhaul (April 2025)
-- Profile Preview Modal, state-driven actions, contextual guidance
-
-### Phase 2: All Prior Features
-- Acceptance flow, UI layout, role eligibility, state sync, vault verification, compliance, candidate prioritization, onboarding, swipe, offer guardrails, tiered matching, structured pay, quality gates, messaging fix
+## Verification Architecture
+```
+Upload → lightweight_parser.py (text extraction + regex)
+  ├─ Definitive (verified/needs_review) → Save, done
+  └─ Inconclusive (should_run_llm=True) → expiration_verifier.py (GPT-4.1 Vision) → Save
+```
 
 ## Test Accounts
 | Role | Email | Password |
@@ -57,6 +52,7 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ### P2
 - PDF offer letter generation, e-signatures
 - Post-assignment feedback UI, Facility accountability dashboard
+- Admin manual review queue for needs_review documents
 ### Refactoring
 - Extract server.py logic, break down ProfileBuilder.jsx (>1600 lines)
 ### Mocked
