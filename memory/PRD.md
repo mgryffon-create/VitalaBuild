@@ -9,16 +9,20 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Employer Onboarding Flow (April 2025)
-- **3-step flow**: intro slides (3 slides) → profile form (name, org type, location, description) → redirect to job creation
-- **EmployerOnboardingGate**: wraps all /poster/* routes except /poster/onboarding, /poster/jobs/new, /poster/profile
-- **Completion logic**: profile saved AND at least 1 valid job posted → dashboard unlocked
-- **Backend**: PosterProfile model accepts org_type; existing profile/completion endpoint handles checks
-- **Job quality**: enforced by existing JobFormPage quality gates (structured pay, 9 required fields, pay range validation)
-- **Dashboard**: 0-jobs state shows "Post your first job to start receiving candidates"
+### Phase 2: Employer Candidate Interaction Fix (April 2025)
+- **Click → Profile Modal**: pipeline cards open a CandidateProfileModal (no auto-progression)
+- **Stage-aware actions**: Applicants get "Accept Candidate" + disabled "Accept to message"; Matches get "Message" + "Send Offer"; Offers get "Message" + "Start Onboarding"
+- **Confirmation dialogs**: AlertDialog required before any stage advancement
+- **Messaging gating**: unmatched candidates see "Accept this candidate to start messaging" with disabled input; templates hidden
+- **Error handling**: specific errors (409 conflict, 404 not found, 403 unauthorized, connection issue)
+- **Double-action prevention**: buttons disabled during API calls
+- **Backend fix**: MongoDB projection error in /api/pipeline/nudges (mixed inclusion/exclusion)
 
-### Phase 2: Desktop Swipe Layout Fix (April 2025)
-- Flex column layout, reserved action bar, buttons guaranteed visible
+### Phase 2: Employer Onboarding Flow (April 2025)
+- 3-step flow: intro → profile → job creation; EmployerOnboardingGate on poster routes
+
+### Phase 2: Desktop Swipe Layout + Experience (April 2025)
+- Flex column layout, reserved action bar, wider cards, 3-card stack, enlarged buttons
 
 ### Phase 2: Offer Acceptance Guardrails (April 2025)
 - Conflict detection, hard blocks + soft warnings, 409 acceptance blocking
