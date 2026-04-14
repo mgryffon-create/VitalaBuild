@@ -147,6 +147,14 @@ def match_vault_document(requirement_rule, vault_docs):
         if verification == "rejected":
             continue
 
+        # Mismatch = never satisfies compliance
+        if verification == "mismatch":
+            if best_status is None:
+                best = doc
+                best_status = "flagged_issue"
+                best_notes = doc.get("verification_notes") or "Expiration date mismatch detected"
+            continue
+
         exp_date = _parse_date(doc.get("expiration_date"))
         doc_date = _parse_date(doc.get("document_date") or doc.get("uploaded_at"))
 

@@ -1,11 +1,15 @@
 """Vault routes: document CRUD, file upload, file serving"""
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+import logging
+from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks
 from starlette.responses import FileResponse
 from shared import (
     db, get_current_user, log_audit, VAULT_UPLOAD_DIR, VAULT_CATEGORIES,
     MAX_FILE_SIZE, VaultDocumentCreate, VaultDocumentUpdate,
     HTTPException, uuid, datetime, timezone, aiofiles, os,
 )
+from expiration_verifier import extract_expiration_from_file, determine_verification_status
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 
@@ -47,33 +51,56 @@ def _validate_expiration(category: str, subtype: str, expiration_date: str):
 
 
 def _compute_compliance_status(doc: dict) -> str:
-    """Compute compliance status for a single vault document."""
+    """Compute compliance status for a single vault document.
+    
+    A document satisfies compliance ONLY if:
+    - correct type + active + not expired + required metadata present
+    - AND either verified (match) OR acceptable fallback (parse failed + valid user entry)
+    
+    Documents with mismatch/expired/missing_expiration → NEVER satisfy compliance.
+    """
     category = doc.get("category", "")
     subtype = doc.get("subtype", "")
     exp_date_str = doc.get("expiration_date")
     is_exp = _is_expirable(category, subtype)
+    verification = doc.get("verification_status", "pending")
 
+    # Mismatch = always blocked
+    if verification == "mismatch":
+        return "mismatch"
+
+    # Missing expiration for expirable type
     if is_exp and not exp_date_str:
         return "missing_expiration"
 
-    if exp_date_str:
+    # Check if expired (use parsed date if available, otherwise user date)
+    parsed_exp = doc.get("parsed_expiration_date")
+    check_date = parsed_exp or exp_date_str
+    if check_date:
         try:
-            if "T" in exp_date_str:
-                exp = datetime.fromisoformat(exp_date_str.replace("Z", "+00:00")).date()
+            if "T" in check_date:
+                exp = datetime.fromisoformat(check_date.replace("Z", "+00:00")).date()
             else:
-                exp = datetime.strptime(exp_date_str, "%Y-%m-%d").date()
+                exp = datetime.strptime(check_date, "%Y-%m-%d").date()
             if exp < datetime.now(timezone.utc).date():
                 return "expired"
         except (ValueError, TypeError):
             pass
 
-    verification = doc.get("verification_status", "pending")
+    # Verification-based status
+    if verification == "verified":
+        return "verified"
+    if verification == "unverified":
+        # Parse failed but valid user entry — acceptable fallback
+        return "unverified"
+    if verification == "expired":
+        return "expired"
     if verification == "rejected":
         return "review_needed"
     if verification == "pending":
-        return "review_needed"
+        return "pending"
 
-    return "complete"
+    return "pending"
 
 
 @router.post("/documents")
@@ -126,8 +153,31 @@ async def serve_vault_file(filename: str, current_user: dict = Depends(get_curre
     return FileResponse(str(file_path))
 
 
+async def _run_expiration_verification(doc_id: str, file_bytes: bytes, content_type: str, user_expiration: str):
+    """Background task: extract expiration date and verify against user entry."""
+    try:
+        parsed_result = await extract_expiration_from_file(file_bytes, content_type or "image/jpeg")
+        verification = determine_verification_status(user_expiration, parsed_result)
+        update_fields = {
+            "parsed_expiration_date": verification.get("parsed_expiration_date"),
+            "verification_status": verification.get("verification_status", "unverified"),
+            "verification_notes": verification.get("verification_notes"),
+            "verification_confidence": parsed_result.get("confidence"),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
+        logger.info(f"Verification complete for {doc_id}: {verification.get('verification_status')}")
+    except Exception as e:
+        logger.error(f"Verification failed for {doc_id}: {e}")
+        await db.vault_documents.update_one(
+            {"id": doc_id},
+            {"$set": {"verification_status": "unverified", "verification_notes": f"Verification error: {str(e)[:200]}"}}
+        )
+
+
 @router.post("/upload")
 async def upload_vault_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...), category: str = Form(...),
     subtype: str = Form(None), issuing_authority: str = Form(None),
     document_number: str = Form(None), issue_date: str = Form(None),
@@ -150,20 +200,31 @@ async def upload_vault_file(
     async with aiofiles.open(VAULT_UPLOAD_DIR / safe_name, "wb") as f:
         await f.write(contents)
     file_url = f"/api/vault/files/{safe_name}"
+    is_expirable = _is_expirable(category, subtype)
     doc_data = {
         "id": doc_id, "candidate_id": current_user["id"],
         "category": category, "subtype": subtype or None,
         "issuing_authority": issuing_authority or None, "document_number": document_number or None,
         "issue_date": issue_date or None, "expiration_date": expiration_date or None,
         "document_date": document_date or now_iso[:10], "state": state or None,
-        "verification_status": "pending", "file_url": file_url,
+        "verification_status": "pending" if is_expirable else "pending",
+        "file_url": file_url,
         "file_name": file.filename, "file_size": len(contents),
         "content_type": file.content_type, "extracted_fields": {},
         "uploaded_at": now_iso, "last_reviewed_at": None,
+        "parsed_expiration_date": None, "verification_notes": None,
+        "verification_confidence": None, "verified_at": None,
     }
     await db.vault_documents.insert_one(doc_data)
     await log_audit(db, current_user["id"], "vault_upload", "vault_document", doc_id,
                     details={"category": category, "file_name": file.filename})
+
+    # Trigger background verification for expirable document types
+    if is_expirable and expiration_date:
+        background_tasks.add_task(
+            _run_expiration_verification, doc_id, contents, file.content_type, expiration_date
+        )
+
     return {"id": doc_id, "file_url": file_url, "message": "File uploaded to vault"}
 
 

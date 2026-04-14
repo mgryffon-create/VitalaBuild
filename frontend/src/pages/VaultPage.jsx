@@ -90,11 +90,19 @@ function daysUntilExp(expDate) {
 
 function docStatus(doc) {
   if (doc.verification_status === "archived") return { text: "Replaced", className: "bg-muted text-muted-foreground/60", priority: 5 };
+  // Verification-based statuses (from expiration verification)
+  if (doc.verification_status === "mismatch") return { text: "Mismatch", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", priority: 0 };
   const days = daysUntilExp(doc.expiration_date);
   if (days !== null && days <= 0) return { text: "Expired", className: "bg-destructive text-destructive-foreground", priority: 0 };
+  if (doc.verification_status === "verified") {
+    if (days !== null && days <= 30) return { text: `Verified · ${days}d left`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 1 };
+    return { text: "Verified", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", priority: 3 };
+  }
   if (days !== null && days <= 30) return { text: `Expires in ${days}d`, className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", priority: 1 };
   if (days !== null && days <= 60) return { text: `Expires in ${days}d`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 2 };
+  if (doc.verification_status === "unverified" && days !== null && days > 0) return { text: "Unverified", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", priority: 3 };
   if (days !== null) return { text: "Active", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", priority: 3 };
+  if (doc.verification_status === "pending") return { text: "Verifying...", className: "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400", priority: 4 };
   return { text: "Uploaded", className: "bg-muted text-muted-foreground", priority: 4 };
 }
 
@@ -447,6 +455,9 @@ const VaultPage = () => {
                             {status.priority <= 1 && <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />}
                             {status.text}
                           </Badge>
+                          {doc.verification_status === "mismatch" && doc.verification_notes && (
+                            <p data-testid={`mismatch-note-${doc.id}`} className="text-[9px] text-red-600 dark:text-red-400 mt-0.5">{doc.verification_notes}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col gap-0.5 shrink-0">
