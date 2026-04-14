@@ -6,25 +6,26 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 ## Architecture
 - **Backend:** FastAPI + MongoDB (motor) + JWT auth, modular routers
 - **Frontend:** React + Tailwind CSS + Shadcn UI
+- **AI:** GPT-4.1 vision (emergentintegrations) for resume parsing + document expiration verification
 
 ## What's Been Implemented
 
-### Phase 2: Document Vault Validation + Compliance Logic (April 2025)
-- **Expirable types**: certification, license, identification categories MUST have expiration_date — save blocked without it (400 error)
-- **Expired documents**: allowed for recordkeeping but marked `expired`, never satisfy compliance
-- **compliance_status**: computed dynamically on GET — `complete`, `expired`, `missing_expiration`, `review_needed`
-- **Strict matching**: only most recent active version counts, expirable without expiration never satisfies, wrong type never matches
-- **Frontend**: required asterisk + "Required for this document type" hint on expiration field for expirable categories
-- **API**: GET /api/vault/expirable-types returns lists for frontend validation
+### Phase 2: Vault Verification — Expiration Date Parsing (April 2025)
+- **GPT-4.1 vision extraction**: background task extracts expiration date from uploaded document images/PDFs
+- **Verification statuses**: verified (match), mismatch (conflict), unverified (parse failed), expired, pending
+- **Compliance integration**: mismatch/expired/missing_expiration NEVER satisfy compliance; verified and unverified (valid user entry) DO satisfy
+- **Date tolerance**: 31-day tolerance for month-level precision matching
+- **Frontend badges**: Verified (green), Mismatch (red + note), Unverified (blue), Verifying... (blue), Expired (red)
+- **Onboarding matching**: match_vault_document returns flagged_issue for mismatch docs
+
+### Phase 2: Document Vault Validation (April 2025)
+- Expirable types blocked without expiration, expired docs allowed for recordkeeping, compliance_status computation
 
 ### Phase 2: Compliance System Overhaul (April 2025)
 - Baseline requirements, job-specific requirements, onboarding progress, auto-match
 
-### Phase 2: Candidate Prioritization + Interaction Fix (April 2025)
-- Match badges, smart sorting, profile modal, stage-aware actions, messaging gating
-
-### Phase 2: Employer Onboarding, Desktop Swipe, Offer Guardrails, Tiered Matching, Structured Pay, Card Polish, Quality Gates, Prior Features
-- (See previous versions for full detail)
+### Phase 2: All Prior Features
+- Candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, card polish, quality gates, document vault, resume parsing
 
 ## Test Accounts
 | Role | Email | Password |
