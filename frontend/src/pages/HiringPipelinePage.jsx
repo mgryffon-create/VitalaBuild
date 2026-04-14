@@ -662,8 +662,9 @@ const PipelineOfferBuilder = ({ open, onClose, candidate, onSubmitted }) => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs">Start Date *</Label><Input type="date" value={form.start_date || ""} onChange={(e) => u("start_date", e.target.value)} className="h-9 mt-1" /></div>
-            <div><Label className="text-xs">Offer Expires *</Label><Input type="date" value={form.expiration_date || ""} onChange={(e) => u("expiration_date", e.target.value)} className="h-9 mt-1" /></div>
+            <div><Label className="text-xs">Offer Expires *</Label><Input type="date" value={form.expiration_date || ""} onChange={(e) => u("expiration_date", e.target.value)} className={`h-9 mt-1 ${dateError ? "border-red-500" : ""}`} /></div>
           </div>
+          {dateError && <p data-testid="pipe-date-error" className="text-xs text-red-500 -mt-1">{dateError}</p>}
           <div className="grid grid-cols-2 gap-3">
             <div><Label className="text-xs">Shift</Label><Input value={form.shift_details || ""} onChange={(e) => u("shift_details", e.target.value)} className="h-9 mt-1" /></div>
             <div><Label className="text-xs">Contract Length</Label><Input value={form.contract_length || ""} onChange={(e) => u("contract_length", e.target.value)} placeholder="13 weeks" className="h-9 mt-1" /></div>
