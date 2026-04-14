@@ -10,25 +10,21 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: Match/Conversation Detail Usability (April 2025)
+- **Full Candidate Profile Panel**: Employer messaging page shows scrollable profile with work history, licenses, certifications, documents, skills, references, bio, compliance status
+- **Privacy-Gated Contact Info**: Phone/email only visible post-match. Pre-match shows "Contact details available after match". Backend enforces — fields omitted from API response when no match exists
+- **Job Context Prominence**: Job title, location, pay range displayed in chat header bar. Conversation list items show job title under each candidate name
+- **Stage-Driven Sticky Actions**: Action bar stays fixed at bottom of profile panel. Buttons derived from canonical state (interested=Accept+Pass, matched=Message+Send Offer, offer_sent=Message+View Offer, hired=Message)
+- **Back Navigation**: Both employer and seeker views have visible back button on desktop and mobile. Returns to pipeline/swipe respectively
+- **Seeker Match Detail Enhancement**: Building icon with employer name, specialty display, pay range, location always visible
+
 ### Phase 2: Hiring Flow UX Overhaul (April 2025)
-- **Profile Preview Modal**: Read-first design — card click opens modal with NO backend mutations
-- **State-driven action buttons**: Strictly derived from canonical state machine
-  - interested → Accept Candidate (primary) + Pass (secondary)
-  - matched → Message (primary) + Send Offer (secondary)
-  - interviewing → Message (primary) + Send Offer (secondary)
-  - offer_sent → Message (primary) + View Offer (secondary)
-  - hired → Message only
-  - Invalid actions HIDDEN, not disabled
-- **Contextual onboarding guidance**: State-aware inline reminder banners (ONE per candidate)
-  - interested → "Review candidate and accept to start conversation"
-  - matched (0 msgs) → "Start the conversation to move forward"
-  - matched/interviewing → "Next step: message, interview, or send offer"
-  - interviewing (no offer) → "Ready to move forward? Send an offer"
-  - offer_sent → "Waiting on candidate response"
-- **Pass/Reject flow**: Confirmation dialog, moves to "passed" stage, removes from pipeline
-- **Enriched candidate data**: certifications, vault categories, messages count, pay range, shift type
-- **Actionable error messages**: "Candidate already matched", "Candidate no longer available", "Action not allowed in current stage", "Server error — please retry"
-- **Backend stage validation**: Prevents backward movement, duplicate stage, role eligibility checks
+- **Profile Preview Modal**: Card click opens read-only modal (no mutations)
+- **State-driven actions**: Strictly from canonical state machine. Invalid actions hidden, not disabled
+- **Contextual onboarding guidance**: Inline reminders per candidate state
+- **Pass/Reject flow**: Confirmation dialogs, moves to "passed" stage
+- **Enriched pipeline data**: certifications, vault categories, messages count, pay range, shift type
+- **Actionable error messages**: Specific errors per HTTP status
 
 ### Phase 2: All Prior Features
 - Acceptance flow fix, UI layout fix, role eligibility, state sync, vault verification, document validation, compliance, candidate prioritization, interaction fix, employer onboarding, desktop swipe, offer guardrails, tiered matching, structured pay, quality gates, messaging composer fix
