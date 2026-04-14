@@ -225,7 +225,39 @@ const OnboardingDetailSection = ({ progress }) => {
   );
 };
 
-/* ── Candidate Profile Modal ── */
+/* ── State-driven contextual reminder ── */
+const getStateReminder = (candidate) => {
+  const { stage, messages_count = 0, offer_status } = candidate;
+  switch (stage) {
+    case "interested":
+      return { text: "Review candidate profile and accept to start a conversation", icon: "eye", color: "border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300" };
+    case "matched":
+      if (messages_count === 0)
+        return { text: "Start the conversation to move forward", icon: "message", color: "border-green-200 dark:border-green-800 bg-green-50/80 dark:bg-green-950/30 text-green-700 dark:text-green-300" };
+      return { text: "Next step: message, interview, or send offer", icon: "arrow", color: "border-sky-200 dark:border-sky-800 bg-sky-50/80 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300" };
+    case "interviewing":
+      if (!offer_status)
+        return { text: "Ready to move forward? Send an offer when confident", icon: "send", color: "border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300" };
+      return null;
+    case "offer_sent":
+      return { text: "Waiting on candidate response", icon: "clock", color: "border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300" };
+    default:
+      return null;
+  }
+};
+
+const ReminderIcon = ({ type }) => {
+  switch (type) {
+    case "eye": return <Eye className="w-3.5 h-3.5 shrink-0" />;
+    case "message": return <MessageCircle className="w-3.5 h-3.5 shrink-0" />;
+    case "arrow": return <ChevronRight className="w-3.5 h-3.5 shrink-0" />;
+    case "send": return <Send className="w-3.5 h-3.5 shrink-0" />;
+    case "clock": return <Clock className="w-3.5 h-3.5 shrink-0" />;
+    default: return <Bell className="w-3.5 h-3.5 shrink-0" />;
+  }
+};
+
+/* ── Candidate Profile Modal (read-first, state-driven actions) ── */
 const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoading }) => {
   const c = candidate;
   if (!c) return null;
@@ -233,6 +265,10 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
   const stage = c.stage;
   const tier = c.match_tier;
   const reasons = c.match_reasons || [];
+  const reminder = getStateReminder(c);
+  const certs = c.seeker?.certifications || [];
+  const vaultCats = c.vault_categories || [];
+  const canMessage = ["matched", "interviewing", "offer_sent", "hired"].includes(stage);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -244,7 +280,7 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             </div>
             <div className="flex-1 min-w-0">
               <span className="block">{c.seeker?.full_name || "Candidate"}</span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-normal text-muted-foreground">{STAGE_LABEL_MAP[stage] || stage}</span>
                 {tier && (
                   <span data-testid="modal-match-badge" className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
@@ -262,6 +298,14 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Contextual state reminder — ONE per candidate, never stacks */}
+          {reminder && (
+            <div data-testid="state-reminder-banner" className={`rounded-lg border p-2.5 flex items-start gap-2 ${reminder.color}`}>
+              <ReminderIcon type={reminder.icon} />
+              <p className="text-xs leading-snug">{reminder.text}</p>
+            </div>
+          )}
+
           {/* Match reasons */}
           {reasons.length > 0 && (
             <div data-testid="modal-match-reasons" className="flex flex-col gap-0.5">
@@ -272,6 +316,7 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
               ))}
             </div>
           )}
+
           {/* Profile details */}
           <div className="space-y-2">
             {c.seeker?.specialty && (
@@ -299,6 +344,34 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
               </div>
             )}
           </div>
+
+          {/* Certifications / Licenses */}
+          {certs.length > 0 && (
+            <div data-testid="modal-certifications">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Certifications</p>
+              <div className="flex flex-wrap gap-1">
+                {certs.slice(0, 8).map((cert, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    <ShieldCheck className="w-3 h-3 mr-1" />
+                    {typeof cert === "string" ? cert : cert?.name || cert?.certification || ""}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Documents preview */}
+          {(c.vault_docs > 0 || vaultCats.length > 0) && (
+            <div data-testid="modal-documents-preview">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Documents</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">{c.vault_docs} document{c.vault_docs !== 1 ? "s" : ""} on file</span>
+                {vaultCats.map((cat, i) => (
+                  <Badge key={i} variant="secondary" className="text-[10px] capitalize">{cat}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Skills */}
           {c.seeker?.skills?.length > 0 && (
@@ -328,12 +401,22 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             )}
           </div>
 
-          {/* Job context */}
+          {/* Application context (job, location, pay) */}
           {c.job?.title && (
             <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Applied for</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">Applied for</p>
               <p className="text-sm font-medium">{c.job.title}</p>
-              {c.job.location && <p className="text-xs text-muted-foreground">{c.job.location}</p>}
+              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                {c.job.location && (
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.job.location}</span>
+                )}
+                {c.job.pay_range && (c.job.pay_range.min > 0 || c.job.pay_range.max > 0) && (
+                  <span>${c.job.pay_range.min}–${c.job.pay_range.max}/hr</span>
+                )}
+                {c.job.shift_type && (
+                  <span>{c.job.shift_type}</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -348,14 +431,31 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
           {c.onboarding_progress && (
             <OnboardingDetailSection progress={c.onboarding_progress} />
           )}
+
+          {/* Messaging hint for pre-match states */}
+          {!canMessage && stage === "interested" && (
+            <p data-testid="messaging-hint" className="text-xs text-muted-foreground italic text-center py-1">
+              Messaging unlocks after acceptance
+            </p>
+          )}
         </div>
 
+        {/* Strictly state-driven action buttons — invalid actions are HIDDEN, not disabled */}
         <DialogFooter className="flex-col sm:flex-row gap-2">
           {stage === "interested" && (
             <>
-              {/* Pre-match: only Accept or Pass */}
               <Button
-                data-testid="modal-advance-btn"
+                data-testid="modal-pass-btn"
+                variant="outline"
+                className="flex-1 text-muted-foreground"
+                disabled={actionLoading}
+                onClick={() => onAction("pass", c)}
+              >
+                <XCircle className="w-4 h-4 mr-1.5" />
+                Pass
+              </Button>
+              <Button
+                data-testid="modal-accept-btn"
                 className="flex-1"
                 disabled={actionLoading}
                 onClick={() => onAction("advance", c)}
@@ -367,19 +467,9 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
           )}
           {(stage === "matched" || stage === "interviewing") && (
             <>
-              {/* Post-match: Message + Send Offer */}
               <Button
-                data-testid="modal-message-btn"
+                data-testid="modal-send-offer-btn"
                 variant="outline"
-                className="flex-1"
-                disabled={actionLoading}
-                onClick={() => onAction("message", c)}
-              >
-                <MessageCircle className="w-4 h-4 mr-1.5" />
-                Message
-              </Button>
-              <Button
-                data-testid="modal-advance-btn"
                 className="flex-1"
                 disabled={actionLoading}
                 onClick={() => onAction("advance", c)}
@@ -387,47 +477,52 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
                 {actionLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
                 Send Offer
               </Button>
+              <Button
+                data-testid="modal-message-btn"
+                className="flex-1"
+                disabled={actionLoading}
+                onClick={() => onAction("message", c)}
+              >
+                <MessageCircle className="w-4 h-4 mr-1.5" />
+                Message
+              </Button>
             </>
           )}
           {stage === "offer_sent" && (
             <>
-              {/* Offer stage: Message + Start Onboarding */}
+              <Button
+                data-testid="modal-view-offer-btn"
+                variant="outline"
+                className="flex-1"
+                disabled={actionLoading}
+                onClick={() => onAction("view_offer", c)}
+              >
+                <Eye className="w-4 h-4 mr-1.5" />
+                View Offer
+              </Button>
               <Button
                 data-testid="modal-message-btn"
-                variant="outline"
                 className="flex-1"
                 disabled={actionLoading}
                 onClick={() => onAction("message", c)}
               >
                 <MessageCircle className="w-4 h-4 mr-1.5" />
                 Message
-              </Button>
-              <Button
-                data-testid="modal-advance-btn"
-                className="flex-1"
-                disabled={actionLoading}
-                onClick={() => onAction("advance", c)}
-              >
-                {actionLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
-                Start Onboarding
               </Button>
             </>
           )}
           {stage === "hired" && (
-            <>
-              {/* Onboarding stage: Message only */}
-              <Button
-                data-testid="modal-message-btn"
-                variant="outline"
-                className="flex-1"
-                disabled={actionLoading}
-                onClick={() => onAction("message", c)}
-              >
-                <MessageCircle className="w-4 h-4 mr-1.5" />
-                Message
-              </Button>
-            </>
+            <Button
+              data-testid="modal-message-btn"
+              className="flex-1"
+              disabled={actionLoading}
+              onClick={() => onAction("message", c)}
+            >
+              <MessageCircle className="w-4 h-4 mr-1.5" />
+              Message
+            </Button>
           )}
+          {/* ineligible / passed / rejected → NO actions rendered */}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -470,6 +565,11 @@ const HiringPipelinePage = () => {
     if (action === "message") {
       setSelectedCandidate(null);
       navigate(`/poster/messages?candidate=${candidate.candidate_id}`);
+    } else if (action === "view_offer") {
+      setSelectedCandidate(null);
+      navigate(`/poster/hiring?tab=offers`);
+    } else if (action === "pass") {
+      setConfirmAction({ type: "pass", candidate, stage: "passed" });
     } else if (action === "advance") {
       const nextStage = NEXT_STAGE[candidate.stage];
       if (!nextStage) return;
@@ -479,28 +579,39 @@ const HiringPipelinePage = () => {
 
   const executeAdvance = async () => {
     if (!confirmAction) return;
-    const { candidate, stage } = confirmAction;
+    const { candidate, stage, type } = confirmAction;
     setActionLoading(true);
     try {
       await axios.put(
         `${API}/pipeline/candidates/${candidate.candidate_id}/${candidate.job_id}/stage`,
         { stage }
       );
-      const stageLabels = { matched: "Candidate accepted — messaging enabled", offer_sent: "Moved to Offers", hired: "Moved to Onboarding" };
-      toast.success(stageLabels[stage] || `Moved to ${stage}`);
+      if (type === "pass") {
+        toast.success("Candidate passed");
+      } else {
+        const stageLabels = {
+          matched: "Candidate accepted — messaging enabled",
+          offer_sent: "Moved to Offers",
+          hired: "Moved to Onboarding",
+        };
+        toast.success(stageLabels[stage] || `Moved to ${stage}`);
+      }
       setConfirmAction(null);
       setSelectedCandidate(null);
       fetchPipeline();
     } catch (err) {
+      const status = err.response?.status;
       const detail = err.response?.data?.detail;
       if (typeof detail === "string") {
         toast.error(detail);
-      } else if (err.response?.status === 409) {
-        toast.error("Conflict — this candidate may have already been moved");
-      } else if (err.response?.status === 404) {
-        toast.error("Candidate or job not found");
+      } else if (status === 409) {
+        toast.error("Candidate already matched or in this stage");
+      } else if (status === 404) {
+        toast.error("Candidate no longer available");
+      } else if (status === 403) {
+        toast.error("Action not allowed in current stage");
       } else {
-        toast.error("Connection issue — please try again");
+        toast.error("Server error — please retry");
       }
     } finally {
       setActionLoading(false);
@@ -623,9 +734,12 @@ const HiringPipelinePage = () => {
       <AlertDialog open={!!confirmAction} onOpenChange={() => !actionLoading && setConfirmAction(null)}>
         <AlertDialogContent data-testid="confirm-advance-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Action</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmAction?.type === "pass" ? "Pass on Candidate" : "Confirm Action"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction?.stage === "matched" && `Move ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} to Matches? They'll become an accepted candidate for this role.`}
+              {confirmAction?.type === "pass" && `Remove ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} from the pipeline? This can be undone later.`}
+              {confirmAction?.stage === "matched" && confirmAction?.type !== "pass" && `Accept ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} as a match? This will enable messaging.`}
               {confirmAction?.stage === "offer_sent" && `Move ${confirmAction?.candidate?.seeker?.full_name || "this candidate"} to Offers? You'll need to create an offer from the Offers page.`}
               {confirmAction?.stage === "hired" && `Start onboarding for ${confirmAction?.candidate?.seeker?.full_name || "this candidate"}? This will move them to the Onboarding stage.`}
             </AlertDialogDescription>
@@ -636,9 +750,10 @@ const HiringPipelinePage = () => {
               onClick={executeAdvance}
               disabled={actionLoading}
               data-testid="confirm-proceed-btn"
+              className={confirmAction?.type === "pass" ? "bg-muted text-foreground hover:bg-muted/80" : ""}
             >
               {actionLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
-              {actionLoading ? "Processing..." : "Confirm"}
+              {actionLoading ? "Processing..." : confirmAction?.type === "pass" ? "Pass" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

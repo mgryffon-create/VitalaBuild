@@ -8,7 +8,8 @@ from datetime import timedelta
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
-STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired"]
+STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired", "passed", "rejected"]
+ACTIVE_STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired"]
 
 
 def _pipeline_match(profile: dict, job: dict) -> dict:
@@ -173,8 +174,13 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             if msg:
                 last_msg = {"content": msg[0].get("content", "")[:60], "at": msg[0].get("created_at"), "sender_id": msg[0].get("sender_id")}
 
-        # Compliance score
-        vault_count = await db.vault_documents.count_documents({"candidate_id": sw["user_id"]})
+        # Compliance / vault detail
+        vault_docs_list = await db.vault_documents.find(
+            {"candidate_id": sw["user_id"]},
+            {"_id": 0, "category": 1, "subtype": 1}
+        ).to_list(20)
+        vault_count = len(vault_docs_list)
+        vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
         verified_refs = await db.portable_references.count_documents(
             {"candidate_id": sw["user_id"], "verification_status": "verified"}
         )
@@ -213,6 +219,9 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
         match_record = await db.matches.find_one(
             {"seeker_id": sw["user_id"], "job_id": sw["target_id"]}, {"_id": 0, "id": 1}
         )
+        messages_count = 0
+        if match_record:
+            messages_count = await db.messages.count_documents({"match_id": match_record["id"]})
 
         candidates.append({
             "id": f"{sw['user_id']}_{sw['target_id']}",
@@ -230,10 +239,19 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
                 "preferred_locations": profile.get("preferred_locations", []) if profile else [],
                 "preferred_shift": profile.get("preferred_shift") if profile else None,
                 "skills": (profile.get("skills") or [])[:5] if profile else [],
+                "certifications": (profile.get("certifications") or [])[:8] if profile else [],
             },
-            "job": {"id": job.get("id"), "title": job.get("title"), "location": job.get("location")},
+            "job": {
+                "id": job.get("id"),
+                "title": job.get("title"),
+                "location": job.get("location"),
+                "pay_range": job.get("pay_range"),
+                "shift_type": job.get("shift_type"),
+            },
             "has_verified_refs": verified_refs > 0,
             "vault_docs": vault_count,
+            "vault_categories": vault_categories,
+            "messages_count": messages_count,
             "last_message": last_msg,
             "offer_status": offer.get("status") if offer else None,
             "onboarding_progress": onboarding_progress,
@@ -247,13 +265,17 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
         -(c.get("compatibility_score") or 0),
     ))
 
-    # Group by stage
-    grouped = {s: [] for s in STAGES}
+    # Group by active stage (exclude passed/rejected from pipeline view)
+    grouped = {s: [] for s in ACTIVE_STAGES}
+    total_active = 0
     for c in candidates:
+        if c["stage"] in ("passed", "rejected"):
+            continue
         grouped.get(c["stage"], grouped["interested"]).append(c)
+        total_active += 1
 
-    stats = {s: len(grouped[s]) for s in STAGES}
-    stats["total"] = len(candidates)
+    stats = {s: len(grouped[s]) for s in ACTIVE_STAGES}
+    stats["total"] = total_active
     return {"candidates": grouped, "stats": stats}
 
 
@@ -261,21 +283,38 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
 async def update_stage(candidate_id: str, job_id: str, update: StageUpdate, current_user: dict = Depends(get_current_user)):
     """Move a candidate to a new pipeline stage"""
     if current_user["role"] not in ("poster", "admin"):
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Action not allowed — employer access required")
     if update.stage not in STAGES:
-        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {STAGES}")
+        raise HTTPException(status_code=400, detail="Action not allowed in current stage")
 
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # HARD FILTER: role eligibility before any stage advancement
+    # HARD FILTER: role eligibility before any stage advancement (skip for pass/reject)
     job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    profile = await db.seeker_profiles.find_one({"user_id": candidate_id}, {"_id": 0}) or {}
-    from eligibility import check_role_eligibility
-    elig = check_role_eligibility(profile, job)
-    if not elig["eligible"]:
-        raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+        raise HTTPException(status_code=404, detail="Job no longer available")
+
+    if update.stage not in ("passed", "rejected"):
+        profile = await db.seeker_profiles.find_one({"user_id": candidate_id}, {"_id": 0}) or {}
+        from eligibility import check_role_eligibility
+        elig = check_role_eligibility(profile, job)
+        if not elig["eligible"]:
+            raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
+
+    # Check if candidate already in this or later stage (prevent duplicate actions)
+    existing_stage = await db.pipeline_stages.find_one(
+        {"candidate_id": candidate_id, "employer_id": current_user["id"], "job_id": job_id},
+        {"_id": 0, "stage": 1}
+    )
+    if existing_stage:
+        current_stage = existing_stage["stage"]
+        if current_stage == update.stage:
+            raise HTTPException(status_code=409, detail="Candidate already in this stage")
+        # Prevent backward movement (except pass/reject which can happen from any stage)
+        if update.stage not in ("passed", "rejected"):
+            stage_order = {s: i for i, s in enumerate(ACTIVE_STAGES)}
+            if stage_order.get(update.stage, 99) <= stage_order.get(current_stage, 0):
+                raise HTTPException(status_code=409, detail="Action not allowed in current stage")
 
     await db.pipeline_stages.update_one(
         {"candidate_id": candidate_id, "employer_id": current_user["id"], "job_id": job_id},
