@@ -99,9 +99,21 @@ const CandidateProfilePanel = ({ candidateId, jobId, stage, onClose, onStageActi
                 <MapPin className="w-3 h-3" /> {ctx.city_state}
               </p>
             )}
-            {ctx.compliance_ready && (
-              <Badge variant="outline" className="mt-1.5 text-[9px] bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200">
-                <CheckCircle className="w-3 h-3 mr-1" /> Compliance Ready
+            {ctx.credential_summary && ctx.credential_summary.total > 0 && (
+              <Badge variant="outline" className={`mt-1.5 text-[9px] ${
+                ctx.credential_summary.level === "compliance_ready"
+                  ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200"
+                  : ctx.credential_summary.level === "partially_verified"
+                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200"
+                    : "bg-muted text-muted-foreground border-muted"
+              }`}>
+                {ctx.credential_summary.level === "compliance_ready" ? (
+                  <><CheckCircle className="w-3 h-3 mr-1" /> Compliance Ready</>
+                ) : ctx.credential_summary.level === "partially_verified" ? (
+                  <><Clock className="w-3 h-3 mr-1" /> Partially Verified</>
+                ) : (
+                  <><Eye className="w-3 h-3 mr-1" /> Verification Needed</>
+                )}
               </Badge>
             )}
           </div>
@@ -173,16 +185,64 @@ const CandidateProfilePanel = ({ candidateId, jobId, stage, onClose, onStageActi
             </div>
           )}
 
-          {/* Certifications */}
+          {/* Certifications — with verification status */}
           {ctx.certifications?.length > 0 && (
             <div data-testid="certifications-section">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Certifications</p>
-              <div className="flex flex-wrap gap-1">
-                {ctx.certifications.slice(0, 10).map((c, i) => (
-                  <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                    {typeof c === "string" ? c : c?.name || c?.certification || ""}
-                  </span>
-                ))}
+              <div className="space-y-1">
+                {ctx.certifications.slice(0, 10).map((cert, i) => {
+                  const certName = typeof cert === "string" ? cert : cert?.name || cert?.certification || "";
+                  const vStatus = typeof cert === "object" ? cert?.verification_status : null;
+                  return (
+                    <div key={i} data-testid={`cert-item-${i}`} className="flex items-center justify-between text-[10px] bg-muted/40 rounded-md px-2 py-1">
+                      <div className="flex items-center gap-1.5">
+                        {vStatus === "verified" ? (
+                          <ShieldCheck className="w-3 h-3 text-green-600 shrink-0" />
+                        ) : vStatus === "needs_review" ? (
+                          <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full border border-muted-foreground/30 shrink-0" />
+                        )}
+                        <span className="font-medium">{certName}</span>
+                      </div>
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+                        vStatus === "verified"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : vStatus === "needs_review"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-muted text-muted-foreground"
+                      }`}>
+                        {vStatus === "verified" ? "Verified" : vStatus === "needs_review" ? "Needs Review" : "Unverified"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Credential summary badge */}
+          {ctx.credential_summary && ctx.credential_summary.total > 0 && (
+            <div data-testid="credential-summary-section" className={`rounded-lg border p-2 ${
+              ctx.credential_summary.level === "compliance_ready"
+                ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20"
+                : ctx.credential_summary.level === "partially_verified"
+                  ? "border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20"
+                  : "border-muted bg-muted/30"
+            }`}>
+              <div className="flex items-center justify-between">
+                <p className={`text-[10px] font-semibold ${
+                  ctx.credential_summary.level === "compliance_ready" ? "text-green-700 dark:text-green-400"
+                  : ctx.credential_summary.level === "partially_verified" ? "text-amber-700 dark:text-amber-400"
+                  : "text-muted-foreground"
+                }`}>
+                  {ctx.credential_summary.level === "compliance_ready" ? "Compliance Ready"
+                    : ctx.credential_summary.level === "partially_verified" ? "Partially Verified"
+                    : "Verification Needed"}
+                </p>
+                <p className="text-[9px] text-muted-foreground">
+                  {ctx.credential_summary.verified}/{ctx.credential_summary.total} verified
+                </p>
               </div>
             </div>
           )}

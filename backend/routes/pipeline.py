@@ -13,6 +13,85 @@ STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired", "passe
 ACTIVE_STAGES = ["interested", "matched", "interviewing", "offer_sent", "hired"]
 
 
+def _compute_verified_credentials(profile_certs: list, vault_docs: list) -> dict:
+    """Cross-reference self-reported certifications with vault documents.
+    
+    Returns:
+        {
+            "credentials": [{"name": str, "verification_status": "verified"|"needs_review"|"unverified", "source": "self_reported"}],
+            "summary": {"level": str, "verified": int, "needs_review": int, "unverified": int, "total": int}
+        }
+    """
+    results = []
+    verified = 0
+    needs_review = 0
+    unverified = 0
+
+    # Normalize vault docs into a lookup by subtype (lowercased)
+    vault_by_subtype = {}
+    for doc in vault_docs:
+        sub = (doc.get("subtype") or "").lower().strip()
+        if sub:
+            vault_by_subtype[sub] = doc
+
+    for cert in profile_certs:
+        cert_name = cert if isinstance(cert, str) else (cert.get("name") or cert.get("certification") or "")
+        if not cert_name:
+            continue
+        cert_lower = cert_name.lower().strip()
+
+        # Try to find a matching vault document
+        matched_doc = None
+        for sub_key, doc in vault_by_subtype.items():
+            if cert_lower == sub_key or cert_lower in sub_key or sub_key in cert_lower:
+                matched_doc = doc
+                break
+
+        if matched_doc:
+            doc_status = matched_doc.get("verification_status", "pending")
+            comp_status = matched_doc.get("compliance_status", "")
+            if doc_status == "verified" and comp_status not in ("expired", "mismatch"):
+                status = "verified"
+                verified += 1
+            elif doc_status in ("mismatch", "rejected") or comp_status in ("expired", "mismatch", "review_needed"):
+                status = "needs_review"
+                needs_review += 1
+            else:
+                # Document exists but not fully verified (pending, unverified)
+                status = "needs_review"
+                needs_review += 1
+        else:
+            status = "unverified"
+            unverified += 1
+
+        results.append({
+            "name": cert_name,
+            "verification_status": status,
+            "source": "self_reported",
+        })
+
+    total = verified + needs_review + unverified
+    if total == 0:
+        level = "verification_needed"
+    elif verified == total:
+        level = "compliance_ready"
+    elif verified > 0:
+        level = "partially_verified"
+    else:
+        level = "verification_needed"
+
+    return {
+        "credentials": results,
+        "summary": {
+            "level": level,
+            "verified": verified,
+            "needs_review": needs_review,
+            "unverified": unverified,
+            "total": total,
+        },
+    }
+
+
 def _pipeline_match(profile: dict, job: dict) -> dict:
     """Lightweight match calculation for pipeline cards — returns tier + reasons."""
     if not profile or not job:
@@ -178,10 +257,15 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
         # Compliance / vault detail
         vault_docs_list = await db.vault_documents.find(
             {"candidate_id": sw["user_id"]},
-            {"_id": 0, "category": 1, "subtype": 1}
-        ).to_list(20)
+            {"_id": 0, "category": 1, "subtype": 1, "verification_status": 1, "compliance_status": 1}
+        ).to_list(30)
         vault_count = len(vault_docs_list)
         vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
+
+        # Cross-reference certifications with vault
+        raw_certs = (profile.get("certifications") or []) if profile else []
+        cred_result = _compute_verified_credentials(raw_certs, vault_docs_list)
+
         verified_refs = await db.portable_references.count_documents(
             {"candidate_id": sw["user_id"], "verification_status": "verified"}
         )
@@ -241,7 +325,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
                 "preferred_locations": profile.get("preferred_locations", []) if profile else [],
                 "preferred_shift": profile.get("preferred_shift") if profile else None,
                 "skills": (profile.get("skills") or [])[:5] if profile else [],
-                "certifications": (profile.get("certifications") or [])[:8] if profile else [],
+                "certifications": cred_result["credentials"],
             },
             "job": {
                 "id": job.get("id"),
@@ -253,6 +337,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             "has_verified_refs": verified_refs > 0,
             "vault_docs": vault_count,
             "vault_categories": vault_categories,
+            "credential_summary": cred_result["summary"],
             "messages_count": messages_count,
             "last_message": last_msg,
             "offer_status": offer.get("status") if offer else None,
@@ -455,10 +540,14 @@ async def get_candidate_context(candidate_id: str, job_id: Optional[str] = None,
     # Vault documents
     vault_docs_list = await db.vault_documents.find(
         {"candidate_id": candidate_id},
-        {"_id": 0, "category": 1, "subtype": 1, "compliance_status": 1}
+        {"_id": 0, "category": 1, "subtype": 1, "compliance_status": 1, "verification_status": 1}
     ).to_list(30)
     vault_count = len(vault_docs_list)
     vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
+
+    # Cross-reference certifications with vault
+    raw_certs = profile.get("certifications", [])
+    cred_result = _compute_verified_credentials(raw_certs, vault_docs_list)
 
     # References
     refs = await db.portable_references.find(
@@ -517,13 +606,14 @@ async def get_candidate_context(candidate_id: str, job_id: Optional[str] = None,
         "bio": profile.get("bio"),
         "city_state": city_state,
         "skills": profile.get("skills", []),
-        "certifications": profile.get("certifications", []),
+        "certifications": cred_result["credentials"],
+        "credential_summary": cred_result["summary"],
         "work_history": profile.get("work_history", []),
         "education": profile.get("education", []),
         "vault_docs": vault_count,
         "vault_categories": vault_categories,
         "contact_available": contact_available,
-        "compliance_ready": compliance_rate >= 80 and vault_count > 0,
+        "compliance_ready": cred_result["summary"]["level"] == "compliance_ready",
         "references": {
             "total": len(refs),
             "verified": len(verified_refs),

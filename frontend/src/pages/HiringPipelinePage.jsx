@@ -348,18 +348,54 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             )}
           </div>
 
-          {/* Certifications / Licenses */}
+          {/* Certifications / Licenses — with verification status */}
           {certs.length > 0 && (
             <div data-testid="modal-certifications">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Certifications</p>
               <div className="flex flex-wrap gap-1">
-                {certs.slice(0, 8).map((cert, i) => (
-                  <Badge key={i} variant="outline" className="text-xs">
-                    <ShieldCheck className="w-3 h-3 mr-1" />
-                    {typeof cert === "string" ? cert : cert?.name || cert?.certification || ""}
-                  </Badge>
-                ))}
+                {certs.slice(0, 8).map((cert, i) => {
+                  const certName = typeof cert === "string" ? cert : cert?.name || cert?.certification || "";
+                  const vStatus = typeof cert === "object" ? cert?.verification_status : null;
+                  return (
+                    <Badge
+                      key={i}
+                      variant="outline"
+                      data-testid={`cert-badge-${i}`}
+                      className={`text-xs ${
+                        vStatus === "verified"
+                          ? "border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
+                          : vStatus === "needs_review"
+                            ? "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                            : "border-muted text-muted-foreground"
+                      }`}
+                    >
+                      {vStatus === "verified" ? (
+                        <ShieldCheck className="w-3 h-3 mr-1 text-green-600" />
+                      ) : vStatus === "needs_review" ? (
+                        <AlertTriangle className="w-3 h-3 mr-1 text-amber-500" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-muted-foreground/30 mr-1.5 inline-block shrink-0" />
+                      )}
+                      {certName}
+                    </Badge>
+                  );
+                })}
               </div>
+              {/* Credential summary */}
+              {c.credential_summary && c.credential_summary.total > 0 && (
+                <p data-testid="modal-credential-summary" className={`text-[10px] mt-1.5 flex items-center gap-1 ${
+                  c.credential_summary.level === "compliance_ready" ? "text-green-600" :
+                  c.credential_summary.level === "partially_verified" ? "text-amber-600" : "text-muted-foreground"
+                }`}>
+                  {c.credential_summary.level === "compliance_ready" ? (
+                    <><CheckCircle className="w-3 h-3" /> All credentials verified</>
+                  ) : c.credential_summary.level === "partially_verified" ? (
+                    <><AlertTriangle className="w-3 h-3" /> {c.credential_summary.verified} of {c.credential_summary.total} verified</>
+                  ) : (
+                    <><Eye className="w-3 h-3" /> {c.credential_summary.unverified} self-reported · {c.credential_summary.total} total</>
+                  )}
+                </p>
+              )}
             </div>
           )}
 
