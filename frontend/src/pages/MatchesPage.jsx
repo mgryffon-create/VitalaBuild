@@ -9,7 +9,7 @@ import { useAuth, API } from "@/App";
 import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
-import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle } from "lucide-react";
+import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle, Building } from "lucide-react";
 
 const STATUS_CONFIG = {
   pending:    { label: "Pending",    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200", icon: Clock },
@@ -111,11 +111,11 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Detail Header */}
-      <div className="border-b border-border p-3 sm:p-4">
+      {/* Detail Header — always shows back nav + full context */}
+      <div className="border-b border-border p-3 sm:p-4 shrink-0">
         <div className="flex items-start gap-3">
           {onBack && (
-            <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 -ml-1 lg:hidden" data-testid="match-back-btn">
+            <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 -ml-1" data-testid="match-back-btn">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}
@@ -132,21 +132,30 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
             <p className="font-semibold text-foreground text-sm sm:text-base leading-tight truncate">
               {isSeeker ? item.job?.title : item.seeker?.full_name}
             </p>
+            {/* Job/employer context — always visible */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
-              {isSeeker && item.job?.company_name && <span>{item.job.company_name}</span>}
+              {isSeeker && item.job?.company_name && (
+                <span className="flex items-center gap-0.5 font-medium text-foreground/80">
+                  <Building className="w-3 h-3" />{item.job.company_name}
+                </span>
+              )}
               {isSeeker && item.job?.location && (
                 <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{item.job.location}</span>
               )}
-              {isSeeker && item.job?.pay_range?.min && (
+              {isSeeker && item.job?.pay_range?.min > 0 && (
                 <span className="flex items-center gap-0.5">
                   <DollarSign className="w-3 h-3" />
-                  ${item.job.pay_range.min.toLocaleString()}-${item.job.pay_range.max?.toLocaleString()}
+                  ${item.job.pay_range.min.toLocaleString()}–${item.job.pay_range.max?.toLocaleString()}
                 </span>
+              )}
+              {isSeeker && item.job?.specialty && (
+                <span className="flex items-center gap-0.5 text-primary/70">{item.job.specialty}</span>
               )}
             </div>
             <Badge
               variant="outline"
               className={`mt-1.5 text-[10px] ${(STATUS_CONFIG[item.status] || STATUS_CONFIG.matched).className}`}
+              data-testid="match-status-badge"
             >
               {(STATUS_CONFIG[item.status] || STATUS_CONFIG.matched).label}
             </Badge>
@@ -184,7 +193,7 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
             </div>
           </ScrollArea>
 
-          <div className="p-3 sm:p-4 border-t border-border">
+          <div className="p-3 sm:p-4 border-t border-border shrink-0">
             <form onSubmit={handleSend} className="flex gap-2">
               <Input
                 data-testid="message-input"
@@ -272,7 +281,18 @@ const MatchesPage = () => {
   return (
     <DashboardLayout>
       <div data-testid="matches-page">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Matches</h1>
+        <div className="flex items-center gap-2 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => navigate(isSeeker ? "/seeker/swipe" : "/poster/pipeline")}
+            data-testid="matches-back-btn"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Matches</h1>
+        </div>
 
         {isSeeker && items.length > 0 && statusCounts && (
           <div data-testid="matches-status-summary" className="flex gap-2 mb-4 overflow-x-auto pb-1">

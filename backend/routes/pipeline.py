@@ -431,8 +431,9 @@ async def get_nudges(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/candidates/{candidate_id}/context")
-async def get_candidate_context(candidate_id: str, current_user: dict = Depends(get_current_user)):
-    """Get full candidate context for the messaging panel"""
+async def get_candidate_context(candidate_id: str, job_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """Full candidate context with privacy-gated contact info.
+    Contact details (phone, email) only returned when a valid match exists."""
     if current_user["role"] not in ("poster", "admin"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -440,38 +441,87 @@ async def get_candidate_context(candidate_id: str, current_user: dict = Depends(
     if not seeker:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    profile = await db.seeker_profiles.find_one({"user_id": candidate_id}, {"_id": 0})
-    vault_count = await db.vault_documents.count_documents({"candidate_id": candidate_id})
+    profile = await db.seeker_profiles.find_one({"user_id": candidate_id}, {"_id": 0}) or {}
+
+    # Privacy gating: check if a valid match exists
+    match_query = {"seeker_id": candidate_id, "poster_id": current_user["id"]}
+    if job_id:
+        match_query["job_id"] = job_id
+    has_match = await db.matches.find_one(match_query, {"_id": 0, "id": 1})
+    contact_available = bool(has_match)
+
+    # Vault documents
+    vault_docs_list = await db.vault_documents.find(
+        {"candidate_id": candidate_id},
+        {"_id": 0, "category": 1, "subtype": 1, "compliance_status": 1}
+    ).to_list(30)
+    vault_count = len(vault_docs_list)
+    vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
+
+    # References
     refs = await db.portable_references.find(
         {"candidate_id": candidate_id}, {"_id": 0, "verification_token": 0}
     ).to_list(10)
     verified_refs = [r for r in refs if r.get("verification_status") == "verified"]
 
+    # Licenses
+    licenses = await db.seeker_licenses.find(
+        {"user_id": candidate_id}, {"_id": 0}
+    ).to_list(10)
+
     # Training compliance
     training_total = await db.training_assignments.count_documents({"user_id": candidate_id})
     training_completed = await db.training_assignments.count_documents({"user_id": candidate_id, "status": "completed"})
+    compliance_rate = round(training_completed / training_total * 100) if training_total > 0 else 0
 
-    # Onboarding cases with this employer
+    # Onboarding cases
     onboarding = await db.onboarding_cases.find(
         {"candidate_id": candidate_id, "employer_id": current_user["id"]}, {"_id": 0}
     ).to_list(10)
 
-    # Find job-specific pipeline stages
+    # Pipeline stages
     stages = await db.pipeline_stages.find(
         {"candidate_id": candidate_id, "employer_id": current_user["id"]}, {"_id": 0}
     ).to_list(10)
 
-    return {
+    # Job context
+    job_context = None
+    if job_id:
+        job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
+        if job:
+            poster_profile = await db.poster_profiles.find_one(
+                {"user_id": job.get("poster_id")}, {"_id": 0}
+            )
+            job_context = {
+                "id": job.get("id"),
+                "title": job.get("title"),
+                "location": job.get("location"),
+                "pay_range": job.get("pay_range"),
+                "shift_type": job.get("shift_type"),
+                "company_name": poster_profile.get("company_name") if poster_profile else None,
+            }
+
+    # City/state from preferred_locations
+    locs = profile.get("preferred_locations", [])
+    city_state = locs[0] if locs else None
+
+    result = {
         "candidate_id": candidate_id,
         "full_name": seeker.get("full_name"),
-        "email": seeker.get("email"),
-        "specialty": profile.get("specialty") if profile else None,
-        "years_experience": profile.get("years_experience") if profile else None,
-        "preferred_locations": profile.get("preferred_locations", []) if profile else [],
-        "preferred_shift": profile.get("preferred_shift") if profile else None,
-        "bio": profile.get("bio") if profile else None,
-        "skills": profile.get("skills", []) if profile else [],
+        "specialty": profile.get("specialty"),
+        "years_experience": profile.get("years_experience"),
+        "preferred_locations": profile.get("preferred_locations", []),
+        "preferred_shift": profile.get("preferred_shift"),
+        "bio": profile.get("bio"),
+        "city_state": city_state,
+        "skills": profile.get("skills", []),
+        "certifications": profile.get("certifications", []),
+        "work_history": profile.get("work_history", []),
+        "education": profile.get("education", []),
         "vault_docs": vault_count,
+        "vault_categories": vault_categories,
+        "contact_available": contact_available,
+        "compliance_ready": compliance_rate >= 80 and vault_count > 0,
         "references": {
             "total": len(refs),
             "verified": len(verified_refs),
@@ -479,10 +529,17 @@ async def get_candidate_context(candidate_id: str, current_user: dict = Depends(
                       "rating": r.get("rating"), "verified": r.get("verification_status") == "verified"}
                      for r in refs[:3]],
         },
+        "licenses": [{
+            "license_type": lic.get("license_type"),
+            "license_number": lic.get("license_number"),
+            "state": lic.get("state"),
+            "expiration_date": lic.get("expiration_date"),
+            "verification_status": lic.get("verification_status"),
+        } for lic in licenses],
         "training": {
             "total": training_total,
             "completed": training_completed,
-            "compliance_rate": round(training_completed / training_total * 100) if training_total > 0 else 0,
+            "compliance_rate": compliance_rate,
         },
         "onboarding_cases": [{
             "job_id": c.get("job_id"),
@@ -495,3 +552,13 @@ async def get_candidate_context(candidate_id: str, current_user: dict = Depends(
             "updated_at": s.get("updated_at"),
         } for s in stages],
     }
+
+    # Privacy gating: only include contact info post-match
+    if contact_available:
+        result["phone"] = profile.get("phone")
+        result["email"] = seeker.get("email")
+
+    if job_context:
+        result["job"] = job_context
+
+    return result
