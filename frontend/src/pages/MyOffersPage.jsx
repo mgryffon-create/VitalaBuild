@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -35,6 +36,7 @@ const MyOffersPage = () => {
   const [loading, setLoading] = useState(true);
   const [reviewOffer, setReviewOffer] = useState(null);
   const [responseNotes, setResponseNotes] = useState("");
+  const [typedSignature, setTypedSignature] = useState("");
   const [responding, setResponding] = useState(false);
   const [conflicts, setConflicts] = useState(null);
   const [conflictsLoading, setConflictsLoading] = useState(false);
@@ -72,16 +74,22 @@ const MyOffersPage = () => {
   const closeReview = () => {
     setReviewOffer(null);
     setResponseNotes("");
+    setTypedSignature("");
     setConflicts(null);
   };
 
   const handleRespond = async (accepted) => {
     if (!reviewOffer) return;
+    if (accepted && (!typedSignature || typedSignature.trim().length < 2)) {
+      toast.error("Please type your full legal name to accept this offer");
+      return;
+    }
     setResponding(true);
     try {
       await axios.put(`${API}/hiring/offers/${reviewOffer.id}/respond`, {
         accepted,
         notes: responseNotes,
+        typed_signature: accepted ? typedSignature.trim() : null,
       });
       toast.success(accepted ? "Offer accepted!" : "Offer declined");
       closeReview();
@@ -440,6 +448,24 @@ const MyOffersPage = () => {
                   rows={2}
                 />
               </div>
+
+              {/* Typed Signature for acceptance */}
+              {reviewOffer?.status === "pending" && (
+                <div data-testid="typed-signature-section" className="p-4 bg-muted/50 rounded-lg border space-y-2">
+                  <Label className="text-xs font-semibold">Electronic Signature</Label>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    By typing your full legal name below, you agree to the terms of this offer and authorize VitalaMatch to process your acceptance.
+                  </p>
+                  <Input
+                    data-testid="typed-signature-input"
+                    value={typedSignature}
+                    onChange={(e) => setTypedSignature(e.target.value)}
+                    placeholder="Type your full legal name"
+                    className="h-10 text-base font-medium italic"
+                    autoComplete="name"
+                  />
+                </div>
+              )}
             </div>
           )}
 

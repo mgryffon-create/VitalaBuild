@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -673,6 +673,7 @@ class EmploymentOffer(BaseModel):
 class OfferResponse(BaseModel):
     accepted: bool
     notes: Optional[str] = None
+    typed_signature: Optional[str] = None  # Full legal name for acceptance
 
 # ==================== VAULT & ONBOARDING MODELS ====================
 
@@ -1761,6 +1762,108 @@ async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user:
 
 
 # ==================== SEEKER APPLICATIONS ====================
+
+STANDARD_COMPLIANCE_BUNDLE = [
+    {"key": "bls", "label": "BLS Certification", "category": "certification", "subtypes": ["BLS", "CPR", "CPR_BLS"]},
+    {"key": "acls", "label": "ACLS Certification", "category": "certification", "subtypes": ["ACLS"]},
+    {"key": "rn_license", "label": "RN License", "category": "license", "subtypes": ["RN License", "RN_license"]},
+    {"key": "tb_test", "label": "TB Test", "category": "medical", "subtypes": ["TB Skin Test (PPD)", "TB Blood Test (Quantiferon)"]},
+    {"key": "vaccinations", "label": "Vaccination Records", "category": "medical", "subtypes": ["COVID-19 Vaccine", "Influenza (Flu)", "Hepatitis B", "MMR", "Varicella", "Tdap"]},
+    {"key": "gov_id", "label": "Government ID", "category": "identification", "subtypes": ["Driver's License", "Passport", "State ID"]},
+    {"key": "background", "label": "Background Check", "category": "compliance", "subtypes": ["Background Check"]},
+    {"key": "drug_screen", "label": "Drug Screen", "category": "compliance", "subtypes": ["Drug Screen"]},
+]
+
+
+@api_router.get("/seeker/readiness")
+async def get_seeker_readiness(current_user: dict = Depends(get_current_user)):
+    """Compute seeker readiness score from vault documents vs standard compliance bundle."""
+    if current_user["role"] != "seeker":
+        raise HTTPException(status_code=403, detail="Only seekers can view readiness")
+    
+    vault_docs = await db.vault_documents.find(
+        {"candidate_id": current_user["id"]},
+        {"_id": 0, "category": 1, "subtype": 1, "expiration_date": 1, "verification_status": 1}
+    ).to_list(200)
+    
+    now = datetime.now(timezone.utc).date()
+    items = []
+    complete = 0
+    expiring_soon = 0
+    missing = 0
+    
+    for req in STANDARD_COMPLIANCE_BUNDLE:
+        # Find matching vault doc
+        matched = None
+        for doc in vault_docs:
+            if doc.get("category") == req["category"] or doc.get("subtype") in req.get("subtypes", []):
+                matched = doc
+                break
+        
+        if matched:
+            # Check expiration
+            exp = matched.get("expiration_date")
+            status = "complete"
+            if exp:
+                try:
+                    exp_date = datetime.strptime(exp[:10], "%Y-%m-%d").date()
+                    if exp_date < now:
+                        status = "expired"
+                    elif (exp_date - now).days <= 30:
+                        status = "expiring_soon"
+                        expiring_soon += 1
+                    else:
+                        complete += 1
+                except (ValueError, TypeError):
+                    complete += 1
+            else:
+                complete += 1
+            
+            if status == "expired":
+                missing += 1
+            
+            items.append({
+                "key": req["key"],
+                "label": req["label"],
+                "status": status,
+                "verification": matched.get("verification_status", "pending"),
+            })
+        else:
+            missing += 1
+            items.append({
+                "key": req["key"],
+                "label": req["label"],
+                "status": "missing",
+                "verification": None,
+            })
+    
+    total = len(STANDARD_COMPLIANCE_BUNDLE)
+    score = round((complete / total) * 100) if total > 0 else 0
+    
+    if score >= 80:
+        level = "ready_to_work"
+        message = "Ready to work"
+    elif score >= 50:
+        level = "partially_ready"
+        message = f"Missing {missing} required document{'s' if missing != 1 else ''}"
+    else:
+        level = "needs_documents"
+        message = f"Missing {missing} required document{'s' if missing != 1 else ''}"
+    
+    if expiring_soon > 0:
+        message += f" · {expiring_soon} expiring soon"
+    
+    return {
+        "score": score,
+        "level": level,
+        "message": message,
+        "total": total,
+        "complete": complete,
+        "missing": missing,
+        "expiring_soon": expiring_soon,
+        "items": items,
+    }
+
 
 @api_router.get("/seeker/applications")
 async def get_seeker_applications(current_user: dict = Depends(get_current_user)):
@@ -4095,6 +4198,11 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
     
     new_status = "accepted" if response.accepted else "rejected"
     
+    # REQUIRE typed signature for acceptance
+    if response.accepted:
+        if not response.typed_signature or len(response.typed_signature.strip()) < 2:
+            raise HTTPException(status_code=400, detail="Typed signature (full legal name) is required to accept an offer")
+    
     # CONFLICT CHECK — hard block on acceptance if conflicts exist
     if response.accepted:
         job = await db.jobs.find_one({"id": offer["job_id"]}, {"_id": 0}) or {}
@@ -4113,8 +4221,11 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
         "status": new_status,
         "response_notes": response.notes,
         "responded_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if response.typed_signature:
+        update_data["typed_signature"] = response.typed_signature.strip()
+        update_data["signature_timestamp"] = datetime.now(timezone.utc).isoformat()
     
     await db.employment_offers.update_one({"id": offer_id}, {"$set": update_data})
     
@@ -4247,6 +4358,220 @@ async def get_employment_documents(current_user: dict = Depends(get_current_user
                 job = await db.jobs.find_one({"id": offer.get("job_id")}, {"_id": 0, "title": 1, "location": 1})
                 doc["job"] = {"title": job.get("title"), "location": job.get("location")} if job else None
     return docs
+
+# ----- Job Documents (employer uploads per job — NOT credential vault) -----
+
+@api_router.post("/jobs/{job_id}/documents")
+async def upload_job_document(
+    job_id: str,
+    file: UploadFile = File(...),
+    document_type: str = Form("onboarding_packet"),
+    title: str = Form(None),
+    action_required: str = Form("view_only"),
+    current_user: dict = Depends(get_current_user),
+):
+    """Upload a job-specific document (onboarding packet, policy, training material)."""
+    if current_user["role"] not in ("poster", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    job = await db.jobs.find_one({"id": job_id, "poster_id": current_user["id"]}, {"_id": 0, "id": 1})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+    
+    doc_id = str(uuid.uuid4())
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    safe_name = f"jobdoc_{doc_id}{ext}"
+    upload_dir = Path("vault_uploads")
+    upload_dir.mkdir(exist_ok=True)
+    async with aiofiles.open(upload_dir / safe_name, "wb") as f:
+        await f.write(contents)
+    
+    doc_data = {
+        "id": doc_id,
+        "job_id": job_id,
+        "employer_id": current_user["id"],
+        "document_type": document_type,
+        "action_required": action_required,
+        "title": title or file.filename,
+        "file_name": file.filename,
+        "file_url": f"/api/vault/files/{safe_name}",
+        "file_size": len(contents),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.job_documents.insert_one(doc_data)
+    return {"id": doc_id, "message": "Job document uploaded"}
+
+
+@api_router.get("/jobs/{job_id}/documents")
+async def get_job_documents(job_id: str, current_user: dict = Depends(get_current_user)):
+    """Get documents attached to a job posting."""
+    docs = await db.job_documents.find({"job_id": job_id}, {"_id": 0}).sort("uploaded_at", -1).to_list(50)
+    return docs
+
+
+# ----- External Systems (per employer) -----
+
+class ExternalSystemEntry(BaseModel):
+    system_name: str
+    system_type: str  # background_check, drug_screening, training, e_signature, other
+    url: Optional[str] = None
+
+
+@api_router.get("/employer/external-systems")
+async def get_external_systems(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ("poster", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    systems = await db.external_systems.find({"employer_id": current_user["id"]}, {"_id": 0}).to_list(50)
+    return systems
+
+
+@api_router.post("/employer/external-systems")
+async def add_external_system(entry: ExternalSystemEntry, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ("poster", "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    sys_data = {
+        "id": str(uuid.uuid4()),
+        "employer_id": current_user["id"],
+        "system_name": entry.system_name,
+        "system_type": entry.system_type,
+        "url": entry.url,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.external_systems.insert_one(sys_data)
+    return {"id": sys_data["id"], "message": "External system added"}
+
+
+# ----- Unified Onboarding Checklist -----
+
+@api_router.get("/onboarding/{case_id}/checklist")
+async def get_onboarding_checklist(case_id: str, current_user: dict = Depends(get_current_user)):
+    """Get the full onboarding checklist for a case — bidirectional (employer + seeker see same)."""
+    case = await db.onboarding_cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Onboarding case not found")
+    if current_user["id"] not in (case.get("candidate_id"), case.get("employer_id")) and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    reqs = await db.onboarding_requirements.find({"onboarding_case_id": case_id}, {"_id": 0}).to_list(100)
+    tasks = await db.onboarding_tasks.find({"onboarding_case_id": case_id}, {"_id": 0}).to_list(100)
+    job_docs = await db.job_documents.find({"job_id": case.get("job_id")}, {"_id": 0}).to_list(50)
+    ext_systems = await db.external_systems.find({"employer_id": case.get("employer_id")}, {"_id": 0}).to_list(20)
+    
+    # Group items
+    doc_items = []
+    task_items = []
+    external_items = []
+    
+    task_map = {t.get("onboarding_requirement_id"): t for t in tasks}
+    
+    for req in reqs:
+        task = task_map.get(req["id"])
+        item = {
+            "id": req["id"],
+            "label": req["label"],
+            "type": req["type"],
+            "status": req["status"],
+            "assigned_to": req.get("assigned_to", "candidate"),
+            "fulfillment_source": req.get("fulfillment_source"),
+            "notes": req.get("notes"),
+            "task_id": task["id"] if task else None,
+            "task_status": task.get("status") if task else None,
+        }
+        if req.get("fulfillment_source") == "external_vendor" or (task and task.get("type") == "external"):
+            # Find matching external system
+            sys_type_map = {
+                "background_check": "background_check",
+                "drug_screen": "drug_screening",
+            }
+            sys_type = sys_type_map.get(req["type"])
+            matched_sys = next((s for s in ext_systems if s.get("system_type") == sys_type), None)
+            item["external_system"] = matched_sys
+            external_items.append(item)
+        elif req.get("fulfillment_source") in ("vault", "candidate_upload", "admin_review"):
+            doc_items.append(item)
+        else:
+            task_items.append(item)
+    
+    # Add job-specific documents as acknowledgment items
+    for jd in job_docs:
+        doc_items.append({
+            "id": f"jobdoc_{jd['id']}",
+            "label": jd.get("title", jd.get("file_name")),
+            "type": "job_document",
+            "status": "pending",
+            "assigned_to": "candidate",
+            "fulfillment_source": "employer_upload",
+            "action_required": jd.get("action_required", "view_only"),
+            "file_url": jd.get("file_url"),
+            "notes": None,
+        })
+    
+    from onboarding_logic import compute_progress
+    progress = compute_progress(reqs)
+    
+    return {
+        "case": {
+            "id": case["id"],
+            "candidate_id": case.get("candidate_id"),
+            "employer_id": case.get("employer_id"),
+            "job_id": case.get("job_id"),
+            "status": case.get("status"),
+            "role_type": case.get("role_type"),
+            "created_at": case.get("created_at"),
+        },
+        "progress": progress,
+        "sections": {
+            "documents": doc_items,
+            "tasks": task_items,
+            "external": external_items,
+        },
+        "job_documents": job_docs,
+        "external_systems": ext_systems,
+    }
+
+
+@api_router.put("/onboarding/{case_id}/items/{item_id}/status")
+async def update_checklist_item_status(
+    case_id: str, item_id: str,
+    status_update: dict = Body(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """Update a checklist item's status. Both employer and seeker can update their assigned items."""
+    case = await db.onboarding_cases.find_one({"id": case_id}, {"_id": 0})
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    if current_user["id"] not in (case.get("candidate_id"), case.get("employer_id")) and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    new_status = status_update.get("status")
+    notes = status_update.get("notes")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    # Update requirement
+    result = await db.onboarding_requirements.update_one(
+        {"id": item_id, "onboarding_case_id": case_id},
+        {"$set": {"status": new_status, "notes": notes, "updated_at": now_iso}}
+    )
+    # Also update task if exists
+    await db.onboarding_tasks.update_one(
+        {"onboarding_requirement_id": item_id, "onboarding_case_id": case_id},
+        {"$set": {"status": new_status, "updated_at": now_iso}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Recompute case status
+    from onboarding_logic import compute_case_status
+    all_reqs = await db.onboarding_requirements.find({"onboarding_case_id": case_id}, {"_id": 0}).to_list(100)
+    new_case_status = compute_case_status(all_reqs)
+    await db.onboarding_cases.update_one({"id": case_id}, {"$set": {"status": new_case_status, "updated_at": now_iso}})
+    
+    return {"message": "Item updated", "case_status": new_case_status}
+
 
 # ----- Onboarding -----
 

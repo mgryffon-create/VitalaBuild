@@ -34,16 +34,18 @@ const SeekerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [jobsAvailable, setJobsAvailable] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState(null);
+  const [readiness, setReadiness] = useState(null);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [statsRes, docsRes, matchesRes, profileRes, jobsRes, completionRes] = await Promise.all([
+      const [statsRes, docsRes, matchesRes, profileRes, jobsRes, completionRes, readinessRes] = await Promise.all([
         axios.get(`${API}/stats`),
         axios.get(`${API}/documents/expiring`),
         axios.get(`${API}/matches`),
         axios.get(`${API}/profile/seeker`).catch(() => ({ data: null })),
         axios.get(`${API}/swipe/jobs`).catch(() => ({ data: [] })),
         axios.get(`${API}/profile/completion`).catch(() => ({ data: null })),
+        axios.get(`${API}/seeker/readiness`).catch(() => ({ data: null })),
       ]);
       setStats(statsRes.data);
       setExpiringDocs(docsRes.data);
@@ -51,6 +53,7 @@ const SeekerDashboard = () => {
       setProfile(profileRes.data);
       setJobsAvailable(Array.isArray(jobsRes.data) ? jobsRes.data.length : (jobsRes.data?.jobs?.length || 0));
       setProfileCompletion(completionRes.data);
+      setReadiness(readinessRes.data);
     } catch (error) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -132,6 +135,38 @@ const SeekerDashboard = () => {
             <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => navigate("/seeker/profile")} data-testid="complete-profile-dash-btn">
               Complete
             </Button>
+          </div>
+        )}
+
+        {/* ── Readiness Score ──────────────────────── */}
+        {readiness && (
+          <div data-testid="readiness-card" className="p-3 rounded-xl border bg-card">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Shield className={`w-4 h-4 ${readiness.level === "ready_to_work" ? "text-green-600" : readiness.level === "partially_ready" ? "text-amber-500" : "text-muted-foreground"}`} />
+                <span className="text-sm font-medium text-foreground">{readiness.message}</span>
+              </div>
+              <span data-testid="readiness-score" className={`text-lg font-bold ${readiness.score >= 80 ? "text-green-600" : readiness.score >= 50 ? "text-amber-500" : "text-muted-foreground"}`}>{readiness.score}%</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
+              <div className={`h-full rounded-full transition-all ${readiness.score >= 80 ? "bg-green-500" : readiness.score >= 50 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${readiness.score}%` }} />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {readiness.items?.slice(0, 8).map((item) => (
+                <span key={item.key} className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                  item.status === "complete" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  : item.status === "expiring_soon" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  : "bg-muted text-muted-foreground"
+                }`}>
+                  {item.status === "complete" ? "✓" : item.status === "expiring_soon" ? "!" : "○"} {item.label}
+                </span>
+              ))}
+            </div>
+            {readiness.missing > 0 && (
+              <Button size="sm" variant="outline" className="mt-2 h-7 text-xs w-full" onClick={() => navigate("/seeker/vault")} data-testid="go-to-vault-btn">
+                Upload Documents
+              </Button>
+            )}
           </div>
         )}
 

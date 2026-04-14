@@ -341,6 +341,7 @@ class EmploymentOffer(BaseModel):
 class OfferResponse(BaseModel):
     accepted: bool
     notes: Optional[str] = None
+    typed_signature: Optional[str] = None  # Full legal name for acceptance
 
 class VaultDocumentCreate(BaseModel):
     category: str
