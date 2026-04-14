@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
-  MessageCircle, Send, ArrowLeft, ChevronRight, Shield, MapPin,
+  MessageCircle, Send, ArrowLeft, ChevronRight, ChevronDown, Shield, MapPin,
   Clock, Award, Briefcase, FileText, User, ExternalLink, PanelRightOpen,
   PanelRightClose, Star, ShieldCheck, Bell, UserCheck, Phone, Mail,
   XCircle, Eye, Loader2, CheckCircle, Building, DollarSign, Lock,
@@ -382,6 +382,7 @@ const EmployerMessagingPage = () => {
   const [nudges, setNudges] = useState([]);
   const [jobExtLinks, setJobExtLinks] = useState({});
   const [stageActionLoading, setStageActionLoading] = useState(false);
+  const [collapsedJobs, setCollapsedJobs] = useState(new Set());
   const endRef = useRef(null);
 
   const fetchData = useCallback(async () => {
@@ -399,10 +400,11 @@ const EmployerMessagingPage = () => {
       const extLinks = {};
 
       for (const c of allCandidates) {
-        if (seen.has(c.candidate_id)) continue;
-        seen.add(c.candidate_id);
+        const key = `${c.candidate_id}_${c.job_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         convos.push({
-          id: c.candidate_id,
+          id: key,
           candidate_id: c.candidate_id,
           match_id: c.match_id || null,
           job_id: c.job_id,
@@ -419,13 +421,16 @@ const EmployerMessagingPage = () => {
       }
 
       for (const m of matchRes.data) {
-        if (seen.has(m.seeker?.id)) continue;
-        seen.add(m.seeker?.id);
+        const seekId = m.seeker?.id;
+        const jobId = m.job_id || m.job?.id;
+        const key = `${seekId}_${jobId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         convos.push({
-          id: m.seeker?.id || m.id,
-          candidate_id: m.seeker?.id,
+          id: key,
+          candidate_id: seekId,
           match_id: m.id,
-          job_id: m.job_id || m.job?.id,
+          job_id: jobId,
           job_title: m.job?.title || "",
           job_location: m.job?.location || "",
           job_pay_range: m.job?.pay_range || null,
@@ -574,12 +579,59 @@ const EmployerMessagingPage = () => {
     }
   };
 
-  // Filtered conversations
+  // Filtered conversations + job grouping
   const filtered = filter === "all"
     ? conversations
     : filter === "matched"
       ? conversations.filter((c) => c.stage === "matched" || c.stage === "interviewing")
       : conversations.filter((c) => c.stage === filter);
+
+  const jobGroups = useMemo(() => {
+    const groups = {};
+    for (const c of filtered) {
+      const jid = c.job_id || "_none";
+      if (!groups[jid]) {
+        groups[jid] = {
+          job_id: jid,
+          job_title: c.job_title || "Unknown Job",
+          job_location: c.job_location || "",
+          candidates: [],
+          matched: 0,
+          interested: 0,
+          lastActivity: null,
+        };
+      }
+      groups[jid].candidates.push(c);
+      if (c.stage === "matched" || c.stage === "interviewing") groups[jid].matched++;
+      if (c.stage === "interested") groups[jid].interested++;
+      const ts = c.last_message?.at || c.updated_at;
+      if (ts && (!groups[jid].lastActivity || ts > groups[jid].lastActivity)) {
+        groups[jid].lastActivity = ts;
+      }
+    }
+    // Sort candidates within each group: status priority then recency
+    const stageOrder = { offer_sent: 0, matched: 1, interviewing: 1, interested: 2, hired: 3 };
+    for (const g of Object.values(groups)) {
+      g.candidates.sort((a, b) => {
+        const sa = stageOrder[a.stage] ?? 9;
+        const sb = stageOrder[b.stage] ?? 9;
+        if (sa !== sb) return sa - sb;
+        return 0;
+      });
+    }
+    // Sort job groups: most active first (by candidate count, then most recent activity)
+    return Object.values(groups).sort((a, b) => b.candidates.length - a.candidates.length);
+  }, [filtered]);
+
+  const toggleJobCollapse = (jobId) => {
+    setCollapsedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
+
   const nudgeMap = new Map(nudges.map(n => [n.candidate_id, n]));
   const selectedNudge = selected ? nudgeMap.get(selected.candidate_id) : null;
   const selectedExtLink = selected?.job_id ? jobExtLinks[selected.job_id] : null;
@@ -613,43 +665,70 @@ const EmployerMessagingPage = () => {
               {filtered.length === 0 ? (
                 <div className="p-6 text-center"><MessageCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" /><p className="text-xs text-muted-foreground">No conversations</p></div>
               ) : (
-                filtered.map((c) => {
-                  const hasNudge = nudgeMap.has(c.candidate_id);
+                jobGroups.map((group) => {
+                  const isCollapsed = collapsedJobs.has(group.job_id);
                   return (
-                    <button key={c.id} onClick={() => setSelected(c)} data-testid={`convo-${c.id}`} className={`w-full p-3 text-left border-b transition-colors ${selected?.id === c.id ? "bg-primary/5" : "hover:bg-muted/50"}`}>
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-semibold text-primary">
-                            {c.name?.charAt(0)}
-                          </div>
-                          {hasNudge && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border-2 border-card" />}
-                        </div>
+                    <div key={group.job_id} data-testid={`job-group-${group.job_id}`}>
+                      {/* Job section header */}
+                      <button
+                        data-testid={`job-header-${group.job_id}`}
+                        onClick={() => toggleJobCollapse(group.job_id)}
+                        className="w-full px-3 py-2 bg-muted/50 border-b text-left flex items-center gap-2 hover:bg-muted/80 transition-colors sticky top-0 z-10"
+                      >
+                        {isCollapsed
+                          ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        }
+                        <Briefcase className="w-3.5 h-3.5 text-primary/60 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          {/* Primary: candidate name + credential */}
-                          <div className="flex items-center gap-1.5">
-                            <p data-testid={`convo-name-${c.id}`} className="text-xs font-medium text-foreground truncate">{c.name}</p>
-                            {c.credential && (
-                              <span data-testid={`convo-credential-${c.id}`} className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold shrink-0">{c.credential}</span>
-                            )}
-                            {c.has_verified_refs && <Shield className="w-3 h-3 text-green-600 shrink-0" />}
-                          </div>
-                          {/* Specialty detail */}
-                          {c.specialty && (
-                            <p className="text-[10px] text-muted-foreground truncate">{c.specialty}</p>
-                          )}
-                          {/* Job applied for */}
-                          {c.job_title && (
-                            <p data-testid={`convo-job-${c.id}`} className="text-[9px] text-muted-foreground/70 truncate flex items-center gap-0.5 mt-0.5">
-                              <Briefcase className="w-2.5 h-2.5 shrink-0" /> {c.job_title}
+                          <p className="text-[11px] font-semibold text-foreground truncate">{group.job_title}</p>
+                          {group.job_location && (
+                            <p className="text-[9px] text-muted-foreground truncate flex items-center gap-0.5">
+                              <MapPin className="w-2.5 h-2.5 shrink-0" />{group.job_location}
                             </p>
                           )}
-                          {c.last_message && <p className="text-[9px] text-muted-foreground truncate mt-0.5">{c.last_message.content}</p>}
                         </div>
-                        <div className="flex flex-col items-end gap-0.5 shrink-0">
-                          <Badge variant="outline" className={`text-[8px] ${STAGE_BADGE[c.stage] || ""}`}>{STAGE_LABEL[c.stage] || c.stage}</Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {group.matched > 0 && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 font-medium">{group.matched}</span>
+                          )}
+                          {group.interested > 0 && (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 font-medium">{group.interested}</span>
+                          )}
+                          <span className="text-[9px] text-muted-foreground">{group.candidates.length}</span>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+                      {/* Candidate entries */}
+                      {!isCollapsed && group.candidates.map((c) => {
+                        const hasNudge = nudgeMap.has(c.candidate_id);
+                        return (
+                          <button key={c.id} onClick={() => setSelected(c)} data-testid={`convo-${c.id}`} className={`w-full p-2.5 pl-9 text-left border-b transition-colors ${selected?.id === c.id ? "bg-primary/5" : "hover:bg-muted/50"}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="relative">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-[10px] font-semibold text-primary">
+                                  {c.name?.charAt(0)}
+                                </div>
+                                {hasNudge && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 border-2 border-card" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p data-testid={`convo-name-${c.id}`} className="text-xs font-medium text-foreground truncate">{c.name}</p>
+                                  {c.credential && (
+                                    <span data-testid={`convo-credential-${c.id}`} className="text-[7px] px-1 py-0 rounded bg-primary/10 text-primary font-semibold shrink-0">{c.credential}</span>
+                                  )}
+                                  {c.has_verified_refs && <Shield className="w-2.5 h-2.5 text-green-600 shrink-0" />}
+                                </div>
+                                {c.specialty && (
+                                  <p className="text-[9px] text-muted-foreground truncate">{c.specialty}</p>
+                                )}
+                                {c.last_message && <p className="text-[8px] text-muted-foreground/70 truncate mt-0.5">{c.last_message.content}</p>}
+                              </div>
+                              <Badge variant="outline" className={`text-[7px] shrink-0 ${STAGE_BADGE[c.stage] || ""}`}>{STAGE_LABEL[c.stage] || c.stage}</Badge>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
                 })
               )}
