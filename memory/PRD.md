@@ -10,54 +10,66 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
-### Phase 2: Seeker Onboarding Walkthrough (April 2025)
-- **4-step guided walkthrough**: Welcome → Requirements → Document Vault → What Happens Next
-- **Shows only for first-time users** with incomplete profiles on /seeker/swipe
-- **Progressive completion**: Only license + role required to browse. Documents optional, onboarding items after offer only
-- **Vault explanation**: "Upload once, use everywhere" + "You do NOT need everything right now" with grouped items
-- **Skip/remember**: Skippable at any step. localStorage remembers per user. Completed profiles skip entirely
-- **Contextual guidance**: OnboardingGate shows "Add your license and role to start viewing jobs". Vault empty state explains documents help you get hired faster
+### Phase 2: Admin Dashboard (April 2025)
+- **Overview**: 9 stat cards (users, seekers, employers, jobs, matches, offers sent/accepted, onboarding, docs review)
+- **User Management**: Searchable/filterable user table with role badges, match/doc counts, deactivate/reactivate
+- **Document Review Queue**: View needs_review/unverified docs with verify/reject actions
+- **Jobs Monitoring**: Table with employer, applicants, matches, hires counts, close/activate toggle
+- **Onboarding Monitoring**: Cases with progress bars, completion counts
+- **Audit Logs**: Activity trail with timestamps
+- **System Health**: DB connection, API status, collection count, error count
+- **Access Control**: Admin-only via _require_admin() + ProtectedRoute. Non-admins get 403/redirect.
 
-### Phase 2: E2E Bug Fixes (April 2025)
-- **Offer Builder default dates**: expiration now defaults to start_date + 7 days (was incorrectly before start_date)
-- **Pipeline stage sync on hire**: `respond_to_offer` now updates pipeline_stages to "hired" on acceptance
+### Phase 2: Database Cleanup (April 2025)
+- Removed 40 test users and 1,755 related records across 25 collections
+- Preserved 5 real users (admin + 2 seekers + 2 employers)
+- Backup at /app/backups/mongodb_snapshot_20260415_002446
+
+### Phase 2: Seeker Onboarding Walkthrough (April 2025)
+- 4-step guided walkthrough, progressive completion
 
 ### Phase 2: Compliance Readiness & Onboarding (April 2025)
-- Readiness score, typed signature, job documents, external systems, onboarding checklist API
+- Readiness score, typed signature, job documents, external systems, onboarding checklist
 
 ### Phase 2: Lightweight Document Verification (April 2025)
 - PyMuPDF text extraction, regex date/credential detection, LLM fallback
 
 ### Phase 2: Platform-Wide UX (April 2025)
-- Universal back navigation, autocomplete, date validation
+- Universal back nav, autocomplete, date validation
 
 ### Phase 2: Structured Offer System (April 2025)
-- Offer Builder modal, employment documents, structured seeker offer view
+- Offer Builder, employment documents, seeker offer view
 
-### Phase 2: All Other Features (April 2025)
-- Offer state sync, credential verification, job-grouped messaging, recruiter credential display, match/conversation detail, hiring flow UX overhaul, acceptance flow, role eligibility, vault verification, compliance, candidate prioritization, onboarding, swipe, offer guardrails, tiered matching, structured pay
+### Phase 2: Hiring Flow + Matching + Credential Verification (April 2025)
+- State-driven actions, job-grouped messaging, privacy gating, credential badges, credential verification layer
+
+## Admin Access
+| Route | Access | Description |
+|---|---|---|
+| /admin | admin only | Dashboard with 7 tabs |
+| /api/admin/* | admin only | All admin API endpoints |
 
 ## Test Accounts
-| Role | Email | Password | Notes |
-|---|---|---|---|
-| Seeker | seeker_test@vitalamatch.com | test123 | Jane Smith, RN, complete profile |
-| Employer | employer_test@vitalamatch.com | test123 | Test Employer, complete |
-| New Seeker | newseeker_e2e@test.com | test123 | Incomplete, shows walkthrough |
-| Test Seeker | testseeker@test.com | test123 | Incomplete profile |
-| Admin | admin@vitalamatch.com | admin123 | Admin panel |
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@vitalamatch.com | admin123 |
+| Seeker | mgryffon@outlook.com | (user-set) |
+| Seeker | r.l.olsen@outlook.com | (user-set) |
+| Poster | janedue@gmail.com | (user-set) |
+| Poster | stampd_ut@outlook.com | (user-set) |
 
 ## Prioritized Backlog
 ### P0
-- Seeker profile Role Category selector (normalized_role_category in ProfileBuilder.jsx)
+- Seeker profile Role Category selector (normalized_role_category)
 ### P1
-- Onboarding Checklist UI pages (bidirectional employer + seeker views)
+- Onboarding Checklist UI pages (bidirectional employer + seeker)
 - Interview Scheduling Integration
 - Pipeline Analytics Dashboard
 ### P2
-- PDF offer letter generation, e-signatures
+- PDF offer letters, e-signatures
 - Background check/drug screen API integrations
-- Admin manual review queue for needs_review documents
+- Admin document preview in review queue
 ### Refactoring
-- Extract server.py logic, break down ProfileBuilder.jsx (>1600 lines)
+- Extract server.py logic, break down ProfileBuilder.jsx
 ### Mocked
 - SendGrid (logged to DB), Twilio SMS (disabled), Nursys API (disabled)
