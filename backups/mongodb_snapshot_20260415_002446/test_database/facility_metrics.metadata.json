@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"2c80245caaf645fcaf04130ae4e42246","collectionName":"facility_metrics","type":"collection"}
