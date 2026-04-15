@@ -5641,6 +5641,183 @@ async def admin_get_candidate_vault(candidate_id: str, current_user: dict = Depe
 
 # ==================== ADMIN SEED ====================
 
+# ==================== ADMIN DASHBOARD API ====================
+
+def _require_admin(user: dict):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+@api_router.get("/admin/dashboard/stats")
+async def admin_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    """Key system stats for admin dashboard."""
+    _require_admin(current_user)
+    total_users = await db.users.count_documents({})
+    seekers = await db.users.count_documents({"role": "seeker"})
+    employers = await db.users.count_documents({"role": "poster"})
+    active_jobs = await db.jobs.count_documents({"status": {"$ne": "closed"}})
+    total_matches = await db.matches.count_documents({})
+    offers_sent = await db.employment_offers.count_documents({})
+    offers_accepted = await db.employment_offers.count_documents({"status": "accepted"})
+    onboarding_active = await db.onboarding_cases.count_documents({"status": {"$ne": "completed"}})
+    docs_needs_review = await db.vault_documents.count_documents({"verification_status": {"$in": ["needs_review", "mismatch"]}})
+    docs_unverified = await db.vault_documents.count_documents({"verification_status": "unverified"})
+    return {
+        "total_users": total_users,
+        "seekers": seekers,
+        "employers": employers,
+        "active_jobs": active_jobs,
+        "total_matches": total_matches,
+        "offers_sent": offers_sent,
+        "offers_accepted": offers_accepted,
+        "onboarding_active": onboarding_active,
+        "docs_needs_review": docs_needs_review,
+        "docs_unverified": docs_unverified,
+    }
+
+
+@api_router.get("/admin/users")
+async def admin_list_users(role: str = None, search: str = None, current_user: dict = Depends(get_current_user)):
+    """List users with optional filters."""
+    _require_admin(current_user)
+    query = {}
+    if role:
+        query["role"] = role
+    if search:
+        query["$or"] = [
+            {"full_name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+        ]
+    users = await db.users.find(query, {"_id": 0, "password": 0}).sort("created_at", -1).to_list(200)
+    for u in users:
+        uid = u["id"]
+        if u.get("role") == "seeker":
+            prof = await db.seeker_profiles.find_one({"user_id": uid}, {"_id": 0, "specialty": 1})
+            u["specialty"] = prof.get("specialty") if prof else None
+            u["matches"] = await db.matches.count_documents({"seeker_id": uid})
+            u["offers"] = await db.employment_offers.count_documents({"seeker_id": uid})
+            u["vault_docs"] = await db.vault_documents.count_documents({"candidate_id": uid})
+        elif u.get("role") == "poster":
+            prof = await db.poster_profiles.find_one({"user_id": uid}, {"_id": 0, "company_name": 1})
+            u["company_name"] = prof.get("company_name") if prof else None
+            u["jobs_posted"] = await db.jobs.count_documents({"poster_id": uid})
+            u["matches"] = await db.matches.count_documents({"poster_id": uid})
+    return users
+
+
+@api_router.put("/admin/users/{user_id}/status")
+async def admin_toggle_user_status(user_id: str, body: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    """Deactivate or reactivate a user."""
+    _require_admin(current_user)
+    is_active = body.get("is_active", True)
+    result = await db.users.update_one({"id": user_id}, {"$set": {"is_active": is_active, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    await log_audit(db, current_user["id"], "admin_user_status", details={"target_user": user_id, "is_active": is_active})
+    return {"message": f"User {'activated' if is_active else 'deactivated'}"}
+
+
+@api_router.get("/admin/documents/review")
+async def admin_get_review_queue(current_user: dict = Depends(get_current_user)):
+    """Get documents needing review."""
+    _require_admin(current_user)
+    docs = await db.vault_documents.find(
+        {"verification_status": {"$in": ["needs_review", "mismatch", "unverified"]}},
+        {"_id": 0}
+    ).sort("uploaded_at", -1).to_list(100)
+    for d in docs:
+        user = await db.users.find_one({"id": d.get("candidate_id")}, {"_id": 0, "full_name": 1, "email": 1})
+        d["user_name"] = user.get("full_name") if user else "Unknown"
+        d["user_email"] = user.get("email") if user else ""
+    return docs
+
+
+@api_router.put("/admin/documents/{doc_id}/verify")
+async def admin_verify_document(doc_id: str, body: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    """Admin manually verify/reject a document."""
+    _require_admin(current_user)
+    new_status = body.get("status")
+    notes = body.get("notes", "")
+    if new_status not in ("verified", "needs_review", "rejected"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    result = await db.vault_documents.update_one(
+        {"id": doc_id},
+        {"$set": {
+            "verification_status": new_status,
+            "verification_notes": notes or f"Manually {new_status} by admin",
+            "verification_method": "admin_review",
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    await log_audit(db, current_user["id"], "admin_document_review", details={"doc_id": doc_id, "status": new_status})
+    return {"message": f"Document marked as {new_status}"}
+
+
+@api_router.get("/admin/jobs")
+async def admin_list_jobs(current_user: dict = Depends(get_current_user)):
+    """List all jobs with stats."""
+    _require_admin(current_user)
+    jobs = await db.jobs.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for j in jobs:
+        poster = await db.users.find_one({"id": j.get("poster_id")}, {"_id": 0, "full_name": 1})
+        j["employer_name"] = poster.get("full_name") if poster else "Unknown"
+        j["applicants"] = await db.swipes.count_documents({"target_id": j["id"], "action": "like"})
+        j["matches"] = await db.matches.count_documents({"job_id": j["id"]})
+        j["hires"] = await db.employment_offers.count_documents({"job_id": j["id"], "status": "accepted"})
+    return jobs
+
+
+@api_router.put("/admin/jobs/{job_id}/status")
+async def admin_toggle_job(job_id: str, body: dict = Body(...), current_user: dict = Depends(get_current_user)):
+    """Deactivate/reactivate a job."""
+    _require_admin(current_user)
+    status = body.get("status", "closed")
+    result = await db.jobs.update_one({"id": job_id}, {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Job not found")
+    await log_audit(db, current_user["id"], "admin_job_status", details={"job_id": job_id, "status": status})
+    return {"message": f"Job {status}"}
+
+
+@api_router.get("/admin/onboarding")
+async def admin_list_onboarding(current_user: dict = Depends(get_current_user)):
+    """List all onboarding cases."""
+    _require_admin(current_user)
+    cases = await db.onboarding_cases.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    for c in cases:
+        candidate = await db.users.find_one({"id": c.get("candidate_id")}, {"_id": 0, "full_name": 1})
+        c["candidate_name"] = candidate.get("full_name") if candidate else "Unknown"
+        reqs = await db.onboarding_requirements.find({"onboarding_case_id": c["id"]}, {"_id": 0, "status": 1}).to_list(50)
+        total = len(reqs)
+        done = sum(1 for r in reqs if r.get("status") in ("complete", "verified", "met"))
+        c["total_items"] = total
+        c["completed_items"] = done
+        c["progress"] = round(done / total * 100) if total > 0 else 0
+    return cases
+
+
+@api_router.get("/admin/system/health")
+async def admin_system_health(current_user: dict = Depends(get_current_user)):
+    """Basic system health check."""
+    _require_admin(current_user)
+    health = {"api": "ok", "database": "unknown", "collections": 0, "errors": []}
+    try:
+        cols = await db.list_collection_names()
+        health["database"] = "connected"
+        health["collections"] = len(cols)
+    except Exception as e:
+        health["database"] = "error"
+        health["errors"].append(str(e))
+    recent_errors = await db.audit_logs.find(
+        {"action": {"$regex": "error", "$options": "i"}},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(10).to_list(10)
+    health["recent_errors"] = len(recent_errors)
+    return health
+
+
 @api_router.post("/admin/seed")
 async def seed_admin_user():
     """Seed an admin user for testing (idempotent)"""

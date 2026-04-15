@@ -29,6 +29,7 @@ import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import AdminOnboardingPage from "@/pages/AdminOnboardingPage";
+import AdminDashboardPage from "@/pages/AdminDashboardPage";
 import TermsPage from "@/pages/TermsPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TrainingPage from "@/pages/TrainingPage";
@@ -463,6 +464,14 @@ function App() {
           */}
           
           {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/onboarding"
             element={
