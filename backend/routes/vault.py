@@ -1,3 +1,5 @@
+from typing import Optional
+from uploaded_files import resolve_upload
 """Vault routes: document CRUD, file upload, file serving"""
 import logging
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks
@@ -7,7 +9,9 @@ from shared import (
     MAX_FILE_SIZE, VaultDocumentCreate, VaultDocumentUpdate,
     HTTPException, uuid, datetime, timezone, aiofiles, os,
 )
-from object_storage import upload_file, download_file
+from object_storage import upload_file, download_file, signed_url
+import anyio
+from starlette.responses import RedirectResponse
 from expiration_verifier import extract_expiration_from_file, determine_verification_status
 from lightweight_parser import lightweight_verify
 
@@ -134,38 +138,31 @@ async def create_vault_document(doc: VaultDocumentCreate, current_user: dict = D
 async def serve_vault_file(filename: str, current_user: dict = Depends(get_current_user)):
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
-    file_path = VAULT_UPLOAD_DIR / filename
-    if not file_path.exists() or not file_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
     doc_id = filename.rsplit(".", 1)[0] if "." in filename else filename
-    vault_doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0, "candidate_id": 1})
-    if vault_doc:
-        is_owner = vault_doc.get("candidate_id") == current_user["id"]
-        is_admin = current_user.get("role") == "admin"
-        is_employer_with_access = False
-        if current_user.get("role") == "poster":
-            case = await db.onboarding_cases.find_one(
-                {"employer_id": current_user["id"], "candidate_id": vault_doc.get("candidate_id")},
-                {"_id": 0, "id": 1},
-            )
-            if case:
-                is_employer_with_access = True
-        if not (is_owner or is_admin or is_employer_with_access):
-            await log_audit(db, current_user["id"], "unauthorized_access", "vault_file", filename)
-            raise HTTPException(status_code=403, detail="Not authorized to access this file")
+    doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
+    job_document = False
+    if not doc:
+        doc = await db.job_documents.find_one({"file_url": f"/api/vault/files/{filename}"}, {"_id": 0})
+        job_document = bool(doc)
+    if not doc or not doc.get("storage_path"):
+        raise HTTPException(status_code=404, detail="File not found")
+    is_admin = current_user.get("role") == "admin"
+    owner = doc.get("employer_id") if job_document else doc.get("candidate_id")
+    allowed = is_admin or owner == current_user["id"]
+    if not allowed and job_document and current_user.get("role") == "seeker":
+        allowed = bool(await db.onboarding_cases.find_one({"job_id": doc["job_id"], "candidate_id": current_user["id"]}))
+    elif not allowed and not job_document and current_user.get("role") == "poster":
+        allowed = bool(await db.onboarding_cases.find_one({"employer_id": current_user["id"], "candidate_id": owner}))
+    if not allowed:
+        await log_audit(db, current_user["id"], "unauthorized_access", "vault_file", filename)
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
     await log_audit(db, current_user["id"], "file_access", "vault_file", filename)
-    # Serve from object storage
-    vault_doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0, "storage_path": 1, "content_type": 1})
-    storage_path = (vault_doc or {}).get("storage_path")
-    if storage_path:
-        try:
-            data, ct = download_file(storage_path)
-            return Response(content=data, media_type=vault_doc.get("content_type", ct))
-        except Exception:
-            pass
-    # Fallback to local file for legacy uploads
-    from starlette.responses import FileResponse as _FR
-    return _FR(str(file_path))
+    try:
+        url = await anyio.to_thread.run_sync(lambda: signed_url(doc["storage_path"]))
+        return RedirectResponse(url=url, status_code=302)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Document storage is temporarily unavailable")
+
 
 
 async def _run_verification_pipeline(
@@ -237,12 +234,13 @@ async def _run_verification_pipeline(
 @router.post("/upload")
 async def upload_vault_file(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...), category: str = Form(...),
+    file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None), category: str = Form(...),
     subtype: str = Form(None), issuing_authority: str = Form(None),
     document_number: str = Form(None), issue_date: str = Form(None),
     expiration_date: str = Form(None), document_date: str = Form(None),
     state: str = Form(None), current_user: dict = Depends(get_current_user),
 ):
+    file = await resolve_upload(file, uploaded_file, current_user)
     if category not in VAULT_CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {VAULT_CATEGORIES}")
     _validate_expiration(category, subtype, expiration_date)
@@ -256,7 +254,7 @@ async def upload_vault_file(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    storage_path = upload_file(safe_name, contents, file.content_type, current_user["id"])
+    storage_path = getattr(file, "storage_path", None) or upload_file(safe_name, contents, file.content_type, current_user["id"])
     file_url = f"/api/vault/files/{safe_name}"
     is_expirable = _is_expirable(category, subtype)
     doc_data = {

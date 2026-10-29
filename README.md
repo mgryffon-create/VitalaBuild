@@ -1,84 +1,53 @@
 # VitalaMatch
 
-Healthcare hiring platform matching professionals with employers — featuring bidirectional matching, structured hiring pipelines, compliance tracking, and worker-first design.
+Healthcare hiring platform with seeker and employer profiles, bidirectional matching, offers, hiring pipelines and a private document vault.
 
 ## Architecture
 
-| Layer     | Tech                              |
-|-----------|-----------------------------------|
-| Frontend  | React 19 · Tailwind CSS · Shadcn/UI |
-| Backend   | FastAPI · Motor (async MongoDB)   |
-| Database  | MongoDB                           |
-| AI        | GPT-4.1 Vision (document verification) via Emergent LLM Key |
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Tailwind, Shadcn UI; Vercel static frontend |
+| API | FastAPI on Vercel |
+| Identity | Supabase Auth; application roles stored in backend-owned profiles |
+| Data | Supabase Postgres; backend-only domain tables with JSONB payloads |
+| Files | Private Supabase Storage |
+| AI | Direct OpenAI SDK (optional) |
+| Payments | Official Stripe SDK (optional) |
+| Scheduling | Protected Vercel cron endpoint |
 
-## Hosting migration status
+## Migration status
 
-The frontend cleanup and Vercel configuration are documented in [the hosting readiness audit](docs/hosting-readiness.md). The backend still requires migration from MongoDB and platform-managed integrations before the full app can run independently on Supabase and Vercel.
+This branch contains the Supabase migration implementation. It is not a verified live deployment. The separate Supabase organization/project, runtime secrets, live SQL verification, and end-to-end cloud checks are still required. See [migration instructions and verification limits](docs/supabase-migration.md).
 
-## Quick Start
+The earlier [hosting audit](docs/hosting-readiness.md) records findings from the original export. Its backend blockers are the starting point for this migration, not the current code inventory.
 
-### Prerequisites
-- Node.js 18+
-- Python 3.11+
-- MongoDB 6+
+## Local setup
 
-### Backend
+Use Python 3.12 and Node.js 22 or newer. Install the Python runtime with `pip install -r backend/requirements.lock` and the frontend with `yarn --cwd frontend install --frozen-lockfile`.
+
+Configure the backend from `backend/.env.example` and frontend from `frontend/.env.example`; never commit secrets. Apply the reviewed SQL migration to an isolated Supabase project before running the API. Use the transaction pooler URL for DATABASE_URL, with SSL enabled. Prepared statements are disabled by the data layer.
+
+After project linking, secrets, and schema are configured:
+
 ```bash
 cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # then fill in your values
 uvicorn server:app --host 0.0.0.0 --port 8001
 ```
 
-### Frontend
+In another terminal:
+
 ```bash
-cd frontend
-yarn install
-cp .env.example .env   # set REACT_APP_BACKEND_URL
-yarn start              # runs on port 3000
+yarn --cwd frontend start
 ```
 
-## Key Features
+## Checks
 
-- **Tiered Matching** — Weighted compatibility scoring across specialty, certifications, shift preferences, location
-- **Strict Role Eligibility** — Hard-filter system ensuring seekers only see jobs they're qualified for (CNA, RN, LPN, NP, etc.)
-- **Kanban Hiring Pipeline** — Drag-and-drop stage management for employers
-- **Document Vault** — Upload, auto-verify (PyMuPDF regex + GPT Vision fallback), and track credential expiration
-- **Structured Offer Builder** — Pay, shifts, stipends, bonuses, typed signatures
-- **Bidirectional Onboarding** — Shared checklists, readiness scoring, compliance tracking
-- **Admin Dashboard** — User management, document review queue, jobs monitoring, audit logs
-- **Privacy Gating** — Contact information hidden until mutual match
-- **Resume Parser** — AI-powered profile auto-fill from uploaded resumes
-
-## Project Structure
-
-```
-backend/
-├── server.py              # Main FastAPI application
-├── shared.py              # Pydantic models, DB config
-├── eligibility.py         # Role eligibility engine
-├── lightweight_parser.py  # PyMuPDF document verification
-├── expiration_verifier.py # GPT Vision verification fallback
-├── routes/                # Modular API routers
-│   ├── auth.py, vault.py, pipeline.py, matching.py, ...
-└── requirements.txt
-
-frontend/
-├── src/
-│   ├── App.js             # Main app with routing
-│   ├── pages/             # Page components
-│   │   ├── ProfileBuilder.jsx, SwipePage.jsx, HiringPipelinePage.jsx, ...
-│   ├── components/        # Shared components
-│   │   ├── ui/            # Shadcn/UI primitives
-│   │   ├── PageHeader.jsx, SmartDateInput.jsx, SeekerWalkthrough.jsx, ...
-│   └── config/            # Feature flags, role taxonomy, suggestions
-└── package.json
+```bash
+PYTHONPATH=backend pytest -q backend/tests/migration
+CI=true yarn --cwd frontend build
 ```
 
-## Environment Variables
-
-See `backend/.env.example` and `frontend/.env.example` for all required configuration.
+The full original API tests depend on seeded users and a running service; they are not equivalent to the isolated migration checks.
 
 ## License
 

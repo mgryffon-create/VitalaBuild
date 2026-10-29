@@ -1,6 +1,6 @@
 """
 Expiration Date Verification — targeted extraction from document images/PDFs.
-Uses GPT-4.1 vision via emergentintegrations to extract expiration dates only.
+Uses the OpenAI SDK to extract expiration dates only.
 NOT a full document parsing system.
 """
 import os
@@ -9,9 +9,9 @@ import json
 import uuid
 import base64
 from datetime import datetime, timezone
-from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContent
+from ai_provider import extract_json
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 EXTRACTION_PROMPT = """You are a document expiration date extractor for healthcare compliance.
 
@@ -66,7 +66,7 @@ async def extract_expiration_from_file(file_bytes: bytes, content_type: str) -> 
     Extract expiration date from a document file using GPT vision.
     Returns: {parsed_expiration_date, confidence, source_text, parse_error}
     """
-    if not EMERGENT_LLM_KEY:
+    if not OPENAI_API_KEY:
         return {"parsed_expiration_date": None, "confidence": None, "parse_error": "LLM key not configured"}
 
     # Only process images and PDFs
@@ -76,23 +76,10 @@ async def extract_expiration_from_file(file_bytes: bytes, content_type: str) -> 
         return {"parsed_expiration_date": None, "confidence": None, "parse_error": f"Unsupported file type: {content_type}"}
 
     try:
-        b64 = base64.b64encode(file_bytes).decode("utf-8")
-        file_content = FileContent(
-            content_type=content_type or "image/jpeg",
-            file_content_base64=b64,
+        response = await extract_json(
+            EXTRACTION_PROMPT, "Extract the expiration date from this document.",
+            file_bytes=file_bytes, content_type=content_type,
         )
-        session_id = f"exp-verify-{uuid.uuid4()}"
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=EXTRACTION_PROMPT,
-        ).with_model("openai", "gpt-4.1")
-
-        message = UserMessage(
-            text="Extract the expiration date from this document.",
-            file_contents=[file_content],
-        )
-        response = await chat.send_message(message)
 
         # Parse the JSON response
         cleaned = response.strip()

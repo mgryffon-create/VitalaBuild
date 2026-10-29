@@ -1,6 +1,6 @@
 """
 Audit logging service for tracking security-relevant actions.
-Logs to MongoDB for queryability and future HIPAA compliance prep.
+Logs to the backend-only Postgres audit table.
 """
 from datetime import datetime, timezone
 
