@@ -31,10 +31,29 @@ Client route rewrites follow Vercel's configuration documentation: https://verce
 | Backend dependencies | backend/requirements.txt includes emergentintegrations and a wheel hosted on customer-assets.emergentagent.com | Replace provider adapters first, then remove platform-only dependencies and build a minimal supported dependency set |
 | Local disk | shared.py creates uploads/vault at import; server.py writes feed images to uploads/feed | Move durable files to object storage; use temporary storage only for transient processing |
 | Scheduler | server.py lifespan launches an infinite weekly scheduler via asyncio.create_task | Move scheduled work to a persistent scheduled invocation; do not depend on a serverless process staying alive |
-| API deployment | Repository has no Vercel backend entrypoint or routing configuration | Package and verify a supported API deployment after backend migration; static frontend deployment alone is insufficient |
+| API deployment | The Vercel configuration covers only the frontend; no backend deployment is configured | Configure and verify a FastAPI deployment after backend migration (Vercel supports server.py entrypoints); static frontend deployment alone is insufficient |
 | Production configuration | JWT_SECRET, origin URLs, email/SMS/payment credentials and CORS are runtime configuration | Configure only the services actually used; set explicit allowed origins and keep ALLOW_DEV_BYPASS=false |
 
 The audit found 185 route decorator declarations in the backend source. This is a substantive backend migration, not only a hosting-settings change. Existing data is test data, so no production-data import is required.
+
+Vercel supports FastAPI directly; retaining Python is possible. See https://vercel.com/docs/frameworks/backend/fastapi .
+
+## Build correction
+
+The first CI production build failed on a pre-existing missing-dependency warning in the job form autosave effect. Added all five derived pay values to the effect dependency list so its captured values stay current and CI can enforce the hook rule.
+
+## Dependency compatibility
+
+The existing lockfile installs with peer warnings: react-day-picker 8.10.1 declares React <=18 and date-fns 2/3, while the project uses React 19 and date-fns 4. Calendar behavior needs targeted browser testing or a coordinated calendar dependency update. The older Create React App toolchain also reports optional/missing peer packages. A compilation pass does not resolve these compatibility warnings.
+
+## Validation results
+
+- Frozen-lockfile dependency installation: passed, with peer compatibility warnings noted above.
+- `CI=true yarn build`: passed after the job-form hook correction. Output: 318.56 kB JavaScript and 16.69 kB CSS, gzipped.
+- Built frontend scan for platform/analytics references: passed.
+- Python syntax parsing: passed for all 65 backend Python files.
+- Frontend alias import resolution, configuration syntax, and `git diff --check`: passed.
+- No live deployment or browser-based functional test was performed.
 
 ## Verification scope
 

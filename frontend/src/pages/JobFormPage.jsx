@@ -261,7 +261,7 @@ const JobFormPage = () => {
       } catch { setAutoSaveStatus("error"); }
     }, 1500);
     return () => { if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current); };
-  }, [job, isEdit, jobId, initialLoadComplete]);
+  }, [job, isEdit, jobId, initialLoadComplete, baseRate, calculatedWeeklyPay, guaranteedHrs, weeklyStipend, overtimeRate]);
 
   const handleSave = async () => {
     if (!canPublish) {
