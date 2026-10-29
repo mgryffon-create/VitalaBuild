@@ -67,3 +67,7 @@ yarn-error.log*
 *.deb
 *.bson
 frontend/node_modules/.cache/default-development/0.pack
+*.env
+credentials.json
+*.key
+.credentials
