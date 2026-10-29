@@ -1,12 +1,13 @@
 """Vault routes: document CRUD, file upload, file serving"""
 import logging
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks
-from starlette.responses import FileResponse
+from starlette.responses import Response
 from shared import (
     db, get_current_user, log_audit, VAULT_UPLOAD_DIR, VAULT_CATEGORIES,
     MAX_FILE_SIZE, VaultDocumentCreate, VaultDocumentUpdate,
     HTTPException, uuid, datetime, timezone, aiofiles, os,
 )
+from object_storage import upload_file, download_file
 from expiration_verifier import extract_expiration_from_file, determine_verification_status
 from lightweight_parser import lightweight_verify
 
@@ -153,7 +154,18 @@ async def serve_vault_file(filename: str, current_user: dict = Depends(get_curre
             await log_audit(db, current_user["id"], "unauthorized_access", "vault_file", filename)
             raise HTTPException(status_code=403, detail="Not authorized to access this file")
     await log_audit(db, current_user["id"], "file_access", "vault_file", filename)
-    return FileResponse(str(file_path))
+    # Serve from object storage
+    vault_doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0, "storage_path": 1, "content_type": 1})
+    storage_path = (vault_doc or {}).get("storage_path")
+    if storage_path:
+        try:
+            data, ct = download_file(storage_path)
+            return Response(content=data, media_type=vault_doc.get("content_type", ct))
+        except Exception:
+            pass
+    # Fallback to local file for legacy uploads
+    from starlette.responses import FileResponse as _FR
+    return _FR(str(file_path))
 
 
 async def _run_verification_pipeline(
@@ -244,8 +256,7 @@ async def upload_vault_file(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    async with aiofiles.open(VAULT_UPLOAD_DIR / safe_name, "wb") as f:
-        await f.write(contents)
+    storage_path = upload_file(safe_name, contents, file.content_type, current_user["id"])
     file_url = f"/api/vault/files/{safe_name}"
     is_expirable = _is_expirable(category, subtype)
     doc_data = {
@@ -255,7 +266,7 @@ async def upload_vault_file(
         "issue_date": issue_date or None, "expiration_date": expiration_date or None,
         "document_date": document_date or now_iso[:10], "state": state or None,
         "verification_status": "pending" if is_expirable else "pending",
-        "file_url": file_url,
+        "file_url": file_url, "storage_path": storage_path,
         "file_name": file.filename, "file_size": len(contents),
         "content_type": file.content_type, "extracted_fields": {},
         "uploaded_at": now_iso, "last_reviewed_at": None,

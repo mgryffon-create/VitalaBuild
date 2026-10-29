@@ -4,6 +4,7 @@ from shared import (
     db, get_current_user, log_audit, VAULT_UPLOAD_DIR, MAX_FILE_SIZE,
     HTTPException, uuid, datetime, timezone, aiofiles, os, BaseModel, Optional, Dict, Any,
 )
+from object_storage import upload_file
 from resume_parser import parse_resume_text, extract_text_from_file
 
 router = APIRouter(prefix="/resume", tags=["resume"])
@@ -31,8 +32,7 @@ async def parse_resume_upload(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    async with aiofiles.open(VAULT_UPLOAD_DIR / safe_name, "wb") as f:
-        await f.write(contents)
+    storage_path = upload_file(safe_name, contents, file.content_type, current_user["id"])
 
     file_url = f"/api/vault/files/{safe_name}"
     vault_doc = {
@@ -42,6 +42,7 @@ async def parse_resume_upload(
         "issue_date": None, "expiration_date": None,
         "document_date": now_iso[:10], "state": None,
         "verification_status": "pending", "file_url": file_url,
+        "storage_path": storage_path,
         "file_name": file.filename, "file_size": len(contents),
         "content_type": file.content_type, "extracted_fields": {},
         "uploaded_at": now_iso, "last_reviewed_at": None,

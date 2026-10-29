@@ -10,19 +10,19 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 
 ## What's Been Implemented
 
+### Phase 2: ProfileBuilder P0 Fixes (April 2026)
+- **Mobile UX**: Horizontally scrollable tab bar, sticky positioning during scroll
+- **Structured Address**: Street Address, City, State, ZIP fields replace single address input
+- **Canonical Role Selector**: `normalized_role_category` dropdown in Professional Info (shared config)
+- **Guided Profile Flow**: Auto-advance "Save & Continue" per tab, validation gating, completion state
+- **Backend Model Fix**: `SeekerProfile` now uses `ConfigDict(extra="allow")` preserving all frontend fields
+
 ### Phase 2: Admin Dashboard (April 2025)
-- **Overview**: 9 stat cards (users, seekers, employers, jobs, matches, offers sent/accepted, onboarding, docs review)
-- **User Management**: Searchable/filterable user table with role badges, match/doc counts, deactivate/reactivate
-- **Document Review Queue**: View needs_review/unverified docs with verify/reject actions
-- **Jobs Monitoring**: Table with employer, applicants, matches, hires counts, close/activate toggle
-- **Onboarding Monitoring**: Cases with progress bars, completion counts
-- **Audit Logs**: Activity trail with timestamps
-- **System Health**: DB connection, API status, collection count, error count
-- **Access Control**: Admin-only via _require_admin() + ProtectedRoute. Non-admins get 403/redirect.
+- Overview: 9 stat cards, user management, document review queue, jobs monitoring, onboarding, audit logs, system health
+- Access Control: Admin-only via `_require_admin()` + ProtectedRoute
 
 ### Phase 2: Database Cleanup (April 2025)
-- Removed 40 test users and 1,755 related records across 25 collections
-- Preserved 5 real users (admin + 2 seekers + 2 employers)
+- Removed 40 test users and 1,755 related records
 - Backup at /app/backups/mongodb_snapshot_20260415_002446
 
 ### Phase 2: Seeker Onboarding Walkthrough (April 2025)
@@ -41,7 +41,13 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 - Offer Builder, employment documents, seeker offer view
 
 ### Phase 2: Hiring Flow + Matching + Credential Verification (April 2025)
-- State-driven actions, job-grouped messaging, privacy gating, credential badges, credential verification layer
+- State-driven actions, job-grouped messaging, privacy gating, credential badges
+
+### GitHub Migration Prep (April 2026)
+- Clean `.gitignore` excluding `.env`, uploads, backups, test artifacts
+- `.env.example` files for frontend and backend with placeholder values
+- Removed tracked binary files (backups, vault uploads, test reports)
+- Professional README.md with setup instructions
 
 ## Admin Access
 | Route | Access | Description |
@@ -53,23 +59,19 @@ Healthcare hiring platform matching pros with employers, featuring bidirectional
 | Role | Email | Password |
 |---|---|---|
 | Admin | admin@vitalamatch.com | admin123 |
-| Seeker | mgryffon@outlook.com | (user-set) |
-| Seeker | r.l.olsen@outlook.com | (user-set) |
-| Poster | janedue@gmail.com | (user-set) |
-| Poster | stampd_ut@outlook.com | (user-set) |
+| Test Seeker | testseeker@test.com | Test1234! |
 
 ## Prioritized Backlog
-### P0
-- Seeker profile Role Category selector (normalized_role_category)
 ### P1
-- Onboarding Checklist UI pages (bidirectional employer + seeker)
 - Interview Scheduling Integration
-- Pipeline Analytics Dashboard
+- Pipeline Analytics Dashboard for Employers
 ### P2
 - PDF offer letters, e-signatures
-- Background check/drug screen API integrations
+- Post-assignment feedback UI / Facility accountability dashboard
 - Admin document preview in review queue
+- Background check/drug screen API integrations
 ### Refactoring
-- Extract server.py logic, break down ProfileBuilder.jsx
+- Break down ProfileBuilder.jsx (1800+ lines) into sub-components
+- Extract server.py logic into more modular routers
 ### Mocked
 - SendGrid (logged to DB), Twilio SMS (disabled), Nursys API (disabled)

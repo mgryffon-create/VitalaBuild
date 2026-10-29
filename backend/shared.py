@@ -265,8 +265,11 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 class SeekerProfile(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     full_name: Optional[str] = None
     specialty: Optional[str] = None
+    normalized_role_category: Optional[str] = None
     years_experience: Optional[int] = 0
     license_type: Optional[str] = None
     license_state: Optional[str] = None
@@ -280,6 +283,7 @@ class SeekerProfile(BaseModel):
     certifications: Optional[List[str]] = []
     education: Optional[List[Dict[str, Any]]] = []
     work_history: Optional[List[Dict[str, Any]]] = []
+    contact_info: Optional[Dict[str, Any]] = None
     profile_photo_url: Optional[str] = None
 
 class PosterProfile(BaseModel):

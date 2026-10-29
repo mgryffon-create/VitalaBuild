@@ -48,7 +48,7 @@ class TestVaultFileUpload:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     def test_upload_pdf_file(self):
@@ -315,7 +315,7 @@ class TestExistingVaultFunctionality:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     def test_metadata_only_create_still_works(self):

@@ -33,26 +33,7 @@ const SECTIONS = [
 
 const JOB_TYPES = ["Travel Contract", "Per Diem", "Staff/Permanent", "PRN", "Local Contract"];
 
-const CANONICAL_ROLES = [
-  "CNA", "LPN", "RN", "NP", "CRNA", "PA",
-  "RT", "OT", "PT", "ST", "MEDICAL_ASSISTANT", "PHLEBOTOMIST", "RADIOLOGY_TECH",
-];
-
-const ROLE_LABELS = {
-  CNA: "CNA / Nurse Aide / PCT",
-  LPN: "LPN / LVN",
-  RN: "RN / Registered Nurse",
-  NP: "NP / Nurse Practitioner",
-  CRNA: "CRNA / Nurse Anesthetist",
-  PA: "PA / Physician Assistant",
-  RT: "Respiratory Therapist",
-  OT: "Occupational Therapist",
-  PT: "Physical Therapist",
-  ST: "Speech-Language Pathologist",
-  MEDICAL_ASSISTANT: "Medical Assistant",
-  PHLEBOTOMIST: "Phlebotomist",
-  RADIOLOGY_TECH: "Radiology Technologist",
-};
+import { CANONICAL_ROLES, ROLE_LABELS } from "@/config/canonicalRoles";
 const DURATIONS = ["4 weeks", "8 weeks", "13 weeks", "26 weeks", "52 weeks", "Permanent", "Ongoing"];
 const SHIFT_TYPES = ["Day Shift (7a-7p)", "Night Shift (7p-7a)", "Day Shift (8 hr)", "Evening Shift", "Rotating", "Flexible"];
 const STIPEND_OPTIONS = ["Housing included", "Housing stipend", "M&IE stipend", "Travel reimbursement", "Not included"];

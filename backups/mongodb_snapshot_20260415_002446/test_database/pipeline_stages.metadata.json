@@ -1,1 +1,0 @@
-{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"48eb921401ea4ee09a31722918e2355b","collectionName":"pipeline_stages","type":"collection"}

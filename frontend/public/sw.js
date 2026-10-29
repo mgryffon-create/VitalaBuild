@@ -1,3 +1,4 @@
+/* global clients */
 // VitalaMatch Service Worker
 const CACHE_NAME = 'vitalamatch-v1';
 const OFFLINE_URL = '/offline.html';

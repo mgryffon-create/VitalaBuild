@@ -276,14 +276,14 @@ class TestVaultMatchingFlow:
         for doc_id in self.created_vault_docs:
             try:
                 self.seeker_session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
         
         # Delete job if created
         if self.created_job_id:
             try:
                 self.employer_session.delete(f"{BASE_URL}/api/jobs/{self.created_job_id}")
-            except:
+            except Exception:
                 pass
     
     def test_vault_matching_on_offer_acceptance(self):

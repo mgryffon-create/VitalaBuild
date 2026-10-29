@@ -308,7 +308,7 @@ class TestVaultUploadVerificationPipeline:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     def _create_test_pdf(self, text_content):

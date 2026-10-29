@@ -46,7 +46,7 @@ class TestVaultExpirationValidation:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     # ─────────────────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ class TestVaultComplianceStatus:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     def test_get_documents_returns_compliance_status(self):
@@ -373,7 +373,7 @@ class TestVaultUploadEndpointValidation:
         for doc_id in self.created_doc_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/vault/documents/{doc_id}")
-            except:
+            except Exception:
                 pass
     
     def test_upload_certification_without_expiration_blocked(self):

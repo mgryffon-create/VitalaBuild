@@ -16,13 +16,16 @@ import axios from "axios";
 import { toast } from "sonner";
 import FEATURE_FLAGS from "@/config/featureFlags";
 import DashboardLayout from "@/components/DashboardLayout";
-import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, Circle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight, Trash2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, Plus, X, Briefcase, Award, DollarSign, Heart, Save, CheckCircle, Circle, FileText, Stethoscope, Clock, Building, Calendar, Upload, Sparkles, Loader2, Cloud, CloudOff, Shield, Settings, UserCheck, BookOpen, ClipboardCheck, CreditCard, ShieldCheck, ChevronRight, Trash2, ArrowRight, PartyPopper } from "lucide-react";
 import LocationAutocomplete from "@/components/LocationAutocomplete";
 import SuggestionInput from "@/components/SuggestionInput";
 import SpecialtyAutocomplete from "@/components/SpecialtyAutocomplete";
 import InlineAutocomplete from "@/components/InlineAutocomplete";
 import { getSkillSuggestions, getHighlightSuggestions } from "@/config/specialtySuggestions";
 import { CERTIFICATIONS, LICENSE_TYPES, US_STATES, POSITION_TITLES, DEPARTMENTS } from "@/config/fieldSuggestions";
+import { CANONICAL_ROLES, ROLE_LABELS } from "@/config/canonicalRoles";
+
+const TAB_ORDER = ["basic", "work", "credentials", "medical", "preferences"];
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -530,6 +533,7 @@ const ProfileBuilder = () => {
               removeFromArray={removeFromArray}
               updateArrayItem={updateArrayItem}
               specialties={specialties}
+              onSave={handleSave}
             />
           </>
         ) : (
@@ -582,8 +586,12 @@ const ProfileBuilder = () => {
 };
 
 // Seeker Profile Form
-const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, updateArrayItem, specialties }) => {
+const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, updateArrayItem, specialties, onSave }) => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("basic");
+  const [sectionSaving, setSectionSaving] = useState(false);
+  const [justAdvanced, setJustAdvanced] = useState(false);
+  const tabListRef = useRef(null);
   const [newCert, setNewCert] = useState({ name: "", expiration: "" });
   const [newLicense, setNewLicense] = useState({ name: "", state: "", expiration: "", license_number: "" });
   const [newBenefit, setNewBenefit] = useState("");
@@ -596,7 +604,129 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
     is_current: false,
     responsibilities: ""
   });
-  const [editingWorkIndex, setEditingWorkIndex] = useState(null); // null = add mode, number = edit mode
+  const [editingWorkIndex, setEditingWorkIndex] = useState(null);
+
+  // Scroll active tab into view when it changes
+  useEffect(() => {
+    if (tabListRef.current) {
+      const activeEl = tabListRef.current.querySelector('[data-state="active"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeTab]);
+
+  // Parse legacy address into structured fields on first load
+  useEffect(() => {
+    if (profile.contact_info?.address && !profile.contact_info?.city && !profile.contact_info?.street_address) {
+      const addr = profile.contact_info.address;
+      const parts = addr.split(',').map(s => s.trim());
+      let parsed = {};
+      if (parts.length >= 3) {
+        const last = parts[parts.length - 1].trim().split(/\s+/);
+        parsed = { street_address: parts[0], city: parts[1], state: last[0] || '', zip: last[1] || '' };
+      } else if (parts.length === 2) {
+        const last = parts[1].trim().split(/\s+/);
+        parsed = { city: parts[0], state: last[0] || '', zip: last[1] || '' };
+      } else {
+        parsed = { street_address: addr };
+      }
+      updateField("contact_info", { ...profile.contact_info, ...parsed });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const composeAddress = (ci) => {
+    const parts = [
+      ci?.street_address,
+      ci?.city,
+      ci?.state && ci?.zip ? `${ci.state} ${ci.zip}` : (ci?.state || ci?.zip)
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  // Validate current section
+  const validateSection = (tab) => {
+    switch (tab) {
+      case 'basic':
+        if (!profile.contact_info?.email && !profile.contact_info?.phone) {
+          toast.error("Please enter at least an email or phone number");
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  };
+
+  const isLastTab = activeTab === TAB_ORDER[TAB_ORDER.length - 1];
+  const currentTabIdx = TAB_ORDER.indexOf(activeTab);
+
+  // Save & advance to next tab
+  const handleSaveAndContinue = async () => {
+    if (!validateSection(activeTab)) return;
+
+    // Compose address for backward compat before save
+    if (profile.contact_info) {
+      const composed = composeAddress(profile.contact_info);
+      if (composed && composed !== profile.contact_info.address) {
+        updateField("contact_info", { ...profile.contact_info, address: composed });
+      }
+    }
+
+    setSectionSaving(true);
+    try {
+      await onSave();
+      setJustAdvanced(true);
+
+      if (!isLastTab) {
+        // Brief success flash, then advance
+        setTimeout(() => {
+          setActiveTab(TAB_ORDER[currentTabIdx + 1]);
+          setJustAdvanced(false);
+          // Scroll to top of content
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 600);
+      } else {
+        // Last tab — show completion
+        setTimeout(() => setJustAdvanced(false), 2000);
+      }
+    } catch {
+      toast.error("Save failed. Please try again.");
+    } finally {
+      setSectionSaving(false);
+    }
+  };
+
+  // Continue button rendered at bottom of each tab section
+  const ContinueButton = () => (
+    <div data-testid="section-continue" className="pt-4">
+      {justAdvanced && isLastTab ? (
+        <div data-testid="profile-complete-indicator" className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
+          <PartyPopper className="w-5 h-5" />
+          <span className="font-medium">Profile complete! You can still edit any section.</span>
+        </div>
+      ) : (
+        <Button
+          data-testid={isLastTab ? "complete-profile-btn" : "save-continue-btn"}
+          onClick={handleSaveAndContinue}
+          disabled={sectionSaving}
+          className="w-full"
+          size="lg"
+        >
+          {sectionSaving ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+          ) : justAdvanced ? (
+            <><CheckCircle className="w-4 h-4 mr-2" /> Saved!</>
+          ) : isLastTab ? (
+            <><CheckCircle className="w-4 h-4 mr-2" /> Complete Profile</>
+          ) : (
+            <><ArrowRight className="w-4 h-4 mr-2" /> Save &amp; Continue</>
+          )}
+        </Button>
+      )}
+    </div>
+  );
 
   const startEditWork = (index) => {
     const job = (profile.work_history || [])[index];
@@ -648,14 +778,30 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
   ];
 
   return (
-    <Tabs defaultValue="basic" className="space-y-6">
-      <TabsList className="grid grid-cols-5 w-full">
-        <TabsTrigger value="basic" data-testid="tab-basic">Basic Info</TabsTrigger>
-        <TabsTrigger value="work" data-testid="tab-work">Work History</TabsTrigger>
-        <TabsTrigger value="credentials" data-testid="tab-credentials">Credentials</TabsTrigger>
-        <TabsTrigger value="medical" data-testid="tab-medical">Medical Records</TabsTrigger>
-        <TabsTrigger value="preferences" data-testid="tab-preferences">Preferences</TabsTrigger>
-      </TabsList>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      {/* Sticky, scrollable tab bar */}
+      <div className="sticky top-0 z-20 bg-background pt-1 pb-2 -mx-1 px-1">
+        <TabsList
+          ref={tabListRef}
+          className="no-scrollbar flex w-full overflow-x-auto h-auto p-1 gap-1"
+        >
+          {TAB_ORDER.map((tab, idx) => {
+            const labels = { basic: "Basic Info", work: "Work History", credentials: "Credentials", medical: "Medical", preferences: "Preferences" };
+            const isDone = idx < currentTabIdx;
+            return (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                data-testid={`tab-${tab}`}
+                className="flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4 py-2 gap-1.5"
+              >
+                {isDone && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
+                {labels[tab]}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </div>
 
       {/* Basic Info Tab */}
       <TabsContent value="basic" className="space-y-6">
@@ -699,18 +845,50 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            {/* Structured Address Fields */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                Address
+              </Label>
+              <div className="space-y-3">
                 <Input
-                  data-testid="contact-address-input"
-                  id="address"
-                  value={profile.contact_info?.address || ""}
-                  onChange={(e) => updateField("contact_info", { ...profile.contact_info, address: e.target.value })}
-                  className="pl-10"
-                  placeholder="City, State"
+                  data-testid="contact-street-input"
+                  value={profile.contact_info?.street_address || ""}
+                  onChange={(e) => updateField("contact_info", { ...profile.contact_info, street_address: e.target.value })}
+                  placeholder="Street Address"
+                  autoComplete="street-address"
                 />
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="col-span-2 sm:col-span-2">
+                    <Input
+                      data-testid="contact-city-input"
+                      value={profile.contact_info?.city || ""}
+                      onChange={(e) => updateField("contact_info", { ...profile.contact_info, city: e.target.value })}
+                      placeholder="City"
+                      autoComplete="address-level2"
+                    />
+                  </div>
+                  <div>
+                    <InlineAutocomplete
+                      value={profile.contact_info?.state || ""}
+                      onChange={(v) => updateField("contact_info", { ...profile.contact_info, state: v })}
+                      suggestions={US_STATES}
+                      placeholder="State"
+                      testId="contact-state"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      data-testid="contact-zip-input"
+                      value={profile.contact_info?.zip || ""}
+                      onChange={(e) => updateField("contact_info", { ...profile.contact_info, zip: e.target.value })}
+                      placeholder="ZIP"
+                      autoComplete="postal-code"
+                      maxLength={10}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -737,6 +915,25 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="role-category">Role Category</Label>
+                <Select
+                  value={profile.normalized_role_category || ""}
+                  onValueChange={(v) => updateField("normalized_role_category", v)}
+                >
+                  <SelectTrigger data-testid="role-category-select">
+                    <SelectValue placeholder="Select your role category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CANONICAL_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r] || r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Used to match you with eligible jobs</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="experience">Years of Experience</Label>
                 <Input
                   data-testid="experience-input"
@@ -746,6 +943,17 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                   value={profile.years_experience || ""}
                   onChange={(e) => updateField("years_experience", parseInt(e.target.value) || 0)}
                   placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="full_name">Full Name</Label>
+                <Input
+                  data-testid="full-name-input"
+                  id="full_name"
+                  value={profile.full_name || ""}
+                  onChange={(e) => updateField("full_name", e.target.value)}
+                  placeholder="Your full name"
+                  autoComplete="name"
                 />
               </div>
             </div>
@@ -846,6 +1054,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             />
           </CardContent>
         </Card>
+        <ContinueButton />
       </TabsContent>
 
       {/* Work History Tab */}
@@ -1015,6 +1224,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </div>
           </CardContent>
         </Card>
+        <ContinueButton />
       </TabsContent>
 
       {/* Credentials Tab — Status + Vault routing */}
@@ -1138,6 +1348,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </div>
           </CardContent>
         </Card>
+        <ContinueButton />
       </TabsContent>
 
       {/* Medical Records Tab — Status + Vault routing */}
@@ -1184,6 +1395,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </div>
           </CardContent>
         </Card>
+        <ContinueButton />
       </TabsContent>
 
       {/* Preferences Tab */}
@@ -1417,6 +1629,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
             </div>
           </CardContent>
         </Card>
+        <ContinueButton />
       </TabsContent>
     </Tabs>
   );

@@ -1,11 +1,16 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+# Load env BEFORE any module that reads os.environ at import time
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
 import logging
-from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
@@ -20,14 +25,13 @@ from onboarding_logic import create_onboarding_case, compute_case_status, comput
 from audit_log import log_audit
 from eligibility import check_role_eligibility, get_seeker_role, get_accepted_roles_for_job, normalize_role_from_specialty, CANONICAL_ROLES
 from training_service import create_training_course, assign_training, get_compliance_summary
+from shared import VAULT_UPLOAD_DIR, MAX_FILE_SIZE
+from object_storage import upload_file as obj_upload, download_file as obj_download, init_storage
 
 # SendGrid and Twilio imports (Phase 1: Twilio disabled, SendGrid mocked)
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 # from twilio.rest import Client as TwilioClient  # Phase 1: SMS disabled
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -422,6 +426,12 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting VitalaMatch API...")
     
+    # Initialize object storage
+    try:
+        init_storage()
+    except Exception as e:
+        logger.warning(f"Object storage init deferred: {e}")
+    
     # Start the weekly scheduler in the background
     scheduler_task = asyncio.create_task(run_weekly_scheduler())
     logger.info("Weekly document expiration scheduler started")
@@ -481,6 +491,7 @@ class SeekerProfile(BaseModel):
     medical_records: Optional[List[Dict[str, Any]]] = None
     bio: Optional[str] = None
     specialty: Optional[str] = None
+    normalized_role_category: Optional[str] = None  # Canonical role: CNA, LPN, RN, NP, etc.
     years_experience: Optional[int] = None
     preferred_locations: Optional[List[str]] = None
     profile_image: Optional[str] = None
@@ -1162,8 +1173,8 @@ async def get_profile_completion(current_user: dict = Depends(get_current_user))
         # Check if at least one job has required fields
         complete_job = await db.jobs.find_one({
             "poster_id": current_user["id"],
-            "specialty": {"$exists": True, "$ne": None, "$ne": ""},
-            "location": {"$exists": True, "$ne": None, "$ne": ""},
+            "specialty": {"$exists": True, "$ne": None, "$nin": [None, ""]},
+            "location": {"$exists": True, "$nin": [None, ""]},
         }, {"_id": 0, "id": 1})
         checks = {
             "company_name": bool(profile.get("company_name")),
@@ -4418,10 +4429,7 @@ async def upload_job_document(
     doc_id = str(uuid.uuid4())
     ext = os.path.splitext(file.filename or "")[1].lower()
     safe_name = f"jobdoc_{doc_id}{ext}"
-    upload_dir = Path("vault_uploads")
-    upload_dir.mkdir(exist_ok=True)
-    async with aiofiles.open(upload_dir / safe_name, "wb") as f:
-        await f.write(contents)
+    storage_path = obj_upload(safe_name, contents, file.content_type, current_user["id"])
     
     doc_data = {
         "id": doc_id,
@@ -4432,6 +4440,7 @@ async def upload_job_document(
         "title": title or file.filename,
         "file_name": file.filename,
         "file_url": f"/api/vault/files/{safe_name}",
+        "storage_path": storage_path,
         "file_size": len(contents),
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -4667,7 +4676,7 @@ async def get_employment(employment_id: str, current_user: dict = Depends(get_cu
     }
 
 @api_router.get("/hiring/onboarding/{employment_id}")
-async def get_onboarding_checklist(employment_id: str, current_user: dict = Depends(get_current_user)):
+async def get_hiring_onboarding_checklist(employment_id: str, current_user: dict = Depends(get_current_user)):
     """Get onboarding checklist for an employment"""
     employment = await db.employments.find_one({"id": employment_id})
     if not employment:
@@ -5407,9 +5416,7 @@ async def upload_for_requirement(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    file_path = VAULT_UPLOAD_DIR / safe_name
-    async with aiofiles.open(file_path, "wb") as f:
-        await f.write(contents)
+    storage_path = obj_upload(safe_name, contents, file.content_type, current_user["id"])
 
     file_url = f"/api/vault/files/{safe_name}"
     doc_data = {
@@ -5425,6 +5432,7 @@ async def upload_for_requirement(
         "state": state or None,
         "verification_status": "pending",
         "file_url": file_url,
+        "storage_path": storage_path,
         "file_name": file.filename,
         "file_size": len(contents),
         "content_type": file.content_type,
