@@ -1,3 +1,4 @@
+from uploaded_files import resolve_upload
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -9,14 +10,13 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from postgres_store import db
+from supabase_auth import get_current_user
 import logging
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
-import jwt
-import bcrypt
 import base64
 import aiofiles
 import asyncio
@@ -32,18 +32,6 @@ from object_storage import upload_file as obj_upload, download_file as obj_downl
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content
 # from twilio.rest import Client as TwilioClient  # Phase 1: SMS disabled
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-# JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET')
-if not JWT_SECRET:
-    raise ValueError("JWT_SECRET environment variable must be set")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
 
 # SendGrid Configuration
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
@@ -409,43 +397,11 @@ class DocumentExpirationChecker:
         logger.info(f"Document expiration check complete. Notified {len(users_to_notify)} users.")
         return len(users_to_notify)
 
-async def run_weekly_scheduler():
-    """Run the weekly document expiration checker"""
-    while True:
-        try:
-            await DocumentExpirationChecker.check_expiring_documents()
-        except Exception as e:
-            logger.error(f"Error in weekly scheduler: {str(e)}")
-        
-        # Wait for 7 days (604800 seconds)
-        await asyncio.sleep(604800)
-
-# Lifespan context manager for startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("Starting VitalaMatch API...")
-    
-    # Initialize object storage
-    try:
-        init_storage()
-    except Exception as e:
-        logger.warning(f"Object storage init deferred: {e}")
-    
-    # Start the weekly scheduler in the background
-    scheduler_task = asyncio.create_task(run_weekly_scheduler())
-    logger.info("Weekly document expiration scheduler started")
-    
+    # Scheduled checks are invoked by a protected cron route, never a loop in
+    # a serverless process. Database connections are scoped to transactions.
     yield
-    
-    # Shutdown
-    scheduler_task.cancel()
-    try:
-        await scheduler_task
-    except asyncio.CancelledError:
-        pass
-    client.close()
-    logger.info("VitalaMatch API shutdown complete")
 
 # Create the main app with lifespan
 app = FastAPI(title="VitalaMatch API", lifespan=lifespan)
@@ -824,32 +780,6 @@ class NursysVerificationRequest(BaseModel):
 
 # ==================== HELPER FUNCTIONS ====================
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
-
-def create_token(user_id: str, role: str) -> str:
-    payload = {
-        "user_id": user_id,
-        "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
 def calculate_compatibility(seeker_profile: dict, job: dict) -> int:
     """Legacy wrapper — returns numeric score for backward compat (poster swipe, browse pros)"""
     result = calculate_match(seeker_profile, job)
@@ -1219,8 +1149,9 @@ async def update_seeker_profile(profile: SeekerProfile, current_user: dict = Dep
     return {"message": "Profile updated successfully"}
 
 @api_router.post("/profile/parse-resume")
-async def parse_resume(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def parse_resume(file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None), current_user: dict = Depends(get_current_user)):
     """Parse a resume file and extract profile information"""
+    file = await resolve_upload(file, uploaded_file, current_user)
     if current_user["role"] != "seeker":
         raise HTTPException(status_code=403, detail="Not a job seeker")
     
@@ -2981,13 +2912,8 @@ async def create_feed_post(post: FeedPost, current_user: dict = Depends(get_curr
             # Decode and save image
             image_bytes = base64.b64decode(post.image_data.split(",")[-1] if "," in post.image_data else post.image_data)
             image_filename = f"feed_{post_id}.jpg"
-            image_path = Path("uploads/feed") / image_filename
-            image_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            async with aiofiles.open(image_path, 'wb') as f:
-                await f.write(image_bytes)
-            
-            image_url = f"/uploads/feed/{image_filename}"
+            image_storage_path = obj_upload(image_filename, image_bytes, "image/jpeg", current_user["id"])
+            image_url = f"/api/feed/{post_id}/image"
         except Exception as e:
             logger.error(f"Error saving feed image: {str(e)}")
     
@@ -2997,6 +2923,7 @@ async def create_feed_post(post: FeedPost, current_user: dict = Depends(get_curr
         "user_role": current_user["role"],
         "content": post.content,
         "image_url": image_url,
+        "image_storage_path": image_storage_path if image_url else None,
         "visibility": post.visibility,
         "comment_permission": post.comment_permission,
         "likes_count": 0,
@@ -3006,7 +2933,7 @@ async def create_feed_post(post: FeedPost, current_user: dict = Depends(get_curr
     
     await db.feed_posts.insert_one(post_data)
     
-    # Remove MongoDB _id if present
+    # Remove legacy _id if present
     post_data.pop("_id", None)
     
     # Add user info
@@ -3092,6 +3019,20 @@ async def get_feed(current_user: dict = Depends(get_current_user), limit: int = 
     
     return enriched_posts
 
+@api_router.get("/feed/{post_id}/image")
+async def feed_image(post_id: str, current_user: dict = Depends(get_current_user)):
+    from starlette.responses import Response
+    post = await db.feed_posts.find_one({"id": post_id})
+    if not post or not post.get("image_storage_path"):
+        raise HTTPException(status_code=404, detail="Image not found")
+    visibility = post.get("visibility", "all")
+    if post.get("user_id") != current_user["id"] and current_user.get("role") != "admin":
+        if visibility not in ("all", "public", "everyone") and visibility != current_user.get("role"):
+            raise HTTPException(status_code=403, detail="Not authorized")
+    data, content_type = obj_download(post["image_storage_path"])
+    return Response(content=data, media_type=content_type)
+
+
 @api_router.post("/feed/{post_id}/like")
 async def like_post(post_id: str, current_user: dict = Depends(get_current_user)):
     """Like a feed post"""
@@ -3150,7 +3091,7 @@ async def comment_on_post(post_id: str, comment: FeedComment, current_user: dict
     await db.feed_comments.insert_one(comment_data)
     await db.feed_posts.update_one({"id": post_id}, {"$inc": {"comments_count": 1}})
     
-    # Remove MongoDB _id if present
+    # Remove legacy _id if present
     comment_data.pop("_id", None)
     
     # Add user info
@@ -4409,13 +4350,14 @@ async def get_employment_documents(current_user: dict = Depends(get_current_user
 @api_router.post("/jobs/{job_id}/documents")
 async def upload_job_document(
     job_id: str,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None),
     document_type: str = Form("onboarding_packet"),
     title: str = Form(None),
     action_required: str = Form("view_only"),
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a job-specific document (onboarding packet, policy, training material)."""
+    file = await resolve_upload(file, uploaded_file, current_user)
     if current_user["role"] not in ("poster", "admin"):
         raise HTTPException(status_code=403, detail="Not authorized")
     job = await db.jobs.find_one({"id": job_id, "poster_id": current_user["id"]}, {"_id": 0, "id": 1})
@@ -4429,7 +4371,7 @@ async def upload_job_document(
     doc_id = str(uuid.uuid4())
     ext = os.path.splitext(file.filename or "")[1].lower()
     safe_name = f"jobdoc_{doc_id}{ext}"
-    storage_path = obj_upload(safe_name, contents, file.content_type, current_user["id"])
+    storage_path = getattr(file, "storage_path", None) or obj_upload(safe_name, contents, file.content_type, current_user["id"])
     
     doc_data = {
         "id": doc_id,
@@ -5386,7 +5328,7 @@ async def update_requirement_status(req_id: str, current_user: dict = Depends(ge
 @api_router.post("/onboarding/requirements/{req_id}/upload")
 async def upload_for_requirement(
     req_id: str,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None),
     category: str = Form(...),
     subtype: str = Form(None),
     issuing_authority: str = Form(None),
@@ -5396,6 +5338,7 @@ async def upload_for_requirement(
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a file directly to fulfill an onboarding requirement (adds to vault + links)"""
+    file = await resolve_upload(file, uploaded_file, current_user)
     req = await db.onboarding_requirements.find_one({"id": req_id})
     if not req:
         raise HTTPException(status_code=404, detail="Requirement not found")
@@ -5416,7 +5359,7 @@ async def upload_for_requirement(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    storage_path = obj_upload(safe_name, contents, file.content_type, current_user["id"])
+    storage_path = getattr(file, "storage_path", None) or obj_upload(safe_name, contents, file.content_type, current_user["id"])
 
     file_url = f"/api/vault/files/{safe_name}"
     doc_data = {
@@ -5826,24 +5769,8 @@ async def admin_system_health(current_user: dict = Depends(get_current_user)):
     return health
 
 
-@api_router.post("/admin/seed")
-async def seed_admin_user():
-    """Seed an admin user for testing (idempotent)"""
-    existing = await db.users.find_one({"email": "admin@vitalamatch.com"})
-    if existing:
-        return {"message": "Admin user already exists", "id": existing["id"]}
-    admin_id = str(uuid.uuid4())
-    hashed = bcrypt.hashpw("admin123".encode(), bcrypt.gensalt()).decode()
-    admin_user = {
-        "id": admin_id,
-        "email": "admin@vitalamatch.com",
-        "password": hashed,
-        "full_name": "System Admin",
-        "role": "admin",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.users.insert_one(admin_user)
-    return {"message": "Admin user created", "id": admin_id}
+# Admin roles are provisioned by a trusted operator after Supabase signup.
+# There is intentionally no public seed/default-password endpoint.
 
 # ==================== TRAINING & COMPLIANCE (moved to routes/training.py) ====================
 
@@ -5859,7 +5786,7 @@ async def get_audit_logs(current_user: dict = Depends(get_current_user)):
 
 # ==================== HIPAA PREP NOTES ====================
 # This section documents what would be needed for future HIPAA compliance:
-# 1. PHI (Protected Health Information) encryption at rest (MongoDB field-level encryption)
+# 1. PHI (Protected Health Information) encryption at rest (database field-level encryption)
 # 2. Full audit trail for all PHI access (audit_logs collection started)
 # 3. BAA (Business Associate Agreement) with cloud providers
 # 4. Role-based access control (RBAC) - currently: seeker/poster/admin roles
@@ -5880,6 +5807,8 @@ from routes.resume import router as resume_router
 from routes.billing import router as billing_router
 from routes.pipeline import router as pipeline_router
 from routes.matching import router as matching_router
+from uploaded_files import router as upload_router
+api_router.include_router(upload_router)
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
 api_router.include_router(training_router)
@@ -5894,38 +5823,48 @@ app.include_router(api_router)
 
 # Stripe webhook (outside /api prefix for direct Stripe access)
 from fastapi import Request as FastAPIRequest
-from emergentintegrations.payments.stripe.checkout import StripeCheckout
+from stripe_provider import StripeCheckout
 @app.post("/api/webhook/stripe")
 async def stripe_webhook(request: FastAPIRequest):
     """Handle Stripe webhook events"""
     stripe_key = os.environ.get("STRIPE_API_KEY")
     if not stripe_key:
         raise HTTPException(status_code=500, detail="Stripe not configured")
-    host_url = str(request.base_url).rstrip("/")
-    stripe = StripeCheckout(api_key=stripe_key, webhook_url=f"{host_url}/api/webhook/stripe")
-    body = await request.body()
-    sig = request.headers.get("Stripe-Signature", "")
-    try:
-        event = await stripe.handle_webhook(body, sig)
-        # Log the webhook event
-        await db.webhook_events.insert_one({
-            "event_type": event.event_type,
-            "event_id": event.event_id,
-            "session_id": event.session_id,
-            "payment_status": event.payment_status,
-            "metadata": event.metadata,
-            "received_at": datetime.now(timezone.utc).isoformat(),
-        })
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"Stripe webhook error: {str(e)}")
-        return {"status": "error", "message": str(e)}
+    stripe = StripeCheckout(api_key=stripe_key)
+    event = await stripe.handle_webhook(await request.body(), request.headers.get("Stripe-Signature", ""))
+    from billing_service import settle_checkout, subscription_event
+    # Paid checkout handling is transactional and idempotent. A failure returns
+    # non-2xx so Stripe retries; events aren't acknowledged before processing.
+    if event.event_type in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        if event.payment_status == "paid":
+            await settle_checkout(event.session_id, event.object)
+    elif event.event_type in ("customer.subscription.updated", "customer.subscription.deleted", "invoice.paid", "invoice.payment_failed"):
+        await subscription_event(event.event_type, event.object)
+    await db.webhook_events.update_one({"event_id": event.event_id}, {"$set": {
+        "event_id": event.event_id, "event_type": event.event_type,
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+    }}, upsert=True)
+    return {"status": "ok"}
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=[origin.strip() for origin in os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',') if origin.strip() and origin.strip() != '*'],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "service": "vitalamatch-api"}
+
+
+@app.get("/api/cron/document-expiration")
+async def scheduled_document_expiration(request: FastAPIRequest):
+    import hmac
+    expected = os.environ.get("CRON_SECRET")
+    if not expected or not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {expected}"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return {"notified_users": await DocumentExpirationChecker.check_expiring_documents()}

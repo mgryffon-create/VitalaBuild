@@ -59,21 +59,64 @@ export const useAuth = () => {
   return context;
 };
 
+const clearSession = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+};
+let refreshInFlight = null;
+
 // Axios interceptor for auth
-axios.interceptors.request.use((config) => {
+axios.interceptors.request.use(async (config) => {
   const token = localStorage.getItem("token");
-  if (token) {
+  const target = new URL(config.url, window.location.origin);
+  const apiBase = new URL(API, window.location.origin);
+  if (token && target.origin === apiBase.origin && (target.pathname === apiBase.pathname || target.pathname.startsWith(`${apiBase.pathname}/`))) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // File bytes go directly to private Storage; only a signed reference and
+  // form metadata pass through the API's function request limit.
+  if (config.data instanceof FormData && config.data.get("file") instanceof File) {
+    const file = config.data.get("file");
+    const { data } = await axios.post(`${API}/uploads/prepare`, {
+      filename: file.name, content_type: file.type || "application/octet-stream", size: file.size,
+    });
+    const uploaded = await fetch(data.upload_url, {
+      method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+    if (!uploaded.ok) throw new Error("File upload failed. Please try again.");
+    config.data.delete("file");
+    config.data.set("uploaded_file", data.uploaded_file);
   }
   return config;
 });
 
 axios.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+  async (error) => {
+    const original = error.config;
+    const refreshToken = localStorage.getItem("refresh_token");
+    const isAuthRequest = original?.url?.includes("/auth/") && !original.url.endsWith("/auth/me");
+    if (error.response?.status === 401 && original && !original._retried && !isAuthRequest && refreshToken) {
+      original._retried = true;
+      try {
+        if (!refreshInFlight) {
+          refreshInFlight = axios.post(`${API}/auth/refresh`, { refresh_token: refreshToken })
+            .then(({ data }) => {
+              localStorage.setItem("token", data.access_token);
+              localStorage.setItem("refresh_token", data.refresh_token);
+              return data.access_token;
+            }).finally(() => { refreshInFlight = null; });
+        }
+        const token = await refreshInFlight;
+        original.headers.Authorization = `Bearer ${token}`;
+        return axios(original);
+      } catch {
+        clearSession();
+        window.location.href = "/auth";
+      }
+    } else if (error.response?.status === 401 && !isAuthRequest) {
+      clearSession();
       window.location.href = "/auth";
     }
     return Promise.reject(error);
@@ -152,8 +195,9 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await axios.post(`${API}/auth/login`, { email, password });
-    const { access_token, user: userData } = response.data;
+    const { access_token, refresh_token, user: userData } = response.data;
     localStorage.setItem("token", access_token);
+    if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     toast.success("Welcome back!");
@@ -167,8 +211,13 @@ const AuthProvider = ({ children }) => {
       role,
       full_name,
     });
-    const { access_token, user: userData } = response.data;
+    if (response.data.requires_email_confirmation) {
+      toast.success(response.data.message);
+      return { requires_email_confirmation: true };
+    }
+    const { access_token, refresh_token, user: userData } = response.data;
     localStorage.setItem("token", access_token);
+    if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
     localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
     toast.success("Account created successfully!");
@@ -176,8 +225,9 @@ const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    const token = localStorage.getItem("token");
+    axios.post(`${API}/auth/logout`, {}, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    clearSession();
     setUser(null);
     toast.success("Logged out successfully");
   };

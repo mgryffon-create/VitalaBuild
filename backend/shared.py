@@ -4,15 +4,14 @@ Imported by all route modules.
 """
 from fastapi import HTTPException, Depends, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from motor.motor_asyncio import AsyncIOMotorClient
+from postgres_store import db
+from supabase_auth import get_current_user
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import os
 import uuid
-import jwt
-import bcrypt
 import aiofiles
 import logging
 
@@ -27,15 +26,6 @@ from training_service import create_training_course, assign_training, get_compli
 
 ROOT_DIR = Path(__file__).parent
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-JWT_SECRET = os.environ.get('JWT_SECRET')
-if not JWT_SECRET:
-    raise ValueError("JWT_SECRET environment variable must be set")
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
 
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
 SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@vitalamatch.com')
@@ -50,8 +40,7 @@ ALLOW_DEV_BYPASS = os.environ.get('ALLOW_DEV_BYPASS', 'false').lower() == 'true'
 logger = logging.getLogger("server")
 security = HTTPBearer()
 
-VAULT_UPLOAD_DIR = ROOT_DIR / "uploads" / "vault"
-VAULT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+VAULT_UPLOAD_DIR = Path("/tmp/vitalamatch/vault")  # temporary processing only; durable files use Storage
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 VAULT_CATEGORIES = ["medical", "certification", "identification", "license", "compliance"]
@@ -105,32 +94,6 @@ ALLIED_HEALTH_SPECIALTIES = [
 ALL_SPECIALTIES = NURSING_SPECIALTIES + ALLIED_HEALTH_SPECIALTIES
 
 # ==================== AUTH HELPERS ====================
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
-
-def create_token(user_id: str, role: str) -> str:
-    payload = {
-        "user_id": user_id,
-        "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 def calculate_compatibility(seeker_profile: dict, job: dict) -> int:
     score = 0

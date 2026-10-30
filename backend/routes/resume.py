@@ -1,3 +1,4 @@
+from uploaded_files import resolve_upload
 """Resume parsing routes"""
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from shared import (
@@ -16,10 +17,11 @@ class PastedResumeText(BaseModel):
 
 @router.post("/parse/upload")
 async def parse_resume_upload(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a resume file, extract text, parse with AI, return structured profile"""
+    file = await resolve_upload(file, uploaded_file, current_user)
     allowed = (".pdf", ".doc", ".docx", ".txt")
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in allowed:
@@ -32,7 +34,7 @@ async def parse_resume_upload(
     doc_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
     safe_name = f"{doc_id}{ext}"
-    storage_path = upload_file(safe_name, contents, file.content_type, current_user["id"])
+    storage_path = getattr(file, "storage_path", None) or upload_file(safe_name, contents, file.content_type, current_user["id"])
 
     file_url = f"/api/vault/files/{safe_name}"
     vault_doc = {

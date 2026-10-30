@@ -1,6 +1,6 @@
 """
 AI-powered Resume Parser for healthcare professionals.
-Uses OpenAI GPT via emergentintegrations for structured extraction.
+Uses the OpenAI SDK for structured extraction.
 Optimized for travel CNAs, LPNs, RNs with many short-term assignments.
 """
 import os
@@ -8,9 +8,9 @@ import uuid
 import json
 import re
 from datetime import datetime, timezone
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from ai_provider import extract_json
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 SYSTEM_PROMPT = """You are an expert healthcare resume parser. Extract structured data from resumes of healthcare professionals (CNAs, LPNs, RNs, allied health). 
 
@@ -64,20 +64,12 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
 
 async def parse_resume_text(text: str) -> dict:
     """Parse resume text using GPT and return structured profile data."""
-    if not EMERGENT_LLM_KEY:
+    if not OPENAI_API_KEY:
         return {"error": "LLM key not configured", "raw_text": text}
 
-    session_id = f"resume-parse-{uuid.uuid4()}"
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=session_id,
-        system_message=SYSTEM_PROMPT,
-    ).with_model("openai", "gpt-4.1")
-
-    message = UserMessage(text=f"Parse this healthcare resume and return structured JSON:\n\n{text[:8000]}")
-
+    response = None
     try:
-        response = await chat.send_message(message)
+        response = await extract_json(SYSTEM_PROMPT, f"Parse this healthcare resume and return structured JSON:\n\n{text[:8000]}")
         # Clean response - strip markdown code blocks if present
         cleaned = response.strip()
         if cleaned.startswith("```"):

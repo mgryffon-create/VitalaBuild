@@ -5,12 +5,10 @@ Conservative: ambiguous titles get None (flagged for manual review).
 """
 import asyncio
 import os
-from motor.motor_asyncio import AsyncIOMotorClient
+from postgres_store import db
 from eligibility import normalize_role_from_specialty, normalize_role
 
 async def migrate():
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    db = client[os.environ["DB_NAME"]]
 
     # ── Normalize Jobs ──
     jobs = await db.jobs.find({}, {"_id": 0, "id": 1, "title": 1, "specialty": 1, "primary_role_category": 1}).to_list(1000)
@@ -79,7 +77,6 @@ async def migrate():
     print(f"Seekers: {seeker_updated} updated, {seeker_flagged} flagged for review")
     print(f"Matches: {invalid_count} flagged as invalid")
 
-    client.close()
 
 if __name__ == "__main__":
     asyncio.run(migrate())

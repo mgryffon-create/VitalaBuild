@@ -13,6 +13,7 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const { login, register, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [authTab, setAuthTab] = useState("login");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedRole, setSelectedRole] = useState("seeker");
 
@@ -61,6 +62,10 @@ const AuthPage = () => {
         selectedRole,
         formData.get("fullName")
       );
+      if (userData.requires_email_confirmation) {
+        setAuthTab("login");
+        return;
+      }
       navigate(userData.role === "seeker" ? "/seeker/profile" : "/poster/profile");
     } catch (error) {
       toast.error(error.response?.data?.detail || "Registration failed");
@@ -130,7 +135,7 @@ const AuthPage = () => {
             Back
           </button>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={authTab} onValueChange={setAuthTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger data-testid="login-tab" value="login">Sign In</TabsTrigger>
               <TabsTrigger data-testid="register-tab" value="register">Create Account</TabsTrigger>
