@@ -3,3 +3,5 @@
 
 /* Keep both connection cards readable rather than covering their copy. */
 .vh-wordmark{display:inline-flex;align-items:center;gap:9px;font-family:Georgia,serif;font-size:27px;letter-spacing:-.045em;color:var(--vh-ink)}.vh-brand-dot{color:#a66948;margin-left:-9px}.vh-footer .vh-wordmark{font-size:23px}.vh-hero-art{min-height:560px}.vh-person-team{top:310px}.vh-orbit{inset:45px -5px 15px}.vh-art-caption{bottom:-10px}@media(max-width:560px){.vh-wordmark{font-size:25px}.vh-hero-art{min-height:570px}.vh-person-team{top:310px}.vh-art-caption{bottom:-8px}}
+
+.vh-art-caption{display:none}
