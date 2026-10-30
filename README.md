@@ -6,10 +6,14 @@ Healthcare hiring platform matching professionals with employers — featuring b
 
 | Layer     | Tech                              |
 |-----------|-----------------------------------|
-| Frontend  | React 18 · Tailwind CSS · Shadcn/UI |
+| Frontend  | React 19 · Tailwind CSS · Shadcn/UI |
 | Backend   | FastAPI · Motor (async MongoDB)   |
 | Database  | MongoDB                           |
 | AI        | GPT-4.1 Vision (document verification) via Emergent LLM Key |
+
+## Hosting migration status
+
+The frontend cleanup and Vercel configuration are documented in [the hosting readiness audit](docs/hosting-readiness.md). The backend still requires migration from MongoDB and platform-managed integrations before the full app can run independently on Supabase and Vercel.
 
 ## Quick Start
 
