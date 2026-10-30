@@ -18,8 +18,8 @@
 2. Create a VitalaMatch project in that organization, then inspect its tables before applying the reviewed migration.
 3. Apply the SQL migration. Run Supabase advisors and live schema/auth/storage tests. The local PGlite verification uses stub auth/storage schemas and cannot prove live Supabase configuration.
 4. Configure Auth site URL and allowed redirects for the frontend. Email confirmation remains enabled by default; the UI handles confirmation-required signup. Configure an email provider before sending production confirmations.
-5. Create two Vercel projects from the repository: `vitalamatch` with Root Directory `frontend`, and `vitalamatch-api` with Root Directory `backend`. Keep deployments in preview until cloud checks pass. The backend exports `server:app`; its cron configuration calls `/api/cron/document-expiration` weekly and requires CRON_SECRET.
-6. Set backend environment values from `.env.example`. DATABASE_URL must use Supabase transaction pooling with SSL. Set REACT_APP_BACKEND_URL to the backend origin. Set CORS_ORIGINS and FRONTEND_URL to the exact frontend origin(s).
+5. Import the repository as one Vercel Services project named `vitalamatch`, with Project Root Directory left at the repository root. The root vercel.json defines backend (FastAPI, server:app) and frontend (Create React App) services, routes /api to the backend without stripping its prefix, and serves browser deep links from frontend/index.html. Vercel Services is currently Beta. Keep deployments in preview until cloud checks pass. The top-level cron calls /api/cron/document-expiration weekly and requires CRON_SECRET.
+6. Set backend environment values from `.env.example`. DATABASE_URL must use Supabase transaction pooling with SSL. The Services frontend build explicitly clears REACT_APP_BACKEND_URL so requests use the same deployment origin at /api. Set CORS_ORIGINS and FRONTEND_URL to the frontend origin(s); for separate local development, use the frontend .env.example backend URL.
 7. Configure optional AI/Stripe/email provider secrets directly in the host, then verify those services. Use Stripe test credentials during acceptance testing; configure the signed webhook endpoint and subscription/invoice event types.
 
 No secrets are included in this repository. SUPABASE_SECRET_KEY, DATABASE_URL, Stripe and AI credentials belong only to the backend.
@@ -58,3 +58,8 @@ node backend/tests/migration/verify-schema.mjs supabase/migrations/2026102923381
 
 These checks operate only on an in-memory PostgreSQL engine with synthetic test
 roles and do not apply migrations to any Supabase project.
+
+
+## Vercel import branch
+
+The Services configuration is on `migration/supabase-vercel` until the pull requests are merged. Importing `main` before merging reads the original export and will still show the missing root configuration. Use the migration branch for preview builds. The root configuration supersedes the earlier per-directory vercel.json files, which have been removed to avoid duplicate routing and cron ownership.

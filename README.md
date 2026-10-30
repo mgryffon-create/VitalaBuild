@@ -6,8 +6,8 @@ Healthcare hiring platform with seeker and employer profiles, bidirectional matc
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 19, Tailwind, Shadcn UI; Vercel static frontend |
-| API | FastAPI on Vercel |
+| Frontend | React 19, Tailwind, Shadcn UI; Vercel frontend service |
+| API | FastAPI on Vercel Services |
 | Identity | Supabase Auth; application roles stored in backend-owned profiles |
 | Data | Supabase Postgres; backend-only domain tables with JSONB payloads |
 | Files | Private Supabase Storage |
@@ -20,6 +20,8 @@ Healthcare hiring platform with seeker and employer profiles, bidirectional matc
 This branch contains the Supabase migration implementation. It is not a verified live deployment. The separate Supabase organization/project, runtime secrets, live SQL verification, and end-to-end cloud checks are still required. See [migration instructions and verification limits](docs/supabase-migration.md).
 
 The earlier [hosting audit](docs/hosting-readiness.md) records findings from the original export. Its backend blockers are the starting point for this migration, not the current code inventory.
+
+Import the migration branch with the Vercel Project Root Directory at the repository root. The root `vercel.json` declares both services in one deployment (Vercel Services is Beta).
 
 ## Local setup
 
