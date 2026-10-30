@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
 from postgres_store import db
-from supabase_auth import auth_request, get_current_user, security
+from supabase_auth import auth_request, get_current_user, load_app_user, security
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -32,7 +32,7 @@ async def _session_response(result):
     if not token:
         return {'requires_email_confirmation': True, 'message': 'Check your email to confirm your account, then sign in.'}
     identity = result['user']
-    user = await db.users.find_one({'id': identity['id']}, {'_id': 0, 'password': 0})
+    user = await load_app_user(identity['id'])
     if not user:
         raise HTTPException(status_code=409, detail='Account profile is not ready')
     return {'access_token': token, 'refresh_token': result.get('refresh_token'),
