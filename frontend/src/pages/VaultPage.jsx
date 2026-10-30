@@ -357,6 +357,7 @@ const VaultPage = () => {
         </div>
 
         {/* Guidance banner */}
+        {fromContext === "profile-builder" && <Button type="button" variant="outline" onClick={() => navigate("/seeker/profile?step=medical")}>Back to profile setup</Button>}
         {fromContext && (
           <div data-testid="vault-guidance-banner" className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
             <Shield className="w-5 h-5 text-primary shrink-0" />

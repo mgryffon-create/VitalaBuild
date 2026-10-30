@@ -1,5 +1,6 @@
+import GuidedBioBuilder from "@/components/GuidedBioBuilder";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,18 @@ import { getSkillSuggestions, getHighlightSuggestions } from "@/config/specialty
 import { CERTIFICATIONS, LICENSE_TYPES, US_STATES, POSITION_TITLES, DEPARTMENTS } from "@/config/fieldSuggestions";
 import { CANONICAL_ROLES, ROLE_LABELS } from "@/config/canonicalRoles";
 
-const TAB_ORDER = ["basic", "work", "credentials", "medical", "preferences"];
+const TAB_ORDER = ["basic", "professional", "strengths", "work", "credentials", "preferences", "bio", "review", "medical"];
+const PROFILE_STEPS = {
+  basic: { label: "Contact", title: "How can employers reach you?", description: "Start with your contact details. Add an email or phone number to continue." },
+  professional: { label: "Experience", title: "Tell us what you do.", description: "Your role, specialty, and experience help employers understand where you fit." },
+  strengths: { label: "Strengths", title: "What do you bring to a team?", description: "Pick skills you have and add a few highlights in your own words. You can skip this for now." },
+  work: { label: "Work history", title: "Where have you put your skills to work?", description: "Add one job at a time. Include travel or PRN experience, or move on if you’re just starting out." },
+  credentials: { label: "Credentials", title: "Let’s add your qualifications.", description: "List the licenses and certifications you hold. Documents can be added to your vault separately." },
+  preferences: { label: "Your next role", title: "What would a good next role look like?", description: "Tell us about your availability, preferred shifts, pay, and locations. Leave anything undecided blank." },
+  bio: { label: "Your story", title: "Introduce yourself, in your own words.", description: "Use a few guided prompts to build a bio, or write your own. No AI needed." },
+  medical: { label: "Essential documents", title: "One last thing: your essential documents.", description: "Add your professional license and BLS or ACLS certification if they apply to your role. Everything else can be added later." },
+  review: { label: "Review", title: "Take a look at your profile.", description: "Check your answers and jump back to anything you want to change. You can return anytime." },
+};
 
 // Custom hook for debounced auto-save
 const useAutoSave = (data, saveFunction, delay = 2000) => {
@@ -169,8 +181,10 @@ const ProfileBuilder = () => {
       updateUser(meRes.data);
       
       toast.success("Profile saved successfully");
+      return true;
     } catch (error) {
       toast.error("Failed to save profile");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -325,11 +339,11 @@ const ProfileBuilder = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {isSeeker ? "Your Profile" : "Company Profile"}
+              {isSeeker ? "Let’s build your profile" : "Company Profile"}
             </h1>
             <p className="text-muted-foreground mt-1">
               {isSeeker
-                ? "Build your universal application"
+                ? "A few small steps to help employers get to know you. Your changes save as you go."
                 : "Tell job seekers about your facility"}
             </p>
           </div>
@@ -348,9 +362,9 @@ const ProfileBuilder = () => {
                   <Sparkles className="w-8 h-8 text-primary" />
                 </div>
                 <div className="flex-1 text-center sm:text-left">
-                  <h3 className="font-semibold text-lg">Quick Start with Resume Upload</h3>
+                  <h3 className="font-semibold text-lg">Have a resume? Get a head start.</h3>
                   <p className="text-sm text-muted-foreground">
-                    Upload your resume and we&apos;ll automatically fill in your profile details
+                    Optional: import recognizable details, review them, and fill in the rest together.
                   </p>
                 </div>
                 <div>
@@ -499,6 +513,7 @@ const ProfileBuilder = () => {
 
         {isSeeker ? (
           <>
+            <details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer text-sm font-medium">Documents & account tools</summary><div className="pt-4">
             {/* Quick links — pages accessible from Profile */}
             <div data-testid="profile-quick-links" className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[
@@ -526,6 +541,7 @@ const ProfileBuilder = () => {
                 </button>
               ))}
             </div>
+            </div></details>
             <SeekerProfileForm 
               profile={profile} 
               updateField={updateField} 
@@ -568,7 +584,7 @@ const ProfileBuilder = () => {
         )}
 
         {/* Save Button at Bottom */}
-        <div className="sticky bottom-4 flex justify-end">
+        {!isSeeker && <div className="sticky bottom-4 flex justify-end">
           <Button
             data-testid="save-profile-btn"
             onClick={handleSave}
@@ -579,7 +595,7 @@ const ProfileBuilder = () => {
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Saving..." : "Save Profile"}
           </Button>
-        </div>
+        </div>}
       </div>
     </DashboardLayout>
   );
@@ -588,7 +604,9 @@ const ProfileBuilder = () => {
 // Seeker Profile Form
 const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, updateArrayItem, specialties, onSave }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("basic");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => TAB_ORDER.includes(searchParams.get("step")) ? searchParams.get("step") : "basic");
+  const [bioAnswers, setBioAnswers] = useState({ settings: "", approach: "", goal: "" });
   const [sectionSaving, setSectionSaving] = useState(false);
   const [justAdvanced, setJustAdvanced] = useState(false);
   const tabListRef = useRef(null);
@@ -676,7 +694,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
 
     setSectionSaving(true);
     try {
-      await onSave();
+      if (await onSave() === false) return;
       setJustAdvanced(true);
 
       if (!isLastTab) {
@@ -700,11 +718,12 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
 
   // Continue button rendered at bottom of each tab section
   const ContinueButton = () => (
-    <div data-testid="section-continue" className="pt-4">
+    <div data-testid="section-continue" className="pt-4 flex flex-col sm:flex-row gap-3">
+      {currentTabIdx > 0 && <Button type="button" variant="outline" disabled={sectionSaving} onClick={() => { setActiveTab(TAB_ORDER[currentTabIdx - 1]); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Back</Button>}
       {justAdvanced && isLastTab ? (
         <div data-testid="profile-complete-indicator" className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-50 border border-green-200 text-green-700">
           <PartyPopper className="w-5 h-5" />
-          <span className="font-medium">Profile complete! You can still edit any section.</span>
+          <span className="font-medium">Your changes are saved. You can return to any step.</span>
         </div>
       ) : (
         <Button
@@ -719,7 +738,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
           ) : justAdvanced ? (
             <><CheckCircle className="w-4 h-4 mr-2" /> Saved!</>
           ) : isLastTab ? (
-            <><CheckCircle className="w-4 h-4 mr-2" /> Complete Profile</>
+            <><CheckCircle className="w-4 h-4 mr-2" /> Save & Finish</>
           ) : (
             <><ArrowRight className="w-4 h-4 mr-2" /> Save &amp; Continue</>
           )}
@@ -779,29 +798,12 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      {/* Sticky, scrollable tab bar */}
-      <div className="sticky top-0 z-20 bg-background pt-1 pb-2 -mx-1 px-1">
-        <TabsList
-          ref={tabListRef}
-          className="no-scrollbar flex w-full overflow-x-auto h-auto p-1 gap-1"
-        >
-          {TAB_ORDER.map((tab, idx) => {
-            const labels = { basic: "Basic Info", work: "Work History", credentials: "Credentials", medical: "Medical", preferences: "Preferences" };
-            const isDone = idx < currentTabIdx;
-            return (
-              <TabsTrigger
-                key={tab}
-                value={tab}
-                data-testid={`tab-${tab}`}
-                className="flex-shrink-0 text-xs sm:text-sm px-3 sm:px-4 py-2 gap-1.5"
-              >
-                {isDone && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
-                {labels[tab]}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </div>
+      <section className="rounded-2xl border bg-card p-5 sm:p-7 space-y-4" aria-label="Profile steps">
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>Step {currentTabIdx + 1} of {TAB_ORDER.length}</span><span>You can come back anytime</span></div>
+        <div role="progressbar" aria-label="Current profile step" aria-valuemin={1} aria-valuemax={TAB_ORDER.length} aria-valuenow={currentTabIdx + 1} className="h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${((currentTabIdx + 1) / TAB_ORDER.length) * 100}%` }} /></div>
+        <div><h2 className="text-2xl font-semibold text-foreground">{PROFILE_STEPS[activeTab].title}</h2><p className="text-sm text-muted-foreground mt-2 leading-relaxed">{PROFILE_STEPS[activeTab].description}</p></div>
+        <details><summary className="cursor-pointer text-xs text-primary font-medium">Jump to a step</summary><TabsList ref={tabListRef} className="flex flex-wrap h-auto justify-start bg-transparent gap-2 p-0 mt-3">{TAB_ORDER.map((tab, idx) => <TabsTrigger key={tab} value={tab} data-testid={`tab-${tab}`} className="border rounded-full text-xs">{idx + 1}. {PROFILE_STEPS[tab].label}</TabsTrigger>)}</TabsList></details>
+      </section>
 
       {/* Basic Info Tab */}
       <TabsContent value="basic" className="space-y-6">
@@ -894,6 +896,9 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
           </CardContent>
         </Card>
 
+        <ContinueButton />
+      </TabsContent>
+      <TabsContent value="professional" className="space-y-6">
         {/* Professional Info */}
         <Card>
           <CardHeader>
@@ -940,7 +945,7 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                   id="experience"
                   type="number"
                   min="0"
-                  value={profile.years_experience || ""}
+                  value={profile.years_experience ?? ""}
                   onChange={(e) => updateField("years_experience", parseInt(e.target.value) || 0)}
                   placeholder="0"
                 />
@@ -957,59 +962,13 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea
-                data-testid="bio-input"
-                id="bio"
-                value={profile.bio || ""}
-                onChange={(e) => updateField("bio", e.target.value)}
-                placeholder="Tell employers about yourself, your experience, and what you're looking for..."
-                rows={4}
-              />
-            </div>
+
           </CardContent>
         </Card>
 
-        {/* Availability & Shift */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              Availability & Shift
-            </CardTitle>
-            <CardDescription>When can you start and what shifts do you prefer?</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Availability</Label>
-                <Select value={profile.availability || ""} onValueChange={(v) => updateField("availability", v)}>
-                  <SelectTrigger data-testid="availability-select"><SelectValue placeholder="Select availability" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Available Now">Available Now</SelectItem>
-                    <SelectItem value="Available in 2 weeks">Available in 2 weeks</SelectItem>
-                    <SelectItem value="Available in 1 month">Available in 1 month</SelectItem>
-                    <SelectItem value="Not Available">Not Available</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Shift Preference</Label>
-                <Select value={profile.preferred_shift || ""} onValueChange={(v) => updateField("preferred_shift", v)}>
-                  <SelectTrigger data-testid="shift-select"><SelectValue placeholder="Select shift" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Day Shift">Day Shift</SelectItem>
-                    <SelectItem value="Night Shift">Night Shift</SelectItem>
-                    <SelectItem value="Rotating">Rotating</SelectItem>
-                    <SelectItem value="Flexible">Flexible</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+        <ContinueButton />
+      </TabsContent>
+      <TabsContent value="strengths" className="space-y-6">
         {/* Experience Highlights */}
         <Card>
           <CardHeader>
@@ -1353,53 +1312,60 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
 
       {/* Medical Records Tab — Status + Vault routing */}
       <TabsContent value="medical" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Medical Records & Immunizations
-            </CardTitle>
-            <CardDescription>Your health clearances and immunization status</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-              <p className="text-sm text-foreground font-medium">All medical documents are managed in your Document Vault</p>
-              <p className="text-xs text-muted-foreground">Upload vaccinations, TB tests, and medical clearances in one secure place. Employers will see your compliance status automatically.</p>
-              <Button onClick={() => navigate("/seeker/vault?category=medical&from=profile")} data-testid="medical-go-to-vault" className="w-full sm:w-auto">
-                <Shield className="w-4 h-4 mr-1.5" /> Go to Document Vault
-              </Button>
-            </div>
-
-            {/* Quick status of required medical documents */}
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Required Documents</p>
-              {[
-                { label: "TB Test (PPD / Quantiferon / Chest X-Ray)", type: "TB Skin Test (PPD)", category: "medical" },
-                { label: "Physical Exam", type: "Physical Exam", category: "medical" },
-                { label: "COVID-19 Vaccine", type: "COVID-19 Vaccine", category: "medical" },
-                { label: "Influenza (Flu)", type: "Influenza (Flu)", category: "medical" },
-                { label: "Hepatitis B", type: "Hepatitis B", category: "medical" },
-                { label: "MMR", type: "MMR", category: "medical" },
-              ].map((item) => (
-                <button
-                  key={item.label}
-                  data-testid={`medical-status-${item.type.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(`/seeker/vault?category=${item.category}&type=${encodeURIComponent(item.type)}&from=profile`)}
-                >
-                  <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                  <span className="text-sm text-muted-foreground flex-1">{item.label}</span>
-                  <span className="text-[10px] text-primary">Upload</span>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        <ContinueButton />
+        <Card><CardContent className="p-5 sm:p-7 space-y-5">
+          <p className="text-sm text-muted-foreground">Have these handy? Upload a current copy now so it’s ready in your document vault. Only add certifications you hold; BLS and ACLS requirements depend on the job.</p>
+          {[
+            { label: "Professional license", description: "Your current nursing or allied health license, if applicable.", category: "license", type: "Professional License" },
+            { label: "BLS certification", description: "Your current Basic Life Support card, if you hold one.", category: "certification", type: "BLS" },
+            { label: "ACLS certification", description: "Your current Advanced Cardiovascular Life Support card, if applicable.", category: "certification", type: "ACLS" },
+          ].map(doc => <div key={doc.type} className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border p-4"><div className="flex-1"><h3 className="font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-primary" />{doc.label}</h3><p className="text-sm text-muted-foreground mt-1">{doc.description}</p></div><Button type="button" variant="outline" disabled={sectionSaving} onClick={async () => { setSectionSaving(true); try { if (await onSave() !== false) navigate(`/seeker/vault?category=${doc.category}&type=${encodeURIComponent(doc.type)}&from=profile-builder`); } finally { setSectionSaving(false); } }}>Upload {doc.type === "Professional License" ? "license" : doc.type}</Button></div>)}
+          <p className="text-sm text-muted-foreground">Already added them? No need to upload again. Medical records, references, and other documents can wait.</p>
+        </CardContent></Card>
+        <div className="flex flex-col sm:flex-row gap-3"><Button type="button" variant="outline" disabled={sectionSaving} onClick={() => setActiveTab("review")}>Back to review</Button><Button type="button" disabled={sectionSaving} data-testid="finish-profile-later" onClick={async () => { setSectionSaving(true); try { if (await onSave() !== false) navigate("/seeker"); } finally { setSectionSaving(false); } }}>{sectionSaving ? "Saving…" : "Finish — I’ll add documents later"}</Button></div>
       </TabsContent>
 
       {/* Preferences Tab */}
       <TabsContent value="preferences" className="space-y-6">
+        {/* Availability & Shift */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              Availability & Shift
+            </CardTitle>
+            <CardDescription>When can you start and what shifts do you prefer?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Availability</Label>
+                <Select value={profile.availability || ""} onValueChange={(v) => updateField("availability", v)}>
+                  <SelectTrigger data-testid="availability-select"><SelectValue placeholder="Select availability" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Available Now">Available Now</SelectItem>
+                    <SelectItem value="Available in 2 weeks">Available in 2 weeks</SelectItem>
+                    <SelectItem value="Available in 1 month">Available in 1 month</SelectItem>
+                    <SelectItem value="Not Available">Not Available</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Shift Preference</Label>
+                <Select value={profile.preferred_shift || ""} onValueChange={(v) => updateField("preferred_shift", v)}>
+                  <SelectTrigger data-testid="shift-select"><SelectValue placeholder="Select shift" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Day Shift">Day Shift</SelectItem>
+                    <SelectItem value="Night Shift">Night Shift</SelectItem>
+                    <SelectItem value="Rotating">Rotating</SelectItem>
+                    <SelectItem value="Flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+
         {/* Pay & Benefits */}
         <Card>
           <CardHeader>
@@ -1630,6 +1596,21 @@ const SeekerProfileForm = ({ profile, updateField, addToArray, removeFromArray, 
           </CardContent>
         </Card>
         <ContinueButton />
+      </TabsContent>
+      <TabsContent value="bio" className="space-y-6"><Card><CardContent className="p-5 sm:p-7"><GuidedBioBuilder profile={profile} updateField={updateField} answers={bioAnswers} setAnswers={setBioAnswers} /></CardContent></Card><ContinueButton /></TabsContent>
+      <TabsContent value="review" className="space-y-6">
+        <Card><CardContent className="p-5 sm:p-7 space-y-5">
+          <div><h3 className="font-semibold text-lg">{profile.full_name || "Your name"}</h3><p className="text-sm text-muted-foreground">{[ROLE_LABELS[profile.normalized_role_category] || profile.normalized_role_category, profile.specialty].filter(Boolean).join(" · ") || "Add a role when you’re ready"}</p></div>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{profile.bio || "No bio added yet. You can build one in Your story."}</p>
+          <dl className="grid sm:grid-cols-2 gap-4 text-sm">{[
+            ["Contact", [profile.contact_info?.email, profile.contact_info?.phone].filter(Boolean).join(" · "), "basic"],
+            ["Skills", (profile.skills || []).map(s => typeof s === "string" ? s : s?.name || "").filter(Boolean).join(", "), "strengths"],
+            ["Work history", `${(profile.work_history || []).length} entries`, "work"],
+            ["Credentials", `${(profile.certifications || []).length} certifications · ${(profile.licenses || []).length} licenses`, "credentials"],
+            ["Availability", [profile.availability, profile.preferred_shift].filter(Boolean).join(" · "), "preferences"],
+          ].map(([label, value, step]) => <div key={label} className="rounded-xl border p-4"><dt className="font-medium flex justify-between gap-3">{label}<button type="button" className="text-primary text-xs underline" aria-label={`Edit ${label.toLowerCase()}`} onClick={() => setActiveTab(step)}>Edit</button></dt><dd className="mt-2 text-muted-foreground break-words">{value || "Not added yet"}</dd></div>)}</dl>
+          <p className="text-xs text-muted-foreground">Review each entry for accuracy. You can keep building your profile at any time.</p>
+        </CardContent></Card><ContinueButton />
       </TabsContent>
     </Tabs>
   );
