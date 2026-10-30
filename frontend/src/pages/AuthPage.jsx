@@ -19,6 +19,16 @@ const AuthPage = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [selectedRole, setSelectedRole] = useState(() => searchParams.get("role") === "poster" ? "poster" : "seeker");
 
+  const panelCopy = selectedRole === "poster" ? {
+    heading: "Find the People Who Make Your Team Complete",
+    description: "Post healthcare jobs, review candidate profiles and credentials, and connect directly with workers. Keep conversations, offers, and onboarding together as you build your team.",
+    caption: "For recruiters and healthcare hiring teams",
+  } : {
+    heading: "Your Next Chapter in Healthcare Starts Here",
+    description: "Manage your credentials, match with top facilities, and take the next step in your healthcare career.",
+    caption: "For healthcare workers ready for what’s next",
+  };
+
   // Redirect if already logged in - use useEffect to avoid setState during render
   useEffect(() => {
     if (user) {
@@ -95,15 +105,15 @@ const AuthPage = () => {
           </button>
         </div>
         
-        <div className="relative z-10 space-y-6">
+        <div className="relative z-10 space-y-6" aria-live="polite" aria-atomic="true">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
             <BrandWordmark className="brand-wordmark-on-dark" />
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight font-['Montserrat']">
-            The Secure Platform for Healthcare Hiring
+            {panelCopy.heading}
           </h1>
           <p className="text-white/80 text-lg max-w-md">
-            Manage your credentials, match with top facilities, and take the next step in your healthcare career.
+            {panelCopy.description}
           </p>
         </div>
         
@@ -118,7 +128,7 @@ const AuthPage = () => {
             alt="Nurse"
             className="w-12 h-12 rounded-full object-cover border-2 border-white -ml-4"
           />
-          <span className="text-white/80 text-sm">+5,000 professionals connected</span>
+          <span className="text-white/80 text-sm">{panelCopy.caption}</span>
         </div>
       </div>
 
@@ -206,6 +216,7 @@ const AuthPage = () => {
                     <button
                       type="button"
                       data-testid="role-seeker-btn"
+                      aria-pressed={selectedRole === "seeker"}
                       onClick={() => setSelectedRole("seeker")}
                       className={`p-4 rounded-xl border-2 transition-all ${
                         selectedRole === "seeker"
@@ -221,6 +232,7 @@ const AuthPage = () => {
                     <button
                       type="button"
                       data-testid="role-poster-btn"
+                      aria-pressed={selectedRole === "poster"}
                       onClick={() => setSelectedRole("poster")}
                       className={`p-4 rounded-xl border-2 transition-all ${
                         selectedRole === "poster"
