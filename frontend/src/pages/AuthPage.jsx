@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +11,12 @@ import { Briefcase, User, Mail, Lock, ArrowLeft } from "lucide-react";
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, register, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [authTab, setAuthTab] = useState("login");
+  const [authTab, setAuthTab] = useState(() => searchParams.get("tab") === "register" ? "register" : "login");
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("seeker");
+  const [selectedRole, setSelectedRole] = useState(() => searchParams.get("role") === "poster" ? "poster" : "seeker");
 
   // Redirect if already logged in - use useEffect to avoid setState during render
   useEffect(() => {
