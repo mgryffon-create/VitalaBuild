@@ -10,7 +10,7 @@ const LandingPage = () => {
   return (
     <div className="vitala-home">
       <header className="vh-nav vh-wrap">
-        <Link to="/" aria-label="VitalaMatch home"><img src="/images/vitalamatch-logo.png" alt="VitalaMatch" /></Link>
+        <Link to="/" aria-label="VitalaMatch home"><span className="vh-wordmark"><Heart size={27} strokeWidth={1.6} />VitalaMatch<span className="vh-brand-dot">.</span></span></Link>
         <nav aria-label="Main navigation">
           <a href="#for-you" className="vh-nav-link">For workers & recruiters</a>
           <a href="#how-it-works" className="vh-nav-link">How it works</a>
@@ -53,7 +53,7 @@ const LandingPage = () => {
         </section>
         <section className="vh-closing vh-wrap"><Sprout size={30} /><p className="vh-eyebrow">LET’S SEE WHAT’S NEXT.</p><h2>Your next great connection<br />could start right here.</h2><p>A teammate who makes the difference. An opportunity that feels right.</p><div className="vh-actions"><button className="vh-button" onClick={() => start("poster")}>Find healthcare talent <ArrowRight size={18} /></button><button className="vh-button vh-button-light" onClick={() => start("seeker")}>Find my next opportunity <ArrowRight size={18} /></button></div></section>
       </main>
-      <footer className="vh-footer vh-wrap"><Link to="/"><img src="/images/vitalamatch-logo.png" alt="VitalaMatch" /></Link><span>Healthcare connections, with people at the heart.</span><div><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><span>© {new Date().getFullYear()} VitalaMatch</span></div></footer>
+      <footer className="vh-footer vh-wrap"><Link to="/"><span className="vh-wordmark"><Heart size={27} strokeWidth={1.6} />VitalaMatch<span className="vh-brand-dot">.</span></span></Link><span>Healthcare connections, with people at the heart.</span><div><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><span>© {new Date().getFullYear()} VitalaMatch</span></div></footer>
     </div>
   );
 };
