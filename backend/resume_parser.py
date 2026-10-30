@@ -65,7 +65,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
 async def parse_resume_text(text: str) -> dict:
     """Parse resume text using GPT and return structured profile data."""
     if not OPENAI_API_KEY:
-        return {"error": "LLM key not configured", "raw_text": text}
+        return {"error": "Resume autofill is not configured yet. You can enter your profile details manually.", "raw_text": text}
 
     response = None
     try:
@@ -90,10 +90,18 @@ async def parse_resume_text(text: str) -> dict:
             "raw_text": text[:500],
         }
     except Exception as e:
-        return {
-            "error": str(e),
-            "raw_text": text[:500],
-        }
+        # Return actionable messages without exposing provider responses or resume text.
+        code = getattr(e, "code", None)
+        status = getattr(e, "status_code", None)
+        if code in ("insufficient_quota", "credit_balance_exhausted"):
+            message = "Resume autofill is temporarily unavailable because its AI service has no API credits. You can still complete your profile manually."
+        elif status == 429:
+            message = "Resume autofill is busy. Please try again in a moment."
+        elif status in (401, 403):
+            message = "Resume autofill is temporarily unavailable due to its AI service configuration. You can complete your profile manually."
+        else:
+            message = "Resume autofill is temporarily unavailable. Please try again later or complete your profile manually."
+        return {"error": message}
 
 
 async def extract_text_from_file(file_bytes: bytes, filename: str) -> str:

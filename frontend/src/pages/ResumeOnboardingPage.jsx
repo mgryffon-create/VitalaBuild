@@ -112,7 +112,7 @@ const ResumeOnboardingPage = () => {
         result = res.data;
       }
       if (result.parsed_profile?.error) {
-        toast.error("Failed to parse resume. Try a different format.");
+        toast.error(result.parsed_profile.error);
         setStep("upload");
         return;
       }
