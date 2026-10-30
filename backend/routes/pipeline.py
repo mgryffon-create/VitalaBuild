@@ -1,3 +1,4 @@
+from match_readiness import match_readiness
 """Hiring Pipeline routes — manage candidate stages, messaging with context, nudges"""
 from fastapi import APIRouter, Depends
 from shared import (
@@ -388,6 +389,10 @@ async def update_stage(candidate_id: str, job_id: str, update: StageUpdate, curr
         if not elig["eligible"]:
             raise HTTPException(status_code=403, detail=elig["reason"] or "Candidate not eligible for this role")
 
+    readiness = await match_readiness(db, candidate_id, job)
+    if update.stage in ("interviewing", "offer_sent", "hired") and not readiness["ready"]:
+        raise HTTPException(status_code=409, detail="Candidate match is pending essential uploads or role details")
+
     # Check if candidate already in this or later stage (prevent duplicate actions)
     existing_stage = await db.pipeline_stages.find_one(
         {"candidate_id": candidate_id, "employer_id": current_user["id"], "job_id": job_id},
@@ -421,7 +426,7 @@ async def update_stage(candidate_id: str, job_id: str, update: StageUpdate, curr
                 "seeker_id": candidate_id,
                 "poster_id": current_user["id"],
                 "job_id": job_id,
-                "status": "active",
+                "status": "active" if readiness["ready"] else "pending_documents",
                 "created_at": now_iso,
             })
             await log_audit(db, current_user["id"], "match_created", "match", match_id,

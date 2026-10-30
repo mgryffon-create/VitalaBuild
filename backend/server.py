@@ -1,3 +1,5 @@
+from match_readiness import match_readiness, refresh_match, require_match_ready
+from eligibility import get_seeker_role
 from uploaded_files import resolve_upload
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -1570,7 +1572,7 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     eligible_jobs = []
     for job in jobs:
         elig = check_role_eligibility(seeker_profile, job)
-        if elig["eligible"]:
+        if elig["eligible"] or not get_seeker_role(seeker_profile):
             eligible_jobs.append(job)
 
     # Calculate tiered match for each eligible job
@@ -1598,7 +1600,7 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     result_jobs = strong + possible
     has_hidden = len(hidden) > 0
     
-    if expand:
+    if expand or not get_seeker_role(seeker_profile):
         for h in hidden:
             h["match_tier"] = "expanded"
         result_jobs += hidden
@@ -1654,7 +1656,7 @@ async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user:
             if job:
                 profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
                 elig = check_role_eligibility(profile, job)
-                if not elig["eligible"]:
+                if not elig["eligible"] and get_seeker_role(profile):
                     raise HTTPException(status_code=403, detail=elig["reason"] or "Not eligible for this role")
         elif current_user["role"] == "poster" and job_id:
             job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
@@ -1879,7 +1881,16 @@ async def get_seeker_applications(current_user: dict = Depends(get_current_user)
             {"user_id": job.get("poster_id")}, {"_id": 0}
         )
 
+        readiness = await match_readiness(db, current_user["id"], job)
+        if match:
+            match = await refresh_match(db, match)
+        if not readiness["ready"]:
+            status = "pending_documents"
+            match_id = None
+            offer_id = None
+            offer_details = None
         applications.append({
+            "readiness": readiness,
             "id": sw["id"],
             "job_id": job["id"],
             "match_id": match_id,
@@ -2501,7 +2512,7 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
     profile = await db.seeker_profiles.find_one({"user_id": seeker_id}, {"_id": 0}) or {}
     job = await db.jobs.find_one({"id": job_id}, {"_id": 0}) or {}
     elig = check_role_eligibility(profile, job)
-    if not elig["eligible"]:
+    if not elig["eligible"] and get_seeker_role(profile):
         logging.getLogger(__name__).warning("Match blocked by role eligibility: seeker=%s job=%s reason=%s", seeker_id, job_id, elig["log_reason"])
         return {"matched": False, "reason": elig["reason"]}
 
@@ -2513,6 +2524,7 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
     if existing:
         return {"matched": False}
     
+    readiness = await match_readiness(db, seeker_id, job)
     match_id = str(uuid.uuid4())
     match_data = {
         "id": match_id,
@@ -2520,7 +2532,7 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
         "job_id": job_id,
         "poster_id": poster_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "status": "active"
+        "status": "active" if readiness["ready"] else "pending_documents"
     }
     
     await db.matches.insert_one(match_data)
@@ -2531,10 +2543,13 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
     poster = await db.users.find_one({"id": poster_id}, {"_id": 0, "password": 0})
     
     # Send match notifications to both parties
-    asyncio.create_task(send_match_notifications(seeker_id, poster_id, job, seeker, poster))
+    if readiness["ready"]:
+        asyncio.create_task(send_match_notifications(seeker_id, poster_id, job, seeker, poster))
     
     return {
-        "matched": True,
+        "matched": readiness["ready"],
+        "pending": not readiness["ready"],
+        "readiness": readiness,
         "match_id": match_id,
         "job": job,
         "seeker": seeker
@@ -2583,6 +2598,7 @@ async def get_matches(current_user: dict = Depends(get_current_user)):
     
     enriched_matches = []
     for match in matches:
+        match = await refresh_match(db, match)
         job = await db.jobs.find_one({"id": match["job_id"]}, {"_id": 0})
         seeker = await db.users.find_one({"id": match["seeker_id"]}, {"_id": 0, "password": 0})
         seeker_profile = await db.seeker_profiles.find_one({"user_id": match["seeker_id"]}, {"_id": 0})
@@ -2625,6 +2641,8 @@ async def get_messages(match_id: str, current_user: dict = Depends(get_current_u
     
     if current_user["id"] not in [match["seeker_id"], match["poster_id"]]:
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    match = await require_match_ready(db, match)
     
     messages = await db.messages.find({"match_id": match_id}, {"_id": 0}).sort("created_at", 1).to_list(1000)
     return messages
@@ -2638,6 +2656,8 @@ async def send_message(match_id: str, message: Message, current_user: dict = Dep
     
     if current_user["id"] not in [match["seeker_id"], match["poster_id"]]:
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    match = await require_match_ready(db, match)
     
     message_data = {
         "id": str(uuid.uuid4()),
@@ -2756,6 +2776,8 @@ async def create_interview_request(match_id: str, request: InterviewRequest, cur
     
     if match["poster_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
+
+    match = await require_match_ready(db, match)
     
     interview_id = str(uuid.uuid4())
     interview_data = {
@@ -3983,6 +4005,10 @@ async def create_employment_offer(offer: EmploymentOffer, current_user: dict = D
     if not match or match["poster_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Match not found")
     
+    if match["seeker_id"] != offer.seeker_id or match["job_id"] != offer.job_id:
+        raise HTTPException(status_code=400, detail="Offer must use the matched candidate and job")
+    match = await require_match_ready(db, match)
+
     # Verify job belongs to employer
     job = await db.jobs.find_one({"id": offer.job_id, "poster_id": current_user["id"]})
     if not job:
@@ -4179,6 +4205,10 @@ async def respond_to_offer(offer_id: str, response: OfferResponse, current_user:
     
     # REQUIRE typed signature for acceptance
     if response.accepted:
+        matched = await db.matches.find_one({"id": offer["match_id"]})
+        if not matched:
+            raise HTTPException(status_code=409, detail="Match not available")
+        await require_match_ready(db, matched)
         if not response.typed_signature or len(response.typed_signature.strip()) < 2:
             raise HTTPException(status_code=400, detail="Typed signature (full legal name) is required to accept an offer")
     

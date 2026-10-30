@@ -12,6 +12,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { MessageCircle, Send, Briefcase, MapPin, DollarSign, Clock, Stethoscope, ArrowLeft, CheckCircle, Building, Gift, ExternalLink } from "lucide-react";
 
 const STATUS_CONFIG = {
+  pending_documents: { label: "Pending essentials", className: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock },
   pending:    { label: "Pending",          className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200", icon: Clock },
   matched:    { label: "Matched",          className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200", icon: CheckCircle },
   offer_sent: { label: "Offer Received",   className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200", icon: Gift },
@@ -75,7 +76,7 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const matchId = isSeeker ? item?.match_id : item?.id;
+  const matchId = item?.status === "pending_documents" ? null : (isSeeker ? item?.match_id : item?.id);
 
   const fetchMessages = useCallback(async () => {
     if (!matchId) return;
@@ -262,11 +263,11 @@ const DetailPanel = ({ item, isSeeker, userId, onBack }) => {
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-xs">
             <Clock className="w-10 h-10 mx-auto mb-3 text-amber-500/60" />
-            <p className="font-medium text-foreground mb-1">Waiting for a match</p>
+            <p className="font-medium text-foreground mb-1">{item.status === "pending_documents" ? "Your match is on hold" : "Waiting for a match"}</p>
             <p className="text-sm text-muted-foreground">
-              The employer hasn&apos;t reviewed your application yet.
-              You&apos;ll be able to message once they express interest.
+              {item.status === "pending_documents" ? `Add the essentials to move forward: ${(item.readiness?.missing_documents || []).join(", ") || item.readiness?.role_reason || "role details"}. Other profile sections can wait.` : "The employer hasn’t reviewed your application yet. You’ll be able to message once they express interest."}
             </p>
+            {isSeeker && item.status === "pending_documents" && <Button className="mt-4" onClick={() => window.location.assign(item.readiness?.missing_documents?.length ? "/seeker/profile?step=medical" : "/seeker/profile?step=professional")}>Add essential documents</Button>}
           </div>
         </div>
       )}
@@ -306,7 +307,7 @@ const MatchesPage = () => {
   const items = isSeeker ? applications : legacyMatches;
 
   const statusCounts = isSeeker ? {
-    pending: applications.filter(a => a.status === "pending").length,
+    pending: applications.filter(a => a.status === "pending" || a.status === "pending_documents").length,
     matched: applications.filter(a => a.status === "matched").length,
     offer: applications.filter(a => a.status === "offer" || a.status === "offer_sent").length,
   } : null;

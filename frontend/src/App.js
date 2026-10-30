@@ -24,7 +24,6 @@ import SwipeBinsPage from "@/pages/SwipeBinsPage";
 import HiringSuitePage from "@/pages/HiringSuitePage";
 import EmployerCandidatesPage from "@/pages/EmployerCandidatesPage";
 import BrowseProsPage from "@/pages/BrowseProsPage";
-import OnboardingGate from "@/components/OnboardingGate";
 import MyOffersPage from "@/pages/MyOffersPage";
 import VaultPage from "@/pages/VaultPage";
 import OnboardingPage from "@/pages/OnboardingPage";
@@ -40,7 +39,6 @@ import HiringPipelinePage from "@/pages/HiringPipelinePage";
 import EmployerMessagingPage from "@/pages/EmployerMessagingPage";
 import EmployerOnboardingFlow from "@/pages/EmployerOnboardingFlow";
 import EmployerOnboardingGate from "@/components/EmployerOnboardingGate";
-import { SeekerOnboardingWrapper } from "@/components/SeekerWalkthrough";
 // MVP Phase 1: Hidden features (code preserved)
 // import FeedPage from "@/pages/FeedPage";
 // import InterviewsPage from "@/pages/InterviewsPage";
@@ -270,7 +268,7 @@ function App() {
             path="/seeker/swipe"
             element={
               <ProtectedRoute allowedRoles={["seeker"]}>
-                <SeekerOnboardingWrapper><OnboardingGate><SwipePage /></OnboardingGate></SeekerOnboardingWrapper>
+                <SwipePage />
               </ProtectedRoute>
             }
           />
@@ -302,7 +300,7 @@ function App() {
             path="/seeker/offers"
             element={
               <ProtectedRoute allowedRoles={["seeker"]}>
-                <OnboardingGate><MyOffersPage /></OnboardingGate>
+                <MyOffersPage />
               </ProtectedRoute>
             }
           />
@@ -466,7 +464,7 @@ function App() {
             path="/matches"
             element={
               <ProtectedRoute>
-                <OnboardingGate><MatchesPage /></OnboardingGate>
+                <MatchesPage />
               </ProtectedRoute>
             }
           />

@@ -146,6 +146,8 @@ const SwipePage = () => {
       if (response.data.matched) {
         setMatchData({ ...response.data, card });
         setShowMatchDialog(true);
+      } else if (response.data.pending) {
+        toast.success("Interest saved — match pending", { description: "Add your essential documents and role details to open the conversation." });
       } else if (action === "like") {
         toast.success("Marked as interested!", {
           description: isSeeker ? `${smartTitle(card)} — ${card.company_name || "Facility"}` : card.full_name,
@@ -183,6 +185,7 @@ const SwipePage = () => {
   return (
     <DashboardLayout>
       <div data-testid="swipe-page" className="max-w-lg lg:max-w-2xl mx-auto">
+        {isSeeker && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm mb-4"><p className="font-medium">Explore now. Finish setup when you’re ready.</p><p className="text-muted-foreground text-xs mt-1">Save jobs you’re interested in. Essential uploads and an eligible role are needed before a match can open.</p><button className="text-primary text-xs underline mt-2" onClick={() => window.location.assign("/seeker/profile?step=medical")}>Add essential documents</button></div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
