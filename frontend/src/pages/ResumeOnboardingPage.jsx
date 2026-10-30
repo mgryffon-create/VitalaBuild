@@ -174,7 +174,7 @@ const ResumeOnboardingPage = () => {
             <div className="text-center">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">One profile. Apply everywhere.</h1>
               <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-lg mx-auto">
-                Upload your resume once. We'll extract your details, organize your work history, and build your profile automatically.
+                Upload your resume to autofill the details we can recognize. Review and edit the results before saving—no AI required.
               </p>
             </div>
 
@@ -207,7 +207,7 @@ const ResumeOnboardingPage = () => {
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.doc,.docx,.txt"
+                accept=".pdf,.docx,.txt"
                 onChange={handleFileSelect}
               />
             </label>

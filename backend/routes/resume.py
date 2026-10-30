@@ -20,7 +20,7 @@ async def parse_resume_upload(
     file: Optional[UploadFile] = File(None), uploaded_file: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user),
 ):
-    """Upload a resume file, extract text, parse with AI, return structured profile"""
+    """Upload a resume file, extract text, parse locally, return structured profile"""
     file = await resolve_upload(file, uploaded_file, current_user)
     allowed = (".pdf", ".doc", ".docx", ".txt")
     ext = os.path.splitext(file.filename or "")[1].lower()
@@ -56,7 +56,7 @@ async def parse_resume_upload(
     if raw_text.startswith("["):
         return {"error": raw_text, "vault_document_id": doc_id, "file_url": file_url}
 
-    # Parse with AI
+    # Parse locally
     parsed = await parse_resume_text(raw_text)
 
     # Store the parsed result
@@ -85,7 +85,7 @@ async def parse_resume_upload(
 
 @router.post("/parse/text")
 async def parse_pasted_text(body: PastedResumeText, current_user: dict = Depends(get_current_user)):
-    """Parse pasted resume text with AI"""
+    """Parse pasted resume text locally"""
     if len(body.text.strip()) < 50:
         raise HTTPException(status_code=400, detail="Text too short to parse")
 
