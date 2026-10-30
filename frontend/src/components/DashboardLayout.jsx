@@ -1,3 +1,4 @@
+import BrandWordmark from "@/components/BrandWordmark";
 import { useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -67,11 +68,7 @@ const NavContent = ({
         className="flex items-center justify-center cursor-pointer" 
         onClick={() => onNavigate("/")}
       >
-        <img 
-          src="/images/vitalamatch-logo.png" 
-          alt="VitalaMatch" 
-          className="h-12 w-auto"
-        />
+        <BrandWordmark />
       </div>
     </div>
 
@@ -257,11 +254,7 @@ const DashboardLayout = ({ children }) => {
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 glass border-b border-border">
         <div className="flex items-center justify-between px-3 py-2.5">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-            <img 
-              src="/images/vitalamatch-logo.png" 
-              alt="VitalaMatch" 
-              className="h-8 w-auto"
-            />
+            <BrandWordmark />
           </div>
           
           <div className="flex items-center gap-1">

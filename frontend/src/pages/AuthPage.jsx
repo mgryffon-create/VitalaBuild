@@ -1,3 +1,4 @@
+import BrandWordmark from "@/components/BrandWordmark";
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -96,11 +97,7 @@ const AuthPage = () => {
         
         <div className="relative z-10 space-y-6">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-            <img 
-              src="/images/vitalamatch-logo.png" 
-              alt="VitalaMatch" 
-              className="h-14 w-auto"
-            />
+            <BrandWordmark className="brand-wordmark-on-dark" />
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight font-['Montserrat']">
             The Secure Platform for Healthcare Hiring
