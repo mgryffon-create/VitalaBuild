@@ -1,5 +1,6 @@
 import unittest
 from document_screening import screen_text, screen_file, screening_passed
+from credential_policy import employer_checks, submitted, current_file
 
 BLS = 'American Heart Association\nBLS Provider Certification Card\nJane Doe\nExpiration date: 12/31/2099'
 RN = 'State of California Board of Registered Nursing\nRegistered Nurse License\nJane Doe\nLicense number: RN123456\nExpiration date: 12/31/2099'
@@ -50,7 +51,7 @@ class VaultPipelineTests(unittest.IsolatedAsyncioTestCase):
             doc={'id':'test','category':'certification','subtype':'BLS','expiration_date':'2098-01-01'}
             collection=SimpleNamespace(find_one=AsyncMock(return_value=doc),update_one=AsyncMock())
             ns=dict(db=SimpleNamespace(vault_documents=collection),screen_file=screen_file,screening_passed=screening_passed,
-                    SCREENING_VERSION='content-v2',datetime=datetime,timezone=timezone,logger=logging.getLogger('test'),_is_expirable=lambda c,s: True)
+                    SCREENING_VERSION='content-v2',employer_checks=employer_checks,submitted=submitted,current_file=current_file,datetime=datetime,timezone=timezone,logger=logging.getLogger('test'),_is_expirable=lambda c,s: True)
             exec(compile(ast.Module(body=functions,type_ignores=[]),'vault_pipeline','exec'),ns)
             import fitz
             pdf=fitz.open();pdf.new_page().insert_text((50,50),text)

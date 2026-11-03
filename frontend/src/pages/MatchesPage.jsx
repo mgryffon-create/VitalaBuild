@@ -1,3 +1,4 @@
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ const ItemList = ({ items, selected, isSeeker, onSelect }) => (
       const status = item.status || "matched";
       const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
       return (
-        <button
+        <div role="button" tabIndex={0} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(item); } }}
           key={id}
           data-testid={`match-item-${id}`}
           onClick={() => onSelect(item)}
@@ -52,6 +53,7 @@ const ItemList = ({ items, selected, isSeeker, onSelect }) => (
               <p className="font-medium text-sm text-foreground truncate">
                 {isSeeker ? item.job?.title : item.seeker?.full_name}
               </p>
+              <CredentialBadges items={item.readiness?.credential_badges || item.seeker?.credential_badges} />
               <p className="text-xs text-muted-foreground truncate">
                 {isSeeker
                   ? item.job?.company_name || "Healthcare Facility"
@@ -62,7 +64,7 @@ const ItemList = ({ items, selected, isSeeker, onSelect }) => (
               {cfg.label}
             </Badge>
           </div>
-        </button>
+        </div>
       );
     })}
   </div>

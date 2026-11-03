@@ -1,3 +1,4 @@
+import OfferDocumentSharing from "@/components/OfferDocumentSharing";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,7 @@ const OnboardingPage = () => {
           if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
         },
       });
-      toast.success("Document uploaded and linked to requirement");
+      toast.success("Uploaded privately. Approve sharing through the offer document panel.");
       setUploadReq(null);
       setSelectedFile(null);
       fetchCases();
@@ -227,6 +228,7 @@ const OnboardingPage = () => {
                       </div>
                     </button>
 
+                    {isExpanded && c.offer_id && <OfferDocumentSharing offerId={c.offer_id} />}
                     {/* Expanded Requirements */}
                     {isExpanded && c.requirements && (
                       <div className="mt-4 space-y-2 border-t pt-3">

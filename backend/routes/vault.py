@@ -13,6 +13,7 @@ from object_storage import upload_file, download_file, signed_url
 import anyio
 from starlette.responses import RedirectResponse
 from document_screening import screen_file, screening_passed, SCREENING_VERSION
+from credential_policy import employer_can_view, employer_checks, submitted, badge, current_file
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,16 @@ def _compute_compliance_status(doc: dict) -> str:
         return "rejected"
     if verification == "expired" or doc.get("screening_status") == "expired":
         return "expired"
+    if exp_date_str:
+        try:
+            if datetime.fromisoformat(exp_date_str.replace("Z", "+00:00")).date() < datetime.now(timezone.utc).date():
+                return "expired"
+        except (ValueError, TypeError, AttributeError):
+            return "review_needed"
+    if employer_checks(doc) and current_file(doc):
+        return "employer_verified"
+    if submitted(doc) and current_file(doc):
+        return "unverified"
     if is_exp and not screening_passed(doc):
         return "review_needed"
 
@@ -158,7 +169,7 @@ async def serve_vault_file(filename: str, current_user: dict = Depends(get_curre
     if not allowed and job_document and current_user.get("role") == "seeker":
         allowed = bool(await db.onboarding_cases.find_one({"job_id": doc["job_id"], "candidate_id": current_user["id"]}))
     elif not allowed and not job_document and current_user.get("role") == "poster":
-        allowed = bool(await db.onboarding_cases.find_one({"employer_id": current_user["id"], "candidate_id": owner}))
+        allowed = await employer_can_view(db, current_user["id"], doc)
     if not allowed:
         await log_audit(db, current_user["id"], "unauthorized_access", "vault_file", filename)
         raise HTTPException(status_code=403, detail="Not authorized to access this file")
@@ -271,9 +282,10 @@ async def get_vault_documents(current_user: dict = Depends(get_current_user)):
         {"candidate_id": current_user["id"]}, {"_id": 0, "file_data": 0}
     ).sort("uploaded_at", -1).to_list(200)
     for doc in docs:
-        if _is_expirable(doc.get("category", ""), doc.get("subtype", "")) and doc.get("screening_version") != SCREENING_VERSION and doc.get("verification_status") != "pending":
+        if _is_expirable(doc.get("category", ""), doc.get("subtype", "")) and doc.get("screening_version") != SCREENING_VERSION and doc.get("verification_status") not in ("pending", "unverified"):
             doc.update(verification_status="needs_review", verification_notes="This upload needs the new document-type check. Select Check document to screen it again.")
         doc["compliance_status"] = _compute_compliance_status(doc)
+        doc["credential_badge"] = badge(doc) if doc.get("category") in ("license", "certification") else None
     return docs
 
 

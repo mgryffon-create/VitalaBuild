@@ -1,3 +1,5 @@
+import CredentialSubmission from "@/components/CredentialSubmission";
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -89,6 +91,7 @@ function daysUntilExp(expDate) {
 }
 
 function docStatus(doc) {
+  if (doc.credential_badge?.status === "employer_verified") return { text: "Employer verified", className: "bg-green-100 text-green-700", priority: 3 };
   if (doc.verification_status === "archived") return { text: "Replaced", className: "bg-muted text-muted-foreground/60", priority: 5 };
   if (doc.verification_status === "rejected") return { text: "Wrong document", className: "bg-red-100 text-red-700", priority: 0 };
   if (doc.verification_status === "expired") return { text: "Expired", className: "bg-destructive text-destructive-foreground", priority: 0 };
@@ -467,9 +470,11 @@ const VaultPage = () => {
                             {status.priority <= 1 && <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />}
                             {status.text}
                           </Badge>
+                          <CredentialBadges items={doc.credential_badge ? [doc.credential_badge] : []} />
                           {doc.verification_notes && (
                             <p className="text-xs text-muted-foreground mt-2">{doc.verification_notes}</p>
                           )}
+                          {!isReplaced && doc.storage_path && ["needs_review", "unverified", "mismatch", "rejected"].includes(doc.verification_status) && <CredentialSubmission doc={doc} onSaved={fetchData} />}
                           {!isReplaced && doc.storage_path && doc.verification_status !== "pending" && (
                             <Button variant="link" size="sm" className="px-0 h-auto mt-2" onClick={async (e) => {
                               e.stopPropagation();

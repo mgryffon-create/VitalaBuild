@@ -4,6 +4,7 @@ Handles requirement generation, vault matching, and task creation.
 """
 from datetime import datetime, timezone, timedelta
 import uuid
+from credential_policy import consent_allows, necessary_types, employer_checks, offer_job
 
 # ==================== REQUIREMENT RULES ====================
 
@@ -227,6 +228,7 @@ async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
     and auto-assigned training from compliance requirements.
     Returns the case_id.
     """
+    job = offer_job(job, offer)
     role_type = detect_role_type(job)
     case_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -252,8 +254,18 @@ async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
         {"_id": 0}
     ).to_list(500)
 
-    # Get requirement rules for role
-    rules = ROLE_REQUIREMENTS.get(role_type, DEFAULT_REQUIREMENTS)
+    # Only the candidate-approved offer packet may fulfill requirements.
+    vault_docs = [d for d in vault_docs if consent_allows(offer, d, job)]
+    needed = necessary_types(job)
+    type_keys = {'government_id': 'ID', 'license_verification': 'LICENSE', 'bls_certification': 'BLS', 'acls_certification': 'ACLS', 'tb_screening': 'TB', 'vaccination_records': 'VACCINES', 'background_check': 'BACKGROUND', 'drug_screen': 'DRUG'}
+    rules = [r for r in ROLE_REQUIREMENTS.get(role_type, DEFAULT_REQUIREMENTS) if type_keys.get(r['type']) in needed]
+    if not any(r['type'] == 'license_verification' for r in rules):
+        rules.append({'type': 'license_verification', 'label': 'Professional license or credential', 'assigned_to': 'candidate', 'fulfillment_source': 'vault', 'vault_match': {'category': 'license', 'subtypes': None}})
+    if not any(r['type'] == 'bls_certification' for r in rules):
+        rules.append({'type': 'bls_certification', 'label': 'BLS Certification', 'assigned_to': 'candidate', 'fulfillment_source': 'vault', 'vault_match': {'category': 'certification', 'subtypes': ['BLS']}})
+    for kind in ('PALS', 'CPR'):
+        if kind in needed:
+            rules.append({'type': kind.lower() + '_certification', 'label': kind + ' Certification', 'assigned_to': 'candidate', 'fulfillment_source': 'vault', 'vault_match': {'category': 'certification', 'subtypes': [kind]}})
 
     requirements = []
     doc_matches = []
@@ -262,6 +274,8 @@ async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
     for rule in rules:
         req_id = str(uuid.uuid4())
         status, matched_doc, notes = match_vault_document(rule, vault_docs)
+        if matched_doc and not employer_checks(matched_doc):
+            status, notes = 'pending_manual_review', 'Candidate-approved document awaiting employer verification.'
         fulfillment_source = rule["fulfillment_source"]
 
         # Override fulfillment_source based on match result
@@ -375,3 +389,26 @@ async def create_onboarding_case(db, offer, job, candidate_id, employer_id):
         await db.training_assignments.insert_one(assignment)
 
     return case_id
+
+async def sync_case_document_consent(db, case):
+    """Refresh document requirements from the current, consented offer packet."""
+    offer = await db.employment_offers.find_one({'id': case.get('offer_id')}, {'_id': 0}) or {}
+    job = offer_job(await db.jobs.find_one({'id': case['job_id']}, {'_id': 0}) or {}, offer)
+    from credential_policy import document_type, document_necessary
+    docs = await db.vault_documents.find({'candidate_id': case['candidate_id']}, {'_id': 0}).to_list(500)
+    shared = [d for d in docs if consent_allows(offer, d, job)]
+    requirements = await db.onboarding_requirements.find({'onboarding_case_id': case['id']}, {'_id': 0}).to_list(100)
+    keys = {'government_id': 'ID', 'license_verification': 'LICENSE', 'bls_certification': 'BLS', 'acls_certification': 'ACLS', 'pals_certification': 'PALS', 'cpr_certification': 'CPR', 'tb_screening': 'TB', 'vaccination_records': 'VACCINES'}
+    for req in requirements:
+        kind = keys.get(req.get('type'))
+        if not kind: continue
+        candidates = [d for d in shared if document_type(d) == kind and (kind != 'LICENSE' or document_necessary(job, d))]
+        doc = next((d for d in candidates if employer_checks(d)), candidates[0] if candidates else None)
+        status = ('completed' if employer_checks(doc) else 'pending_manual_review') if doc else 'action_required_candidate'
+        notes = 'Employer verification recorded; see method on credential badge.' if status == 'completed' else ('Shared by candidate; awaiting employer verification.' if doc else 'Choose and approve a document in offer sharing. Your vault remains private.')
+        if req.get('status') != status or req.get('notes') != notes:
+            await db.onboarding_requirements.update_one({'id': req['id']}, {'$set': {'status': status, 'notes': notes}})
+        if doc:
+            await db.requirement_document_matches.update_one({'onboarding_requirement_id': req['id']}, {'$set': {'vault_document_id': doc['id'], 'match_status': status, 'matched_by': 'candidate_consent'}, '$setOnInsert': {'id': str(uuid.uuid4())}}, upsert=True)
+        else:
+            await db.requirement_document_matches.delete_many({'onboarding_requirement_id': req['id']})

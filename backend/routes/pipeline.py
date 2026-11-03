@@ -1,3 +1,5 @@
+from credential_policy import badges, employer_checks
+from document_screening import screening_passed
 from match_readiness import match_readiness, uploaded_current
 """Hiring Pipeline routes — manage candidate stages, messaging with context, nudges"""
 from fastapi import APIRouter, Depends
@@ -51,16 +53,18 @@ def _compute_verified_credentials(profile_certs: list, vault_docs: list) -> dict
         if matched_doc:
             doc_status = matched_doc.get("verification_status", "pending")
             comp_status = matched_doc.get("compliance_status", "")
-            if uploaded_current(matched_doc):
+            if uploaded_current(matched_doc) and employer_checks(matched_doc):
                 status = "verified"
                 verified += 1
+            elif uploaded_current(matched_doc) and screening_passed(matched_doc):
+                status = "screened"
+                needs_review += 1
             elif doc_status in ("mismatch", "rejected") or comp_status in ("expired", "mismatch", "review_needed"):
                 status = "needs_review"
                 needs_review += 1
             else:
-                # Document exists but not fully verified (pending, unverified)
-                status = "needs_review"
-                needs_review += 1
+                status = "unverified"
+                unverified += 1
         else:
             status = "unverified"
             unverified += 1
@@ -258,7 +262,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
         # Compliance / vault detail
         vault_docs_list = await db.vault_documents.find(
             {"candidate_id": sw["user_id"]},
-            {"_id": 0, "category": 1, "subtype": 1, "verification_status": 1, "compliance_status": 1}
+            {"_id": 0}
         ).to_list(30)
         vault_count = len(vault_docs_list)
         vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
@@ -338,7 +342,7 @@ async def get_pipeline_candidates(current_user: dict = Depends(get_current_user)
             "has_verified_refs": verified_refs > 0,
             "vault_docs": vault_count,
             "vault_categories": vault_categories,
-            "credential_summary": cred_result["summary"],
+            "credential_summary": cred_result["summary"], "credential_badges": badges(vault_docs_list),
             "messages_count": messages_count,
             "last_message": last_msg,
             "offer_status": offer.get("status") if offer else None,
@@ -545,7 +549,7 @@ async def get_candidate_context(candidate_id: str, job_id: Optional[str] = None,
     # Vault documents
     vault_docs_list = await db.vault_documents.find(
         {"candidate_id": candidate_id},
-        {"_id": 0, "category": 1, "subtype": 1, "compliance_status": 1, "verification_status": 1}
+        {"_id": 0}
     ).to_list(30)
     vault_count = len(vault_docs_list)
     vault_categories = list(set(d.get("category", "") for d in vault_docs_list if d.get("category")))
@@ -612,7 +616,7 @@ async def get_candidate_context(candidate_id: str, job_id: Optional[str] = None,
         "city_state": city_state,
         "skills": profile.get("skills", []),
         "certifications": cred_result["credentials"],
-        "credential_summary": cred_result["summary"],
+        "credential_summary": cred_result["summary"], "credential_badges": badges(vault_docs_list),
         "work_history": profile.get("work_history", []),
         "education": profile.get("education", []),
         "vault_docs": vault_count,

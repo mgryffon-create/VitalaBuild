@@ -1,3 +1,4 @@
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
@@ -511,6 +512,7 @@ const PosterViewContent = ({ card, expanded }) => (
           {card.full_name}
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">{card.specialty || "Medical Professional"}</p>
+        <CredentialBadges items={card.credential_badges} />
       </div>
       {card.compatibility_score > 0 && (
         <div className="shrink-0 flex flex-col items-center rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">

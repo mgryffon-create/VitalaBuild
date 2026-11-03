@@ -1,3 +1,4 @@
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -235,6 +236,7 @@ const EmployerCandidatesPage = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-foreground text-sm sm:text-base">{c.seeker.full_name}</p>
+                            <CredentialBadges items={c.seeker.credential_badges} />
                             <Badge variant="outline" className={`text-[10px] ${cfg.className}`}>{cfg.label}</Badge>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-xs sm:text-sm text-muted-foreground">

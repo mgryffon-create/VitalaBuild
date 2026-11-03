@@ -1,4 +1,5 @@
-from document_screening import screening_passed, expected_kind
+from document_screening import expected_kind
+from credential_policy import acceptable_upload, badges
 """Essential upload gate; profile completeness never blocks browsing."""
 from datetime import datetime, timezone
 from fastapi import HTTPException
@@ -6,22 +7,7 @@ from eligibility import check_role_eligibility, get_seeker_role
 
 
 def uploaded_current(doc):
-    if not screening_passed(doc):
-        return False
-    if not (doc.get('storage_path') or doc.get('file_url')):
-        return False
-    if doc.get('verification_status') in ('rejected', 'invalid', 'expired') or doc.get('status') in ('replaced', 'deleted') or doc.get('replaced_by'):
-        return False
-    expires = doc.get('expiration_date')
-    if expires:
-        if not isinstance(expires, str):
-            return False
-        try:
-            if datetime.fromisoformat(expires.replace('Z', '+00:00')).date() < datetime.now(timezone.utc).date():
-                return False
-        except (ValueError, TypeError):
-            return False
-    return True
+    return acceptable_upload(doc)
 
 
 async def match_readiness(db, seeker_id, job):
@@ -32,7 +18,7 @@ async def match_readiness(db, seeker_id, job):
     role = get_seeker_role(profile)
     license_roles = {'LPN': {'LPN', 'LVN'}, 'LVN': {'LPN', 'LVN'}}.get(role, {role})
     if not any((d.get('category') == 'license' or expected_kind(d.get('subtype')) == 'CNA')
-               and license_roles.intersection(d.get('detected_credentials', [])) for d in docs):
+               and (expected_kind(d.get('subtype')) in license_roles or license_roles.intersection(d.get('detected_credentials', []))) for d in docs):
         missing.append('Professional license or credential')
     required = str(job.get('certifications_required', [])).upper()
     for kind in ('BLS', 'ACLS', 'PALS', 'CPR'):
@@ -42,7 +28,7 @@ async def match_readiness(db, seeker_id, job):
     eligible = check_role_eligibility(profile, job)
     if not get_seeker_role(profile):
         eligible = {'eligible': False, 'reason': 'Add your professional role to finish matching.'}
-    return {'ready': not missing and eligible['eligible'], 'missing_documents': missing,
+    return {'credential_badges': badges(documents), 'ready': not missing and eligible['eligible'], 'missing_documents': missing,
             'role_reason': eligible.get('reason') if not eligible['eligible'] else None,
             'pending_reason': 'essential_uploads' if missing else ('role_review' if not eligible['eligible'] else None)}
 

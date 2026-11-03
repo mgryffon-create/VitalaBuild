@@ -1,3 +1,4 @@
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -352,6 +353,7 @@ const CandidateProfileModal = ({ candidate, open, onClose, onAction, actionLoadi
             )}
           </div>
 
+          <CredentialBadges items={c.credential_badges} />
           {/* Certifications / Licenses — with verification status */}
           {certs.length > 0 && (
             <div data-testid="modal-certifications">

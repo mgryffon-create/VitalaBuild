@@ -1,3 +1,4 @@
+import CredentialBadges from "@/components/CredentialBadges";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -169,6 +170,7 @@ const ProProfileView = ({ pro, jobs, onClose, onInterested, onPass, acting }) =>
             <div>
               <h2 className="text-lg font-semibold text-foreground">{formatName(pro.full_name)}</h2>
               <p className="text-sm text-muted-foreground">{formatRole(pro.specialty, pro.years_experience)}</p>
+              <CredentialBadges items={pro.credential_badges} />
               <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                 !pro.availability || pro.availability === "Available Now"
                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"

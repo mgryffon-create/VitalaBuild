@@ -1,3 +1,4 @@
+from credential_policy import candidate_badges
 from match_readiness import match_readiness, refresh_match, require_match_ready
 from eligibility import get_seeker_role
 from uploaded_files import resolve_upload
@@ -23,7 +24,7 @@ import base64
 import aiofiles
 import asyncio
 from contextlib import asynccontextmanager
-from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES
+from onboarding_logic import create_onboarding_case, compute_case_status, compute_progress, RESOLVED_STATUSES, sync_case_document_consent
 from audit_log import log_audit
 from eligibility import check_role_eligibility, get_seeker_role, get_accepted_roles_for_job, normalize_role_from_specialty, CANONICAL_ROLES
 from training_service import create_training_course, assign_training, get_compliance_summary
@@ -1640,6 +1641,7 @@ async def get_swipeable_seekers(job_id: str, current_user: dict = Depends(get_cu
             if not elig["eligible"]:
                 continue
             seeker_data = {**user, **profile}
+            seeker_data["credential_badges"] = await candidate_badges(db, seeker_id)
             seeker_data["compatibility_score"] = calculate_compatibility(profile, job)
             seekers.append(seeker_data)
     
@@ -2044,6 +2046,7 @@ async def get_employer_candidates(current_user: dict = Depends(get_current_user)
             "status": status,
             "applied_at": sw.get("created_at"),
             "seeker": {
+                "credential_badges": await candidate_badges(db, seeker["id"]),
                 "full_name": seeker.get("full_name"),
                 "email": seeker.get("email"),
                 "specialty": seeker_profile.get("specialty") if seeker_profile else None,
@@ -2217,6 +2220,7 @@ async def browse_pros(
                 context_reasons.append("Compliance documents uploaded")
 
         pros.append({
+            "credential_badges": await candidate_badges(db, seeker["id"]),
             "id": seeker["id"],
             "full_name": seeker.get("full_name"),
             "email": seeker.get("email"),
@@ -2624,7 +2628,7 @@ async def get_matches(current_user: dict = Depends(get_current_user)):
         enriched_matches.append({
             **match,
             "job": job,
-            "seeker": {**seeker, **(seeker_profile or {})} if seeker else None,
+            "seeker": {**seeker, **(seeker_profile or {}), "credential_badges": match["readiness"]["credential_badges"]} if seeker else None,
             "poster": poster,
             "seeker_references_available": seeker_refs_available,
             "poster_references_available": poster_refs_available
@@ -4470,6 +4474,7 @@ async def get_onboarding_checklist(case_id: str, current_user: dict = Depends(ge
     if current_user["id"] not in (case.get("candidate_id"), case.get("employer_id")) and current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     
+    await sync_case_document_consent(db, case)
     reqs = await db.onboarding_requirements.find({"onboarding_case_id": case_id}, {"_id": 0}).to_list(100)
     tasks = await db.onboarding_tasks.find({"onboarding_case_id": case_id}, {"_id": 0}).to_list(100)
     job_docs = await db.job_documents.find({"job_id": case.get("job_id")}, {"_id": 0}).to_list(50)
@@ -5246,6 +5251,7 @@ async def get_onboarding_cases(current_user: dict = Depends(get_current_user)):
 
     enriched = []
     for case in cases:
+        await sync_case_document_consent(db, case)
         job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
         candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
         employer = await db.users.find_one({"id": case["employer_id"]}, {"_id": 0, "password": 0})
@@ -5283,6 +5289,7 @@ async def get_onboarding_case(case_id: str, current_user: dict = Depends(get_cur
     if current_user["id"] not in (case["candidate_id"], case["employer_id"]):
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    await sync_case_document_consent(db, case)
     job = await db.jobs.find_one({"id": case["job_id"]}, {"_id": 0, "description": 0})
     candidate = await db.users.find_one({"id": case["candidate_id"]}, {"_id": 0, "password": 0})
     reqs = await db.onboarding_requirements.find(
@@ -5321,10 +5328,10 @@ async def update_requirement_status(req_id: str, current_user: dict = Depends(ge
     case = await db.onboarding_cases.find_one({"id": req["onboarding_case_id"]})
     if not case:
         raise HTTPException(status_code=404, detail="Onboarding case not found")
-    # Allow candidate, employer, or admin
+    # Completing onboarding does not grant document verification or sharing consent.
     is_admin = current_user.get("role") == "admin"
-    is_party = current_user["id"] in (case["candidate_id"], case["employer_id"])
-    if not is_admin and not is_party:
+    is_employer = current_user["id"] == case["employer_id"]
+    if not is_admin and not is_employer:
         raise HTTPException(status_code=403, detail="Not authorized")
     await db.onboarding_requirements.update_one(
         {"id": req_id}, {"$set": {"status": "completed"}}
@@ -5436,7 +5443,7 @@ async def upload_for_requirement(
         {"onboarding_requirement_id": req_id},
         {"$set": {"status": "in_progress"}}
     )
-    return {"id": doc_id, "file_url": file_url, "message": "Document uploaded and linked to requirement"}
+    return {"id": doc_id, "file_url": file_url, "message": "Uploaded to your private vault. Review offer document sharing before sending it to the employer."}
 
 @api_router.get("/onboarding/tasks")
 async def get_onboarding_tasks(current_user: dict = Depends(get_current_user)):
@@ -5831,6 +5838,7 @@ async def get_audit_logs(current_user: dict = Depends(get_current_user)):
 # Include routers
 from routes.auth import router as auth_router
 from routes.vault import router as vault_router
+from routes.credential_workflow import router as credential_workflow_router
 from routes.training import router as training_router
 from routes.references import router as references_router
 from routes.resume import router as resume_router
@@ -5841,6 +5849,7 @@ from uploaded_files import router as upload_router
 api_router.include_router(upload_router)
 api_router.include_router(auth_router)
 api_router.include_router(vault_router)
+api_router.include_router(credential_workflow_router)
 api_router.include_router(training_router)
 api_router.include_router(references_router)
 api_router.include_router(resume_router)

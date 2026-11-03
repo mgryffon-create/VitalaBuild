@@ -1,3 +1,4 @@
+import OfferDocumentSharing from "@/components/OfferDocumentSharing";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -284,6 +285,7 @@ const HiringSuitePage = () => {
                           </div>
                         </div>
                       )}
+                      <OfferDocumentSharing offerId={offer.id} />
                     </CardContent>
                   </Card>
                 ))}
