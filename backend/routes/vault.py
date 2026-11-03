@@ -12,8 +12,7 @@ from shared import (
 from object_storage import upload_file, download_file, signed_url
 import anyio
 from starlette.responses import RedirectResponse
-from expiration_verifier import extract_expiration_from_file, determine_verification_status
-from lightweight_parser import lightweight_verify
+from document_screening import screen_file, screening_passed, SCREENING_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def _compute_compliance_status(doc: dict) -> str:
     
     A document satisfies compliance ONLY if:
     - correct type + active + not expired + required metadata present
-    - AND either verified (match) OR acceptable fallback (parse failed + valid user entry)
+    - AND current document content screening passed; date-only approval is insufficient
     
     Documents with mismatch/expired/missing_expiration → NEVER satisfy compliance.
     """
@@ -70,6 +69,13 @@ def _compute_compliance_status(doc: dict) -> str:
     exp_date_str = doc.get("expiration_date")
     is_exp = _is_expirable(category, subtype)
     verification = doc.get("verification_status", "pending")
+
+    if verification == "rejected" or doc.get("screening_status") == "rejected":
+        return "rejected"
+    if verification == "expired" or doc.get("screening_status") == "expired":
+        return "expired"
+    if is_exp and not screening_passed(doc):
+        return "review_needed"
 
     # Mismatch or needs_review = always blocked
     if verification == "mismatch":
@@ -169,66 +175,29 @@ async def _run_verification_pipeline(
     doc_id: str, file_bytes: bytes, content_type: str,
     user_expiration: str, user_subtype: str, user_name: str = None
 ):
-    """Background task: lightweight parse first, then LLM fallback if needed."""
+    """Background task: conservative content screening without AI or date-only approval."""
+    doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
+    if not doc:
+        return
     try:
-        # Step 1: Lightweight text-based verification
-        lw = lightweight_verify(file_bytes, content_type, user_expiration, user_subtype, user_name)
-
-        update_fields = {
-            "parsed_expiration_date": lw.get("parsed_expiration_date"),
-            "verification_status": lw.get("verification_status", "unverified"),
-            "verification_notes": lw.get("verification_notes"),
-            "detected_credentials": lw.get("detected_credentials", []),
-            "detected_name": lw.get("detected_name"),
-            "extraction_quality": lw.get("extraction_quality", "none"),
-            "verification_method": "lightweight_parser",
-            "verified_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-        # If lightweight parser resolved definitively, save and done
-        if not lw.get("should_run_llm", True):
-            await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
-            # Recompute compliance
-            doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
-            if doc:
-                cs = _compute_compliance_status(doc)
-                await db.vault_documents.update_one({"id": doc_id}, {"$set": {"compliance_status": cs}})
-            logger.info(f"Lightweight verification complete for {doc_id}: {lw['verification_status']}")
-            return
-
-        # Step 2: LLM fallback for deeper analysis
-        logger.info(f"Lightweight inconclusive for {doc_id}, running LLM verification...")
-        parsed_result = await extract_expiration_from_file(file_bytes, content_type or "image/jpeg")
-        verification = determine_verification_status(user_expiration, parsed_result)
-
-        # Merge: use LLM results but keep lightweight-detected credentials
-        update_fields.update({
-            "parsed_expiration_date": verification.get("parsed_expiration_date") or lw.get("parsed_expiration_date"),
-            "verification_status": verification.get("verification_status", "unverified"),
-            "verification_notes": verification.get("verification_notes"),
-            "verification_confidence": parsed_result.get("confidence"),
-            "verification_method": "llm_vision",
-        })
-
-        await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
-        # Recompute compliance
-        doc = await db.vault_documents.find_one({"id": doc_id}, {"_id": 0})
-        if doc:
-            cs = _compute_compliance_status(doc)
-            await db.vault_documents.update_one({"id": doc_id}, {"$set": {"compliance_status": cs}})
-        logger.info(f"LLM verification complete for {doc_id}: {verification.get('verification_status')}")
-
-    except Exception as e:
-        logger.error(f"Verification pipeline failed for {doc_id}: {e}")
-        await db.vault_documents.update_one(
-            {"id": doc_id},
-            {"$set": {
-                "verification_status": "unverified",
-                "verification_notes": f"Verification error: {str(e)[:200]}",
-                "verification_method": "error",
-                "verified_at": datetime.now(timezone.utc).isoformat(),
-            }}
-        )
+        update_fields = screen_file(file_bytes, content_type, user_subtype, user_name)
+        update_fields.update({"verified_at": datetime.now(timezone.utc).isoformat(),
+                              "screened_subtype": doc.get("subtype"), "screened_category": doc.get("category")})
+        if update_fields.get("screening_status") == "passed":
+            date = update_fields["parsed_expiration_date"]
+            update_fields.update({"entered_expiration_date": user_expiration, "expiration_date": date,
+                                  "screened_expiration_date": date})
+        updated = {**doc, **update_fields}
+        update_fields["compliance_status"] = _compute_compliance_status(updated)
+        # Concurrent user edits invalidate this result instead of approving stale metadata.
+        await db.vault_documents.update_one({"id": doc_id, "subtype": user_subtype,
+            "category": doc.get("category"), "expiration_date": user_expiration}, {"$set": update_fields})
+    except Exception as exc:
+        logger.error("Document screening failed: %s", type(exc).__name__)
+        await db.vault_documents.update_one({"id": doc_id}, {"$set": {
+            "screening_version": SCREENING_VERSION, "screening_status": "needs_review",
+            "verification_status": "needs_review", "compliance_status": "review_needed",
+            "verification_notes": "Document screening could not complete. This upload cannot unlock matching yet."}})
 
 
 @router.post("/upload")
@@ -287,10 +256,10 @@ async def upload_vault_file(
             expiration_date, subtype, user_name
         )
     elif is_expirable:
-        # Expirable but no date entered — still try lightweight parsing
+        # Extract the labeled date even when the user has not entered one.
         background_tasks.add_task(
             _run_verification_pipeline, doc_id, contents, file.content_type,
-            None, subtype, None
+            None, subtype, current_user.get("full_name")
         )
 
     return {"id": doc_id, "file_url": file_url, "message": "File uploaded to vault"}
@@ -302,8 +271,21 @@ async def get_vault_documents(current_user: dict = Depends(get_current_user)):
         {"candidate_id": current_user["id"]}, {"_id": 0, "file_data": 0}
     ).sort("uploaded_at", -1).to_list(200)
     for doc in docs:
+        if _is_expirable(doc.get("category", ""), doc.get("subtype", "")) and doc.get("screening_version") != SCREENING_VERSION and doc.get("verification_status") != "pending":
+            doc.update(verification_status="needs_review", verification_notes="This upload needs the new document-type check. Select Check document to screen it again.")
         doc["compliance_status"] = _compute_compliance_status(doc)
     return docs
+
+
+@router.post("/documents/{doc_id}/screen")
+async def screen_existing_document(doc_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    doc = await db.vault_documents.find_one({"id": doc_id, "candidate_id": current_user["id"]}, {"_id": 0})
+    if not doc or not doc.get("storage_path"):
+        raise HTTPException(status_code=404, detail="Stored document not found. Please upload a new copy.")
+    contents = await anyio.to_thread.run_sync(lambda: download_file(doc["storage_path"]))
+    await db.vault_documents.update_one({"id": doc_id}, {"$set": {"screening_version": SCREENING_VERSION, "screening_status": "pending", "verification_status": "pending"}})
+    background_tasks.add_task(_run_verification_pipeline, doc_id, contents, doc.get("content_type"), doc.get("expiration_date"), doc.get("subtype"), current_user.get("full_name"))
+    return {"message": "Document content check started"}
 
 
 @router.get("/documents/{doc_id}")
@@ -325,6 +307,9 @@ async def update_vault_document(doc_id: str, update: VaultDocumentUpdate, curren
     update_fields = {k: v for k, v in update.model_dump().items() if v is not None}
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if any(key in update_fields for key in ("category", "subtype", "expiration_date", "file_url", "extracted_fields", "document_number", "issuing_authority")):
+        update_fields.update({"screening_status": "needs_review", "verification_status": "needs_review",
+                              "compliance_status": "review_needed", "verification_notes": "Document details changed. Run content screening again."})
     update_fields["last_reviewed_at"] = datetime.now(timezone.utc).isoformat()
     await db.vault_documents.update_one({"id": doc_id}, {"$set": update_fields})
     return {"message": "Document updated"}

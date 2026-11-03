@@ -90,14 +90,16 @@ function daysUntilExp(expDate) {
 
 function docStatus(doc) {
   if (doc.verification_status === "archived") return { text: "Replaced", className: "bg-muted text-muted-foreground/60", priority: 5 };
-  // Verification-based statuses (from lightweight parser or LLM verification)
+  if (doc.verification_status === "rejected") return { text: "Wrong document", className: "bg-red-100 text-red-700", priority: 0 };
+  if (doc.verification_status === "expired") return { text: "Expired", className: "bg-destructive text-destructive-foreground", priority: 0 };
+  if (doc.verification_status === "pending") return { text: "Checking document…", className: "bg-blue-50 text-blue-600", priority: 4 };
   if (doc.verification_status === "mismatch") return { text: "Mismatch", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", priority: 0 };
   if (doc.verification_status === "needs_review") return { text: "Needs Review", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 1 };
   const days = daysUntilExp(doc.expiration_date);
   if (days !== null && days <= 0) return { text: "Expired", className: "bg-destructive text-destructive-foreground", priority: 0 };
   if (doc.verification_status === "verified") {
-    if (days !== null && days <= 30) return { text: `Verified · ${days}d left`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 1 };
-    return { text: "Verified", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", priority: 3 };
+    if (days !== null && days <= 30) return { text: `Screened · ${days}d left`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 1 };
+    return { text: "Screened", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", priority: 3 };
   }
   if (days !== null && days <= 30) return { text: `Expires in ${days}d`, className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", priority: 1 };
   if (days !== null && days <= 60) return { text: `Expires in ${days}d`, className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", priority: 2 };
@@ -188,6 +190,11 @@ const VaultPage = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (!rawDocs.some(doc => doc.screening_status === "pending")) return;
+    const timer = setInterval(fetchData, 3000);
+    return () => clearInterval(timer);
+  }, [rawDocs, fetchData]);
 
   // Deep-link handling
   useEffect(() => {
@@ -460,22 +467,18 @@ const VaultPage = () => {
                             {status.priority <= 1 && <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />}
                             {status.text}
                           </Badge>
-                          {doc.verification_status === "mismatch" && doc.verification_notes && (
-                            <p data-testid={`mismatch-note-${doc.id}`} className="text-[9px] text-red-600 dark:text-red-400 mt-0.5">{doc.verification_notes}</p>
+                          {doc.verification_notes && (
+                            <p className="text-xs text-muted-foreground mt-2">{doc.verification_notes}</p>
                           )}
-                          {doc.verification_status === "verified" && doc.verification_notes && (
-                            <p data-testid={`verified-note-${doc.id}`} className="text-[9px] text-green-600 dark:text-green-400 mt-0.5">{doc.verification_notes}</p>
-                          )}
-                          {doc.verification_status === "unverified" && doc.verification_notes && (
-                            <p data-testid={`unverified-note-${doc.id}`} className="text-[9px] text-muted-foreground mt-0.5">{doc.verification_notes}</p>
-                          )}
-                          {doc.verification_status === "needs_review" && doc.verification_notes && (
-                            <p data-testid={`review-note-${doc.id}`} className="text-[9px] text-amber-600 dark:text-amber-400 mt-0.5">{doc.verification_notes}</p>
-                          )}
-                          {doc.verification_method && (
-                            <p className="text-[8px] text-muted-foreground/50 mt-0.5">
-                              {doc.verification_method === "lightweight_parser" ? "Auto-verified" : doc.verification_method === "llm_vision" ? "AI-verified" : ""}
-                            </p>
+                          {!isReplaced && doc.storage_path && doc.verification_status !== "pending" && (
+                            <Button variant="link" size="sm" className="px-0 h-auto mt-2" onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await axios.post(`${API}/vault/documents/${doc.id}/screen`);
+                                toast.success("Document check started");
+                                fetchData();
+                              } catch { toast.error("Could not check document. Please try again."); }
+                            }}>Check document</Button>
                           )}
                         </div>
                       </div>

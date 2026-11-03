@@ -1,4 +1,4 @@
-from match_readiness import match_readiness
+from match_readiness import match_readiness, uploaded_current
 """Hiring Pipeline routes — manage candidate stages, messaging with context, nudges"""
 from fastapi import APIRouter, Depends
 from shared import (
@@ -51,7 +51,7 @@ def _compute_verified_credentials(profile_certs: list, vault_docs: list) -> dict
         if matched_doc:
             doc_status = matched_doc.get("verification_status", "pending")
             comp_status = matched_doc.get("compliance_status", "")
-            if doc_status == "verified" and comp_status not in ("expired", "mismatch"):
+            if uploaded_current(matched_doc):
                 status = "verified"
                 verified += 1
             elif doc_status in ("mismatch", "rejected") or comp_status in ("expired", "mismatch", "review_needed"):

@@ -1,3 +1,4 @@
+from document_screening import screening_passed, expected_kind
 """Essential upload gate; profile completeness never blocks browsing."""
 from datetime import datetime, timezone
 from fastapi import HTTPException
@@ -5,6 +6,8 @@ from eligibility import check_role_eligibility, get_seeker_role
 
 
 def uploaded_current(doc):
+    if not screening_passed(doc):
+        return False
     if not (doc.get('storage_path') or doc.get('file_url')):
         return False
     if doc.get('verification_status') in ('rejected', 'invalid', 'expired') or doc.get('status') in ('replaced', 'deleted') or doc.get('replaced_by'):
@@ -26,13 +29,16 @@ async def match_readiness(db, seeker_id, job):
     documents = await db.vault_documents.find({'candidate_id': seeker_id}, {'_id': 0}).to_list(500)
     docs = [d for d in documents if uploaded_current(d)]
     missing = []
-    if not any(d.get('category') == 'license' or str(d.get('subtype', '')).lower() in ('cna certificate', 'cna_license', 'cna license') for d in docs):
+    role = get_seeker_role(profile)
+    license_roles = {'LPN': {'LPN', 'LVN'}, 'LVN': {'LPN', 'LVN'}}.get(role, {role})
+    if not any((d.get('category') == 'license' or expected_kind(d.get('subtype')) == 'CNA')
+               and license_roles.intersection(d.get('detected_credentials', [])) for d in docs):
         missing.append('Professional license or credential')
-    if not any(str(d.get('subtype', '')).upper() in ('BLS', 'CPR_BLS', 'BLS CERTIFICATION') for d in docs):
-        missing.append('BLS certification')
-    required = str(job.get('certifications_required', []))
-    if 'ACLS' in required.upper() and not any(str(d.get('subtype', '')).upper() in ('ACLS', 'ACLS CERTIFICATION') for d in docs):
-        missing.append('ACLS certification')
+    required = str(job.get('certifications_required', [])).upper()
+    for kind in ('BLS', 'ACLS', 'PALS', 'CPR'):
+        if kind == 'BLS' or kind in required:
+            if not any(expected_kind(d.get('subtype')) == kind for d in docs):
+                missing.append(f'{kind} certification')
     eligible = check_role_eligibility(profile, job)
     if not get_seeker_role(profile):
         eligible = {'eligible': False, 'reason': 'Add your professional role to finish matching.'}

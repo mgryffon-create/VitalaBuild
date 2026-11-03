@@ -28,7 +28,13 @@ def database(docs, role='RN', certifications=None):
         seeker_profiles=types.SimpleNamespace(find_one=AsyncMock(return_value={'normalized_role_category':role} if role else {})),
         jobs=types.SimpleNamespace(find_one=AsyncMock(return_value={'primary_role_category':'RN','certifications_required':certifications or []})),
         matches=types.SimpleNamespace(update_one=AsyncMock()))
-def doc(category, subtype, **kwargs): return dict(category=category, subtype=subtype, storage_path='private/file', **kwargs)
+def doc(category, subtype, **kwargs):
+    from document_screening import SCREENING_VERSION, expected_kind
+    result = dict(category=category, subtype=subtype, storage_path='private/file',
+                  screening_version=SCREENING_VERSION, screening_status='passed', verification_status='verified',
+                  screened_category=category, screened_subtype=subtype, screened_expiration_date='2099-01-01',
+                  expiration_date='2099-01-01', detected_credentials=[expected_kind(subtype)])
+    return {**result, **kwargs}
 JOB={'primary_role_category':'RN'}
 
 class ReadinessTests(unittest.TestCase):
@@ -44,6 +50,12 @@ class ReadinessTests(unittest.TestCase):
     def test_expired_rejected_and_replaced_uploads_do_not_count(self):
         for attrs in ({'expiration_date':'2000-01-01'}, {'verification_status':'rejected'}, {'status':'replaced'}, {'expiration_date':'invalid'}):
             self.assertFalse(uploaded_current(doc('certification','BLS',**attrs)))
+    def test_date_only_pending_and_wrong_role_credentials_cannot_unlock(self):
+        for attrs in ({'screening_version': None}, {'screening_status': 'needs_review'}, {'verification_status': 'pending'}, {'screened_subtype': 'ACLS'}):
+            self.assertFalse(uploaded_current(doc('certification','BLS',**attrs)))
+        db=database([doc('license','CNA License'),doc('certification','BLS')])
+        self.assertFalse(asyncio.run(match_readiness(db,'seeker',JOB))['ready'])
+
     def test_missing_or_incompatible_role_stays_pending(self):
         for role in (None,'CNA'):
             db=database([doc('license','RN License'),doc('certification','BLS')],role=role)
