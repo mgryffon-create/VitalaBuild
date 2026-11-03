@@ -92,7 +92,7 @@ async def offer_documents(offer_id: str, current_user: dict = Depends(get_curren
         rows.append({k: doc.get(k) for k in ('id','subtype','category','file_name','file_url','expiration_date','issuing_authority','document_number','state')} | {
             'document_revision': revision(doc), 'type': document_type(doc), 'necessary': document_necessary(job, doc),
             'file_url': f"/api/vault/files/{doc['id']}{PurePath(doc.get('file_name') or '').suffix if PurePath(doc.get('file_name') or '').suffix.lower() in ('.pdf','.png','.jpg','.jpeg','.webp','.docx') else '.bin'}", 'shared': shared, 'current': current_file(doc), 'badge': badge(doc),
-            'verification': employer_checks(doc), 'verification_status': doc.get('verification_status')})
+            'verification_status': doc.get('verification_status')})
     consent = offer.get('document_sharing') or {}
     return {'offer_id': offer_id, 'active': active_offer(offer), 'necessary_types': required, 'documents': rows,
             'auto_types': consent.get('auto_types', []) if seeker else [], 'is_seeker': seeker,
