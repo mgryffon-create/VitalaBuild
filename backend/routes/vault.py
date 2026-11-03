@@ -282,9 +282,9 @@ async def screen_existing_document(doc_id: str, background_tasks: BackgroundTask
     doc = await db.vault_documents.find_one({"id": doc_id, "candidate_id": current_user["id"]}, {"_id": 0})
     if not doc or not doc.get("storage_path"):
         raise HTTPException(status_code=404, detail="Stored document not found. Please upload a new copy.")
-    contents = await anyio.to_thread.run_sync(lambda: download_file(doc["storage_path"]))
+    contents, content_type = await anyio.to_thread.run_sync(lambda: download_file(doc["storage_path"]))
     await db.vault_documents.update_one({"id": doc_id}, {"$set": {"screening_version": SCREENING_VERSION, "screening_status": "pending", "verification_status": "pending"}})
-    background_tasks.add_task(_run_verification_pipeline, doc_id, contents, doc.get("content_type"), doc.get("expiration_date"), doc.get("subtype"), current_user.get("full_name"))
+    background_tasks.add_task(_run_verification_pipeline, doc_id, contents, content_type, doc.get("expiration_date"), doc.get("subtype"), current_user.get("full_name"))
     return {"message": "Document content check started"}
 
 
