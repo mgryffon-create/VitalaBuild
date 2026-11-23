@@ -204,17 +204,18 @@ def check_role_eligibility(seeker_profile: dict, job: dict) -> dict:
         "job_roles": job_roles,
     }
 
-    # If seeker has no role, allow through with warning (incomplete profile)
+    # Never present a listing as eligible when either role is unknown.
+    # A completed role selection is required before recommending positions.
     if not seeker_role:
-        result["eligible"] = True
-        result["reason"] = None
+        result["eligible"] = False
+        result["reason"] = "Select your professional role in your profile to see eligible positions."
         result["log_reason"] = "seeker_role_unknown"
         return result
 
-    # If job has no role requirements, allow through (legacy/incomplete data)
+    # Incomplete job data must be corrected by its poster, not shown to everyone.
     if not job_roles:
-        result["eligible"] = True
-        result["reason"] = None
+        result["eligible"] = False
+        result["reason"] = "This job does not specify a recognized professional role."
         result["log_reason"] = "job_roles_unknown"
         return result
 

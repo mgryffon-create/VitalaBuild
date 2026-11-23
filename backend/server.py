@@ -1565,6 +1565,13 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     
     # Get seeker profile for compatibility calculation
     seeker_profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+    if not get_seeker_role(seeker_profile):
+        return {
+            "jobs": [],
+            "counts": {"strong": 0, "possible": 0, "hidden": 0},
+            "has_hidden": False,
+            "requires_role_selection": True,
+        }
     
     # Get active jobs not yet swiped
     jobs = await db.jobs.find({"id": {"$nin": swiped_ids}, "is_active": True}, {"_id": 0}).to_list(100)
@@ -1573,7 +1580,7 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     eligible_jobs = []
     for job in jobs:
         elig = check_role_eligibility(seeker_profile, job)
-        if elig["eligible"] or not get_seeker_role(seeker_profile):
+        if elig["eligible"]:
             eligible_jobs.append(job)
 
     # Calculate tiered match for each eligible job
@@ -1601,7 +1608,7 @@ async def get_swipeable_jobs(current_user: dict = Depends(get_current_user), exp
     result_jobs = strong + possible
     has_hidden = len(hidden) > 0
     
-    if expand or not get_seeker_role(seeker_profile):
+    if expand:
         for h in hidden:
             h["match_tier"] = "expanded"
         result_jobs += hidden
@@ -1658,7 +1665,7 @@ async def swipe(action: SwipeAction, job_id: Optional[str] = None, current_user:
             if job:
                 profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
                 elig = check_role_eligibility(profile, job)
-                if not elig["eligible"] and get_seeker_role(profile):
+                if not elig["eligible"]:
                     raise HTTPException(status_code=403, detail=elig["reason"] or "Not eligible for this role")
         elif current_user["role"] == "poster" and job_id:
             job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
@@ -2136,11 +2143,16 @@ async def browse_pros(
             if not elig["eligible"]:
                 continue
             score = calculate_compatibility(profile, job)
-            if score > best_score:
+            if best_job_data is None or score > best_score:
                 best_score = score
                 best_job_id = job["id"]
                 best_job_title = job.get("title", "")
                 best_job_data = job
+
+        # Even "Expand Search" must never expose seekers who are
+        # ineligible for every position this employer is recruiting for.
+        if best_job_data is None:
+            continue
 
         # --- Tiered matching: determine tier based on specialty + experience ---
         tier = "none"
@@ -2482,6 +2494,19 @@ async def reconsider_swipe(swipe_id: str, new_action: str, current_user: dict = 
     if not swipe:
         raise HTTPException(status_code=404, detail="Swipe not found")
     
+    # Reconsideration is another path to expressing interest; enforce
+    # the same eligibility checks as a new like before changing the record.
+    if new_action == "like":
+        if current_user["role"] == "seeker":
+            profile = await db.seeker_profiles.find_one({"user_id": current_user["id"]}, {"_id": 0}) or {}
+            job = await db.jobs.find_one({"id": swipe["target_id"]}, {"_id": 0}) or {}
+        else:
+            profile = await db.seeker_profiles.find_one({"user_id": swipe["target_id"]}, {"_id": 0}) or {}
+            job = await db.jobs.find_one({"id": swipe.get("job_id"), "poster_id": current_user["id"]}, {"_id": 0}) or {}
+        eligibility = check_role_eligibility(profile, job)
+        if not job or not eligibility["eligible"]:
+            raise HTTPException(status_code=403, detail=eligibility["reason"] or "Role is not eligible for this job")
+
     # Update the swipe action
     await db.swipes.update_one(
         {"id": swipe_id},
@@ -2516,7 +2541,7 @@ async def create_match(seeker_id: str, job_id: str, poster_id: str):
     profile = await db.seeker_profiles.find_one({"user_id": seeker_id}, {"_id": 0}) or {}
     job = await db.jobs.find_one({"id": job_id}, {"_id": 0}) or {}
     elig = check_role_eligibility(profile, job)
-    if not elig["eligible"] and get_seeker_role(profile):
+    if not elig["eligible"]:
         logging.getLogger(__name__).warning("Match blocked by role eligibility: seeker=%s job=%s reason=%s", seeker_id, job_id, elig["log_reason"])
         return {"matched": False, "reason": elig["reason"]}
 
