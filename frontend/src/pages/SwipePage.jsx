@@ -18,7 +18,9 @@ import {
 function smartTitle(card) {
   // If title is generic/ID-like, generate from specialty + shift
   const title = card.title || "";
-  const isGeneric = /test|posting|job\s*\d|^\d+$/i.test(title) || title.length < 5;
+  // Preserve visible disclosure for fictional demo listings.
+  if (card.is_test || /^\s*\[TEST\b/i.test(title)) return title;
+  const isGeneric = /posting|job\s*\d|^\d+$/i.test(title) || title.length < 5;
 
   if (!isGeneric) return title;
 
@@ -106,6 +108,7 @@ const SwipePage = () => {
   const [expanded, setExpanded] = useState(false);
   const [lastSwipedIndex, setLastSwipedIndex] = useState(null);
   const [hasHidden, setHasHidden] = useState(false);
+  const [requiresRoleSelection, setRequiresRoleSelection] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isSeeker = user?.role === "seeker";
@@ -117,6 +120,7 @@ const SwipePage = () => {
         const data = response.data;
         setCards(data.jobs || []);
         setHasHidden(data.has_hidden || false);
+        setRequiresRoleSelection(Boolean(data.requires_role_selection));
       } else {
         const response = await axios.get(`${API}/swipe/seekers?job_id=${jobId}`);
         setCards(response.data);
@@ -186,7 +190,7 @@ const SwipePage = () => {
   return (
     <DashboardLayout>
       <div data-testid="swipe-page" className="max-w-lg lg:max-w-2xl mx-auto">
-        {isSeeker && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm mb-4"><p className="font-medium">Explore now. Finish setup when you’re ready.</p><p className="text-muted-foreground text-xs mt-1">Save jobs you’re interested in. Essential uploads and an eligible role are needed before a match can open.</p><button className="text-primary text-xs underline mt-2" onClick={() => window.location.assign("/seeker/profile?step=medical")}>Add essential documents</button></div>}
+        {isSeeker && !requiresRoleSelection && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm mb-4"><p className="font-medium">Explore now. Finish setup when you’re ready.</p><p className="text-muted-foreground text-xs mt-1">Save jobs you’re interested in. Essential uploads and an eligible role are needed before a match can open.</p><button className="text-primary text-xs underline mt-2" onClick={() => window.location.assign("/seeker/profile?step=medical")}>Add essential documents</button></div>}
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div>
@@ -204,16 +208,23 @@ const SwipePage = () => {
             <Briefcase className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
             <h2 className="text-xl font-semibold text-foreground mb-2">
               {isSeeker
-                ? (hasHidden && !isExpanded ? "No more top matches" : "No more jobs right now")
+                ? (requiresRoleSelection ? "Choose your professional role first" : hasHidden && !isExpanded ? "No more top matches" : "No more jobs right now")
                 : "No candidates to review"}
             </h2>
             <p className="text-muted-foreground mb-6">
-              {isSeeker && hasHidden && !isExpanded
-                ? "We've shown your strongest results. Expand to see more options."
-                : "Check back later for new opportunities."}
+              {requiresRoleSelection && isSeeker
+                ? "Complete your specialty or professional role in your profile so we can show jobs you're eligible for."
+                : isSeeker && hasHidden && !isExpanded
+                  ? "We've shown your strongest results. Expand to see more options within your professional role."
+                  : "Check back later for new opportunities."}
             </p>
             <div className="flex flex-col items-center gap-3">
-              {isSeeker && hasHidden && !isExpanded && (
+              {isSeeker && requiresRoleSelection && (
+                <Button data-testid="complete-role-btn" onClick={() => navigate("/seeker/profile")}>
+                  Set Professional Role
+                </Button>
+              )}
+              {isSeeker && !requiresRoleSelection && hasHidden && !isExpanded && (
                 <Button data-testid="expand-search-btn" onClick={handleExpandSearch} variant="default">
                   Expand Search
                 </Button>
